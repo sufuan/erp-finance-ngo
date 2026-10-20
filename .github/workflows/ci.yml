@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: tpda_esheba_test
+          MYSQL_USER: tpda_app
+          MYSQL_PASSWORD: tpda_app_secret
+          MYSQL_ROOT_PASSWORD: root_secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot_secret"
+          --health-interval=5s --health-timeout=3s --health-retries=20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mysql, mbstring, xml, curl, zip, gd, intl, bcmath, redis
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: |
+          composer install --no-interaction --prefer-dist
+          npm ci
+          npx puppeteer browsers install chrome
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: tpda_esheba_test
+          DB_USERNAME: tpda_app
+          DB_PASSWORD: tpda_app_secret
+          REDIS_HOST: 127.0.0.1
+
+      - name: Allow audit-log triggers (binlog on in the mysql:8.4 image)
+        run: mysql -h 127.0.0.1 -uroot -proot_secret -e "SET GLOBAL log_bin_trust_function_creators = ON;"
+
+      - name: Migrate + seed (MySQL 8.4 — SQLite is never used, plan B3)
+        run: php artisan migrate --seed --force
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_DATABASE: tpda_esheba_test
+          DB_USERNAME: tpda_app
+          DB_PASSWORD: tpda_app_secret
+
+      - name: Build frontend
+        run: npm run build
+
+      # Includes the translation key-parity test (en.json vs bn.json
+      # identical key sets) and the Bengali PDF smoke test.
+      - name: Test suite
+        run: php artisan test
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_DATABASE: tpda_esheba_test
+          DB_USERNAME: tpda_app
+          DB_PASSWORD: tpda_app_secret
