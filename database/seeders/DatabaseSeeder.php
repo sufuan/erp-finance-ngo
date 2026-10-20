@@ -15,6 +15,10 @@ class DatabaseSeeder extends Seeder
             AdminUserSeeder::class,
             OrganizationProfileSeeder::class,
             SettingsSeeder::class,
+            ChartOfAccountsSeeder::class,
+            GlMappingSeeder::class,
+            VoucherTypeSeeder::class,
+            FiscalYearSeeder::class,
         ]);
     }
 }

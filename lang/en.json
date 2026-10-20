@@ -319,5 +319,10 @@
     "gps_interval_seconds": "GPS Interval (seconds)",
     "gps_retention_days": "GPS Retention (days)",
     "max_offline_days": "Max Offline Days (mobile app)",
-    "one_per_line": "One line per entry"
+    "one_per_line": "One line per entry",
+    "voucher_must_balance": "A voucher must balance: total debits must equal total credits.",
+    "voucher_amount_must_be_positive": "Voucher amounts must be greater than zero.",
+    "voucher_not_pending": "Only a pending voucher can be authorized.",
+    "breakglass_requires_permission_and_reason": "Break-glass authorization requires the break-glass permission and a reason.",
+    "voucher_already_cancelled": "This voucher is already cancelled."
 }

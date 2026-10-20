@@ -88,3 +88,14 @@ Status: **done**. Tests: 41 passed, 1 skipped (Chromium PDF) — full suite gree
 - `SettingsService`: Redis-cached `get`, cache-busting `set` (tested), org profile cached too; web `<title>`, sidebar app name, and `SetLocale` default all read from settings now.
 - General Settings UI: 6 tabs (Organization incl. logo upload, Application, Loan & Profit, Deposit, SMS & Notifications, GPS & Tracking), guarded by `settings.general`, each change audited (`settings.updated` / `organization.updated`).
 - Lang files now 321 keys in both en/bn.
+
+## Step 3A — notes
+
+Status: **done**. Tests: 53 passed, 1 skipped (Chromium PDF) — full suite green. Manual acceptance verified via tinker: receipt posted (batch `102000001`, auto-authorized), trial balance balanced, reconcile clean — the voucher remains in the dev DB as evidence.
+
+- Tables: `ledgers` (35-account NGO CoA, EN+BN), `vouchers`, `voucher_lines` (account tags are plain columns; CHECK constraint blocks setting both; FKs land in Steps 10/17), `gl_mappings` (31 keys), `account_transactions` (ENUM incl. `share`; unique idempotency key), `cash_ledgers`, `fiscal_years` (FY 2026-27 open per branch), `voucher_types` (Receipt auto-auth; Payment/Journal/Contra require auth).
+- `PostingService::post()` is the only money path: brick/math balance validation, gl_mappings resolution (test asserts no hard-coded ledger codes in the service), business-day guard, locks ONLY on `cash_ledgers` / latest `account_transactions` rows — never `ledgers`; GL balances derived via `ledgerBalance()` from `voucher_lines` sums.
+- Authorization timing per plan: balances move at posting; Pending only when the type requires it or total ≥ `accounts.auth_amount_threshold` (50,000). SoD via `AuthorizationService`; break-glass (Super Admin + permission + mandatory reason) is audited as `voucher.breakglass_authorized`.
+- Idempotency: explicit `batch_number` re-post is a no-op + the sub-ledger unique index (both tested). Row-lock serialization proven with a two-connection NOWAIT test.
+- `accounts:reconcile` (nightly 02:30): cash cache vs sub-ledger, GL controls vs sub-ledger (deposit controls in aggregate), per-branch trial balance; mismatches → `audit_logs`.
+- Note: brick/math installed is v1.0 — `RoundingMode` is an enum (`HalfUp`).

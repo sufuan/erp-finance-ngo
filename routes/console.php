@@ -9,3 +9,5 @@ Artisan::command('inspire', function () {
 
 // Nightly database backup to object storage (plan Step 1).
 \Illuminate\Support\Facades\Schedule::command('db:backup')->dailyAt('02:00');
+// Step 3A: nightly accounting reconciliation (mismatches -> audit_logs).
+Schedule::command('accounts:reconcile')->dailyAt('02:30');

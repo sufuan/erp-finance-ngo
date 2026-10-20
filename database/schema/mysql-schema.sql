@@ -4,6 +4,41 @@
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+DROP TABLE IF EXISTS `account_transactions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `account_transactions` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `branch_id` bigint unsigned NOT NULL,
+  `account_type` enum('deposit','loan','cash','share') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `account_id` bigint unsigned NOT NULL,
+  `tran_code` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `amount` decimal(18,2) NOT NULL,
+  `balance_after` decimal(18,2) NOT NULL,
+  `tran_date` date NOT NULL,
+  `business_date` date NOT NULL,
+  `voucher_id` bigint unsigned NOT NULL,
+  `ref_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `ref_id` bigint unsigned DEFAULT NULL,
+  `entry_by` bigint unsigned NOT NULL,
+  `entry_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `cancel_by` bigint unsigned DEFAULT NULL,
+  `cancel_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_account_transactions_idem` (`account_type`,`account_id`,`voucher_id`,`tran_code`),
+  KEY `account_transactions_branch_id_foreign` (`branch_id`),
+  KEY `account_transactions_voucher_id_foreign` (`voucher_id`),
+  KEY `account_transactions_entry_by_foreign` (`entry_by`),
+  KEY `account_transactions_cancel_by_foreign` (`cancel_by`),
+  KEY `account_transactions_account_type_account_id_business_date_index` (`account_type`,`account_id`,`business_date`),
+  CONSTRAINT `account_transactions_branch_id_foreign` FOREIGN KEY (`branch_id`) REFERENCES `branches` (`id`),
+  CONSTRAINT `account_transactions_cancel_by_foreign` FOREIGN KEY (`cancel_by`) REFERENCES `users` (`id`),
+  CONSTRAINT `account_transactions_entry_by_foreign` FOREIGN KEY (`entry_by`) REFERENCES `users` (`id`),
+  CONSTRAINT `account_transactions_voucher_id_foreign` FOREIGN KEY (`voucher_id`) REFERENCES `vouchers` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `audit_logs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -148,6 +183,23 @@ CREATE TABLE `cache_locks` (
   KEY `cache_locks_expiration_index` (`expiration`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `cash_ledgers`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cash_ledgers` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned NOT NULL,
+  `branch_id` bigint unsigned NOT NULL,
+  `current_balance` decimal(18,2) NOT NULL DEFAULT '0.00',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `cash_ledgers_user_id_unique` (`user_id`),
+  KEY `cash_ledgers_branch_id_foreign` (`branch_id`),
+  CONSTRAINT `cash_ledgers_branch_id_foreign` FOREIGN KEY (`branch_id`) REFERENCES `branches` (`id`),
+  CONSTRAINT `cash_ledgers_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `failed_jobs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -162,6 +214,42 @@ CREATE TABLE `failed_jobs` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `failed_jobs_uuid_unique` (`uuid`),
   KEY `failed_jobs_connection_queue_failed_at_index` (`connection`,`queue`,`failed_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `fiscal_years`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fiscal_years` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `branch_id` bigint unsigned NOT NULL,
+  `name` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `start_date` date NOT NULL,
+  `end_date` date NOT NULL,
+  `status` enum('Open','Closed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Open',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `fiscal_years_branch_id_name_unique` (`branch_id`,`name`),
+  CONSTRAINT `fiscal_years_branch_id_foreign` FOREIGN KEY (`branch_id`) REFERENCES `branches` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `gl_mappings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `gl_mappings` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `mapping_key` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `debit_ledger_id` bigint unsigned NOT NULL,
+  `credit_ledger_id` bigint unsigned NOT NULL,
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `gl_mappings_mapping_key_unique` (`mapping_key`),
+  KEY `gl_mappings_debit_ledger_id_foreign` (`debit_ledger_id`),
+  KEY `gl_mappings_credit_ledger_id_foreign` (`credit_ledger_id`),
+  CONSTRAINT `gl_mappings_credit_ledger_id_foreign` FOREIGN KEY (`credit_ledger_id`) REFERENCES `ledgers` (`id`),
+  CONSTRAINT `gl_mappings_debit_ledger_id_foreign` FOREIGN KEY (`debit_ledger_id`) REFERENCES `ledgers` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `job_batches`;
@@ -194,6 +282,26 @@ CREATE TABLE `jobs` (
   `created_at` int unsigned NOT NULL,
   PRIMARY KEY (`id`),
   KEY `jobs_queue_index` (`queue`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `ledgers`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ledgers` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `ledger_code` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name_en` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name_bn` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `ledger_group` enum('Asset','Liability','Income','Expense','Equity') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `parent_id` bigint unsigned DEFAULT NULL,
+  `is_control` tinyint(1) NOT NULL DEFAULT '0',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ledgers_ledger_code_unique` (`ledger_code`),
+  KEY `ledgers_parent_id_foreign` (`parent_id`),
+  CONSTRAINT `ledgers_parent_id_foreign` FOREIGN KEY (`parent_id`) REFERENCES `ledgers` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `login_audits`;
@@ -415,6 +523,80 @@ CREATE TABLE `users` (
   KEY `users_employee_id_index` (`employee_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `voucher_lines`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `voucher_lines` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `voucher_id` bigint unsigned NOT NULL,
+  `ledger_id` bigint unsigned NOT NULL,
+  `debit` decimal(18,2) NOT NULL DEFAULT '0.00',
+  `credit` decimal(18,2) NOT NULL DEFAULT '0.00',
+  `deposit_account_id` bigint unsigned DEFAULT NULL,
+  `loan_account_id` bigint unsigned DEFAULT NULL,
+  `comments` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `document_number` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `voucher_lines_voucher_id_foreign` (`voucher_id`),
+  KEY `voucher_lines_ledger_id_foreign` (`ledger_id`),
+  KEY `voucher_lines_deposit_account_id_index` (`deposit_account_id`),
+  KEY `voucher_lines_loan_account_id_index` (`loan_account_id`),
+  CONSTRAINT `voucher_lines_ledger_id_foreign` FOREIGN KEY (`ledger_id`) REFERENCES `ledgers` (`id`),
+  CONSTRAINT `voucher_lines_voucher_id_foreign` FOREIGN KEY (`voucher_id`) REFERENCES `vouchers` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `chk_voucher_lines_one_account` CHECK (((`deposit_account_id` is null) or (`loan_account_id` is null)))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `voucher_types`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `voucher_types` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `code` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `require_authorization` tinyint(1) NOT NULL DEFAULT '1',
+  `label_en` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `label_bn` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `voucher_types_code_unique` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `vouchers`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `vouchers` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `branch_id` bigint unsigned NOT NULL,
+  `batch_number` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `voucher_type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `transaction_date` date NOT NULL,
+  `business_date` date NOT NULL,
+  `total_amount` decimal(18,2) NOT NULL,
+  `comments` text COLLATE utf8mb4_unicode_ci,
+  `document_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `entry_by` bigint unsigned NOT NULL,
+  `entry_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `auth_by` bigint unsigned DEFAULT NULL,
+  `auth_at` timestamp NULL DEFAULT NULL,
+  `cancel_by` bigint unsigned DEFAULT NULL,
+  `cancel_at` timestamp NULL DEFAULT NULL,
+  `status` enum('Pending','Authorized','Cancelled') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Pending',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `vouchers_batch_number_unique` (`batch_number`),
+  KEY `vouchers_entry_by_foreign` (`entry_by`),
+  KEY `vouchers_auth_by_foreign` (`auth_by`),
+  KEY `vouchers_cancel_by_foreign` (`cancel_by`),
+  KEY `vouchers_branch_id_business_date_index` (`branch_id`,`business_date`),
+  CONSTRAINT `vouchers_auth_by_foreign` FOREIGN KEY (`auth_by`) REFERENCES `users` (`id`),
+  CONSTRAINT `vouchers_branch_id_foreign` FOREIGN KEY (`branch_id`) REFERENCES `branches` (`id`),
+  CONSTRAINT `vouchers_cancel_by_foreign` FOREIGN KEY (`cancel_by`) REFERENCES `users` (`id`),
+  CONSTRAINT `vouchers_entry_by_foreign` FOREIGN KEY (`entry_by`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -435,3 +617,4 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (10,'2026_10_20_161
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (11,'2026_10_20_161631_extend_spatie_rbac_tables',4);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (12,'2026_10_20_161632_create_branch_user_and_samity_user_and_login_audits_tables',4);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (13,'2026_10_20_163000_create_organization_profiles_and_settings_tables',5);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (14,'2026_10_20_164000_create_accounting_core_tables',6);

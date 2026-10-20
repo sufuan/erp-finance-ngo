@@ -29,9 +29,17 @@ class BusinessDayService
             return $open;
         }
 
+        // No open day: only auto-create when today has no row at all. If
+        // today's row exists but is closed, the branch is in a bad state —
+        // never resurrect a closed date (and never duplicate the row).
+        $today = CarbonImmutable::now('Asia/Dhaka')->toDateString();
+        if (BusinessDay::where('branch_id', $branchId)->where('business_date', $today)->exists()) {
+            throw new DomainException("Business date {$today} is closed for branch {$branchId}.");
+        }
+
         return BusinessDay::create([
             'branch_id' => $branchId,
-            'business_date' => CarbonImmutable::now('Asia/Dhaka')->toDateString(),
+            'business_date' => $today,
             'is_closed' => false,
         ]);
     }

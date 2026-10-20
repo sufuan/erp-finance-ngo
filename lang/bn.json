@@ -319,5 +319,10 @@
     "gps_interval_seconds": "জিপিএস ব্যবধান (সেকেন্ড)",
     "gps_retention_days": "জিপিএস সংরক্ষণ (দিন)",
     "max_offline_days": "সর্বোচ্চ অফলাইন দিন (মোবাইল অ্যাপ)",
-    "one_per_line": "প্রতি লাইনে একটি"
+    "one_per_line": "প্রতি লাইনে একটি",
+    "voucher_must_balance": "ভাউচার ব্যালেন্স হতে হবে: মোট ডেবিট = মোট ক্রেডিট।",
+    "voucher_amount_must_be_positive": "ভাউচারের পরিমাণ শূন্যের বেশি হতে হবে।",
+    "voucher_not_pending": "শুধুমাত্র মুলতবি ভাউচার অনুমোদন করা যায়।",
+    "breakglass_requires_permission_and_reason": "ব্রেক-গ্লাস অনুমোদনের জন্য অনুমতি ও কারণ আবশ্যক।",
+    "voucher_already_cancelled": "এই ভাউচারটি ইতিমধ্যে বাতিল হয়েছে।"
 }
