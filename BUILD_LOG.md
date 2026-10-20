@@ -41,6 +41,7 @@ One git commit per step; commits stay local on this machine (the parent workflow
 | 3A | Accounting core | done | 53 passed, 1 skipped (Chromium) | 1d616ce |
 | 4 | Geographic masters | done | 58 passed, 1 skipped (Chromium) | 6a8eac9 |
 | 5 | HR masters | done | 63 passed, 1 skipped (Chromium) | bb54135 |
+| 6 | Employees & directors | done | 72 passed, 1 skipped (Chromium) | (this run) |
 
 ## Step 0 — notes
 
@@ -118,3 +119,21 @@ Status: **done**. Tests: 63 passed, 1 skipped (Chromium PDF) — full suite gree
 - One field-config-driven controller + page serves all four masters under `/hrm/*`, gated by `hrm.masters`; validation requires shift name/start/end/grace (per acceptance); every field editable, lists show all fields, mobile-responsive.
 - Seeds: 5 head-office + 2 branch departments, 7 designations (Executive Director → Driver), 4 employee types (Permanent/Probation/Contractual/Part-time), "General Shift" 09:00–17:00, grace 10 min, break 13:00–14:00, overtime 17:00–20:00, 26 duty days, 3 allowed late days.
 - Lang files now 360 keys in both en/bn; UI t() key coverage sweep reports no missing keys.
+
+---
+
+# Steps 6–20 run (2026-10-21)
+
+Pre-step note: the 7 files from `github-missing-files.zip` (ci.yml, favicon, Hind Siliguri fonts) were already tracked in the local repo since Step 0 — the zip only ever mattered for the GitHub push channel. Extraction verified byte-identical, working tree clean; nothing to commit locally.
+
+## Step 6 — notes
+
+Status: **done**. Tests: 72 passed, 1 skipped (Chromium PDF) — full suite green.
+
+- Tables: `employees` (code = one global 6-digit sequence via NumberingService scoped on the head-office branch row, so codes stay unique org-wide), `directors` (same personal/bank shape, `director_status`, no branch). NID/passport/TIN use the `encrypted` cast; `nid_hash`/`passport_hash` (SHA-256) are maintained by a model `saving` hook and are unique.
+- Forward FKs enforced here as planned: `branches.manager_id`, `users.employee_id`, `departments.incharge_id` → employees; `employees.manager_id` self-FK.
+- `IdentityCheckService`: NID/mobile/passport uniqueness enforced across employees + directors (+ members automatically once that table exists in Step 8 — it checks `Schema::hasTable`).
+- Pages: Settings → Employees / Directors (one config-driven `RegisterController` + page): personal + bank sections, photo upload via UploadService (GD re-encode), search by name/mobile/NID/code, desktop full-column table with photo, mobile stacked cards. Gated by `hrm.employees`.
+- Seeds: Md. Mostafa (Executive Director, HO) + Talgachi branch manager (wired into `branches.manager_id` and the Microfinance Operations department `incharge_id`) + 2 field officers.
+- Step 5's `HrmMastersTest` used `incharge_id = 42` with the comment "plain column until Step 6" — updated to a real employee id now that the FK exists, exactly as that test anticipated.
+- Lang files now 403 keys in both en/bn.

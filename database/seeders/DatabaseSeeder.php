@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             FiscalYearSeeder::class,
             GeoSeeder::class,
             HrmMasterSeeder::class,
+            EmployeeSeeder::class,
         ]);
     }
 }

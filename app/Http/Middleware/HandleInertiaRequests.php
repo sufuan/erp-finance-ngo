@@ -88,7 +88,8 @@ class HandleInertiaRequests extends Middleware
                     'settings' => $request->user()->can('settings.general'),
                     'geo' => $request->user()->can('settings.geo'),
                     'hrm' => $request->user()->can('hrm.masters'),
-                ] : ['users' => false, 'roles' => false, 'permissions' => false, 'settings' => false, 'geo' => false, 'hrm' => false],
+                    'employees' => $request->user()->can('hrm.employees'),
+                ] : ['users' => false, 'roles' => false, 'permissions' => false, 'settings' => false, 'geo' => false, 'hrm' => false, 'employees' => false],
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

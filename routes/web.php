@@ -13,6 +13,7 @@ use App\Http\Controllers\Settings\BusinessDayController;
 use App\Http\Controllers\Settings\GeneralSettingsController;
 use App\Http\Controllers\Settings\GeoController;
 use App\Http\Controllers\Settings\PermissionController;
+use App\Http\Controllers\Settings\RegisterController;
 use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\UserController;
 use Illuminate\Support\Facades\Route;
@@ -89,6 +90,16 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
         Route::get('/permissions', [PermissionController::class, 'index'])
             ->middleware('can:settings.view')
             ->name('permissions.index');
+
+        // Employee & director registers (Step 6).
+        Route::middleware('can:hrm.employees')->group(function () {
+            Route::get('/employees', [RegisterController::class, 'index'])->defaults('entity', 'employees')->name('employees.index');
+            Route::post('/employees', [RegisterController::class, 'store'])->defaults('entity', 'employees')->name('employees.store');
+            Route::put('/employees/{id}', [RegisterController::class, 'update'])->defaults('entity', 'employees')->name('employees.update');
+            Route::get('/directors', [RegisterController::class, 'index'])->defaults('entity', 'directors')->name('directors.index');
+            Route::post('/directors', [RegisterController::class, 'store'])->defaults('entity', 'directors')->name('directors.store');
+            Route::put('/directors/{id}', [RegisterController::class, 'update'])->defaults('entity', 'directors')->name('directors.update');
+        });
     });
 });
 

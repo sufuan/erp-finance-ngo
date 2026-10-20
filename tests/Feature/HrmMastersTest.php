@@ -64,10 +64,10 @@ class HrmMastersTest extends TestCase
         $this->hrOfficer();
         $branch = \App\Models\Branch::where('code', '102')->first();
         $this->post('/hrm/departments', [
-            'branch_id' => $branch->id, 'name' => 'IT Cell', 'location' => 'Talgachi', 'incharge_id' => 42, 'is_active' => true,
+            'branch_id' => $branch->id, 'name' => 'IT Cell', 'location' => 'Talgachi', 'incharge_id' => \App\Models\Employee::first()->id, 'is_active' => true,
         ])->assertSessionHas('success');
         $dept = Department::where('name', 'IT Cell')->first();
-        $this->assertSame(42, $dept->incharge_id); // plain column until Step 6
+        $this->assertSame(\App\Models\Employee::first()->id, $dept->incharge_id); // FK enforced since Step 6
 
         $this->get('/hrm/departments')->assertOk()
             ->assertInertia(fn (Assert $page) => $page->component('Hrm/Masters/Index')->where('entity', 'departments'));
