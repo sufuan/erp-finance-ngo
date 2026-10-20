@@ -1,0 +1,41 @@
+# TPDA e-Sheba — local/dev stack (plan Step 0).
+# Non-Docker alternative: install PHP 8.4 + MySQL 8.4 + Redis natively and
+# point .env at them — the app does not care which route you take.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "8000:8000"
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    environment:
+      DB_HOST: mysql
+      REDIS_HOST: redis
+    depends_on:
+      - mysql
+      - redis
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: tpda_esheba
+      MYSQL_USER: tpda_app
+      MYSQL_PASSWORD: tpda_app_secret
+      MYSQL_ROOT_PASSWORD: root_secret
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  mysql-data:

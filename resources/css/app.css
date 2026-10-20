@@ -1,0 +1,19 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+/* Class-based dark mode (night mode toggle adds .dark on <html>) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+    /* G10 — Unicode-compliant Bengali fonts FIRST in the stack, self-hosted. */
+    --font-sans: 'Hind Siliguri', 'Noto Sans Bengali', 'SolaimanLipi', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* Bengali conjuncts (যুক্তাক্ষর) need vertical room — G10. */
+:lang(bn) body,
+.bn-text {
+    line-height: 1.7;
+}
