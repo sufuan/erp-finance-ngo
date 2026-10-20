@@ -324,5 +324,15 @@
     "voucher_amount_must_be_positive": "Voucher amounts must be greater than zero.",
     "voucher_not_pending": "Only a pending voucher can be authorized.",
     "breakglass_requires_permission_and_reason": "Break-glass authorization requires the break-glass permission and a reason.",
-    "voucher_already_cancelled": "This voucher is already cancelled."
+    "voucher_already_cancelled": "This voucher is already cancelled.",
+    "geography": "Geography",
+    "village": "Village",
+    "working_area": "Working Area",
+    "parent": "Parent",
+    "geo_chain_mismatch": "The selected items do not belong to the same geographic chain.",
+    "cannot_delete_with_children": "This record has child records and cannot be deleted.",
+    "show": "Show",
+    "entries": "entries",
+    "previous": "Previous",
+    "next": "Next"
 }

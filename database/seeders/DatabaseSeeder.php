@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             GlMappingSeeder::class,
             VoucherTypeSeeder::class,
             FiscalYearSeeder::class,
+            GeoSeeder::class,
         ]);
     }
 }

@@ -324,5 +324,15 @@
     "voucher_amount_must_be_positive": "ভাউচারের পরিমাণ শূন্যের বেশি হতে হবে।",
     "voucher_not_pending": "শুধুমাত্র মুলতবি ভাউচার অনুমোদন করা যায়।",
     "breakglass_requires_permission_and_reason": "ব্রেক-গ্লাস অনুমোদনের জন্য অনুমতি ও কারণ আবশ্যক।",
-    "voucher_already_cancelled": "এই ভাউচারটি ইতিমধ্যে বাতিল হয়েছে।"
+    "voucher_already_cancelled": "এই ভাউচারটি ইতিমধ্যে বাতিল হয়েছে।",
+    "geography": "ভূগোল",
+    "village": "গ্রাম",
+    "working_area": "কর্ম এলাকা",
+    "parent": "ঊর্ধ্বতন",
+    "geo_chain_mismatch": "নির্বাচিত 항목গুলো একই ভৌগোলিক শৃঙ্খলের নয়।",
+    "cannot_delete_with_children": "এই রেকর্ডের অধীনে শিশু রেকর্ড আছে, মুছে ফেলা যাবে না।",
+    "show": "দেখান",
+    "entries": "এন্ট্রি",
+    "previous": "পূর্ববর্তী",
+    "next": "পরবর্তী"
 }

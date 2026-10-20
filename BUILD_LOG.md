@@ -99,3 +99,13 @@ Status: **done**. Tests: 53 passed, 1 skipped (Chromium PDF) — full suite gree
 - Idempotency: explicit `batch_number` re-post is a no-op + the sub-ledger unique index (both tested). Row-lock serialization proven with a two-connection NOWAIT test.
 - `accounts:reconcile` (nightly 02:30): cash cache vs sub-ledger, GL controls vs sub-ledger (deposit controls in aggregate), per-branch trial balance; mismatches → `audit_logs`.
 - Note: brick/math installed is v1.0 — `RoundingMode` is an enum (`HalfUp`).
+
+## Step 4 — notes
+
+Status: **done**. Tests: 58 passed, 1 skipped (Chromium PDF) — full suite green.
+
+- 7 geo tables + generic `GeoController` CRUD (search, 10/25/50/100 pagination, create/edit/delete) driving one parameterized page; parent selects cascade (division→district→upazila→union→village for Working Areas), desktop table + mobile cards per the step's acceptance.
+- Server-side chain consistency: village `upazila_id` is derived from its union; working-area chain mismatches are rejected with 422; parents with children cannot be deleted.
+- `branches` gained nullable `country_id/division_id/district_id/upazila_id/union_id` FKs (strings kept as fallback).
+- Seed: Bangladesh + all 8 divisions, Rajshahi's 8 districts, Sirajganj's 9 upazilas, 6 Shahjadpur unions, Talgachi village + "Talgachi Working Area".
+- Note: the string→FK branch backfill runs in `GeoSeeder`, not in the migration — geo rows are seed data and don't exist at migrate time. Branch 102 is pinned to the Talgachi chain; branches with a district string get matched FKs automatically.

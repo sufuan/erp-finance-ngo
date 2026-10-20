@@ -10,6 +10,7 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Settings\BranchController;
 use App\Http\Controllers\Settings\BusinessDayController;
 use App\Http\Controllers\Settings\GeneralSettingsController;
+use App\Http\Controllers\Settings\GeoController;
 use App\Http\Controllers\Settings\PermissionController;
 use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\UserController;
@@ -75,6 +76,13 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
         Route::middleware('can:settings.general')->group(function () {
             Route::get('/general', [GeneralSettingsController::class, 'index'])->name('general.index');
             Route::post('/general', [GeneralSettingsController::class, 'update'])->name('general.update');
+        });
+
+        Route::middleware('can:settings.geo')->group(function () {
+            Route::get('/geo/{entity}', [GeoController::class, 'index'])->name('geo.index');
+            Route::post('/geo/{entity}', [GeoController::class, 'store'])->name('geo.store');
+            Route::put('/geo/{entity}/{id}', [GeoController::class, 'update'])->name('geo.update');
+            Route::delete('/geo/{entity}/{id}', [GeoController::class, 'destroy'])->name('geo.destroy');
         });
 
         Route::get('/permissions', [PermissionController::class, 'index'])
