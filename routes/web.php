@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\TotpController;
 use App\Http\Controllers\BranchSwitchController;
 use App\Http\Controllers\FileController;
+use App\Http\Controllers\Hrm\MasterController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Settings\BranchController;
 use App\Http\Controllers\Settings\BusinessDayController;
@@ -89,6 +90,13 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
             ->middleware('can:settings.view')
             ->name('permissions.index');
     });
+});
+
+Route::middleware(['auth', 'password.changed', 'totp', 'can:hrm.masters'])->prefix('hrm')->name('hrm.')->group(function () {
+    Route::get('/{entity}', [MasterController::class, 'index'])->name('masters.index');
+    Route::post('/{entity}', [MasterController::class, 'store'])->name('masters.store');
+    Route::put('/{entity}/{id}', [MasterController::class, 'update'])->name('masters.update');
+    Route::delete('/{entity}/{id}', [MasterController::class, 'destroy'])->name('masters.destroy');
 });
 
 // Private files: the controller itself requires an authenticated user.

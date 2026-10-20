@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             VoucherTypeSeeder::class,
             FiscalYearSeeder::class,
             GeoSeeder::class,
+            HrmMasterSeeder::class,
         ]);
     }
 }

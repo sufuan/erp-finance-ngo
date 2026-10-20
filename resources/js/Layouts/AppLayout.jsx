@@ -53,6 +53,7 @@ export default function AppLayout({ children, branches: branchesProp = undefined
         ...(can.permissions ? [{ key: 'permissions', href: '/settings/permissions', label: t('permissions') }] : []),
         ...(can.settings ? [{ key: 'general', href: '/settings/general', label: t('general_settings') }] : []),
         ...(can.geo ? [{ key: 'geo', href: '/settings/geo/countries', label: t('geography') }] : []),
+        ...(can.hrm ? [{ key: 'hrm', href: '/hrm/departments', label: t('hrm') }] : []),
     ];
 
     const sidebar = (

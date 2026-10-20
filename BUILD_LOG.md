@@ -109,3 +109,16 @@ Status: **done**. Tests: 58 passed, 1 skipped (Chromium PDF) — full suite gree
 - `branches` gained nullable `country_id/division_id/district_id/upazila_id/union_id` FKs (strings kept as fallback).
 - Seed: Bangladesh + all 8 divisions, Rajshahi's 8 districts, Sirajganj's 9 upazilas, 6 Shahjadpur unions, Talgachi village + "Talgachi Working Area".
 - Note: the string→FK branch backfill runs in `GeoSeeder`, not in the migration — geo rows are seed data and don't exist at migrate time. Branch 102 is pinned to the Talgachi chain; branches with a district string get matched FKs automatically.
+
+## Step 4 — notes
+
+Status: **done** (commit 6a8eac9). Tests at the time: 58 passed, 1 skipped.
+
+## Step 5 — notes
+
+Status: **done**. Tests: 63 passed, 1 skipped (Chromium PDF) — full suite green; production build verified.
+
+- Tables: `departments` (branch FK; `incharge_id` plain — FK lands in Step 6), `designations`, `employee_types`, `shifts` (all time/grace/overtime/bonus fields from the plan).
+- One field-config-driven controller + page serves all four masters under `/hrm/*`, gated by `hrm.masters`; validation requires shift name/start/end/grace (per acceptance); every field editable, lists show all fields, mobile-responsive.
+- Seeds: 5 head-office + 2 branch departments, 7 designations (Executive Director → Driver), 4 employee types (Permanent/Probation/Contractual/Part-time), "General Shift" 09:00–17:00, grace 10 min, break 13:00–14:00, overtime 17:00–20:00, 26 duty days, 3 allowed late days.
+- Lang files now 360 keys in both en/bn; UI t() key coverage sweep reports no missing keys.
