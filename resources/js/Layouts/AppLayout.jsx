@@ -7,8 +7,11 @@ import { getLocale, initI18n, t } from '../lib/i18n';
  * topbar with branch switcher slot, locale toggle (বাংলা | English)
  * and night-mode toggle. Module nav links are added by later steps.
  */
-export default function AppLayout({ children, branches = null, activeBranchId = null }) {
+export default function AppLayout({ children, branches: branchesProp = undefined, activeBranchId: activeBranchIdProp = undefined }) {
     const { props } = usePage();
+    const branches = branchesProp !== undefined ? branchesProp : props.branches ?? null;
+    const activeBranchId =
+        activeBranchIdProp !== undefined ? activeBranchIdProp : props.activeBranch?.id ?? null;
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [dark, setDark] = useState(
         () => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
@@ -40,7 +43,11 @@ export default function AppLayout({ children, branches = null, activeBranchId = 
         router.post('/branch/switch', { branch_id: branchId }, { preserveScroll: true });
     };
 
-    const nav = [{ key: 'dashboard', href: '/', label: t('dashboard') }];
+    const nav = [
+        { key: 'dashboard', href: '/', label: t('dashboard') },
+        { key: 'branches', href: '/settings/branches', label: t('branches') },
+        { key: 'business-day', href: '/settings/business-day', label: t('closing_business_day') },
+    ];
 
     const sidebar = (
         <div className="flex h-full flex-col bg-white dark:bg-zinc-900">
@@ -103,6 +110,11 @@ export default function AppLayout({ children, branches = null, activeBranchId = 
                     <span className="truncate text-base font-semibold lg:hidden">{props.appName}</span>
 
                     <div className="ml-auto flex items-center gap-2 sm:gap-3">
+                        {props.businessDate && (
+                            <span className="hidden text-sm text-zinc-500 md:inline dark:text-zinc-400">
+                                {t('business_day')}: {props.businessDate}
+                            </span>
+                        )}
                         {branches && branches.length > 0 && (
                             <label className="flex items-center gap-2 text-sm">
                                 <span className="hidden text-zinc-500 md:inline dark:text-zinc-400">

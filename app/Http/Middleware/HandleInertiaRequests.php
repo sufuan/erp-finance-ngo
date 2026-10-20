@@ -45,12 +45,30 @@ class HandleInertiaRequests extends Middleware
             ? (json_decode(file_get_contents($langPath), true) ?: [])
             : [];
 
+        $branchData = ['branches' => [], 'activeBranch' => null, 'businessDate' => null];
+        if (\Illuminate\Support\Facades\Schema::hasTable('branches')) {
+            $active = $request->attributes->get('active_branch');
+            $branchData = [
+                'branches' => \App\Models\Branch::active()
+                    ->orderBy('code')
+                    ->get(['id', 'code', 'name', 'type'])
+                    ->toArray(),
+                'activeBranch' => $active ? [
+                    'id' => $active->id, 'code' => $active->code,
+                    'name' => $active->name, 'type' => $active->type,
+                ] : null,
+                'businessDate' => $request->attributes->get('business_date'),
+            ];
+        }
+
         return [
             ...parent::share($request),
-            'appName' => config('app.name'),
+            'appName' => $this->appDisplayName(),
+            'orgName' => $this->orgName($locale),
             'locale' => $locale,
             'translations' => $translations,
             'translations_version' => file_exists($langPath) ? md5_file($langPath) : null,
+            ...$branchData,
             'auth' => [
                 'user' => $request->user() ? [
                     'id' => $request->user()->id,
@@ -63,5 +81,41 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
             ],
         ];
+    }
+
+    /**
+     * App name is settings-driven from Step 3 (organization_profiles /
+     * settings); before that table exists, fall back to config.
+     */
+    private function appDisplayName(): string
+    {
+        if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
+            try {
+                $value = app(\App\Services\SettingsService::class)->get('app.name');
+                if ($value) {
+                    return (string) $value;
+                }
+            } catch (\Throwable) {
+                // Settings not seeded yet.
+            }
+        }
+
+        return (string) config('app.name');
+    }
+
+    private function orgName(string $locale): ?string
+    {
+        if (\Illuminate\Support\Facades\Schema::hasTable('organization_profiles')) {
+            try {
+                $profile = \App\Models\OrganizationProfile::where('is_active', true)->first();
+                if ($profile) {
+                    return $locale === 'bn' ? $profile->name_bn : $profile->name_en;
+                }
+            } catch (\Throwable) {
+                // Profile not seeded yet.
+            }
+        }
+
+        return null;
     }
 }

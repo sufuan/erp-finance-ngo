@@ -34,8 +34,8 @@ One git commit per step; commits stay local on this machine (the parent workflow
 
 | Step | Title | Status | Tests | Commit |
 |---|---|---|---|---|
-| 0 | Project scaffold | done | 9 passed, 1 skipped (Chromium PDF — browser download pending; mPDF Bengali smoke passes) | see git log |
-| 1 | Core infrastructure | pending | | |
+| 0 | Project scaffold | done | 9 passed, 1 skipped (Chromium PDF — download stalls in this VM's network; mPDF Bengali smoke passes; CI installs Chrome) | bb0fe05 |
+| 1 | Core infrastructure | done | 19 passed, 1 skipped (Chromium) | see git log |
 | 2 | RBAC (Spatie) | pending | | |
 | 3 | Dynamic configuration | pending | | |
 | 3A | Accounting core | pending | | |
@@ -52,3 +52,12 @@ One git commit per step; commits stay local on this machine (the parent workflow
 - Test DB check inside the suite asserts `SELECT VERSION()` starts with 8.4 and the connection is MySQL.
 
 ---
+
+## Step 1 — notes
+
+- Tables: `branches`, `business_days`, `sequences`, `audit_logs` (+ immutability triggers). Seeded branches: 101 Head Office, 102 Talgachi Branch (parent 101), each with an open business day.
+- **audit_logs append-only — implementation note:** the plan asked for an INSERT+SELECT-only grant for the app DB user. MySQL cannot carve a table-level exception out of a database-wide grant (error 1147, even with `partial_revokes`), so immutability is enforced by BEFORE UPDATE/DELETE triggers created in a migration (bind every user; recreated by `migrate:fresh`), plus the AuditLog model guard, plus the hash chain. `db:apply-grants` remains as a best-effort grant layer + documentation. Trigger creation needs `log_bin_trust_function_creators = ON` (set + persisted on this VM; CI does the same before migrating).
+- MySQL root originally used `auth_socket`; switched to `caching_sha2_password` so TCP admin (PDO) works.
+- Uploads: private disk only, `FileController` requires auth (guests get 403), images re-encoded via GD (payload strip verified by test), `.xls` rejected.
+- Backup: `db:backup` verified locally (dump → disk); scheduler entry at 02:00; Supervisor config + cron/TLS notes in `docs/deploy/`.
+- Tests use `DatabaseTransactions` against the pre-migrated + seeded test DB (CI mirrors this: migrate --seed, then test).
