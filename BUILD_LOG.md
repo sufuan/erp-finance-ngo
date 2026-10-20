@@ -28,7 +28,7 @@ One git commit per step; commits stay local on this machine (the parent workflow
 
 | Role | Username | Password | Notes |
 |---|---|---|---|
-| Super Admin | _(set in Step 2)_ | _(set in Step 2)_ | TOTP setup required on first login |
+| Super Admin | `admin` | `Tpda#Admin2026!` | Must change password + TOTP enrollment on first login |
 
 ## Step status
 
@@ -36,11 +36,11 @@ One git commit per step; commits stay local on this machine (the parent workflow
 |---|---|---|---|---|
 | 0 | Project scaffold | done | 9 passed, 1 skipped (Chromium PDF — download stalls in this VM's network; mPDF Bengali smoke passes; CI installs Chrome) | bb0fe05 |
 | 1 | Core infrastructure | done | 19 passed, 1 skipped (Chromium) | 8d0d92a |
-| 2 | RBAC (Spatie) | pending | | |
-| 3 | Dynamic configuration | pending | | |
-| 3A | Accounting core | pending | | |
-| 4 | Geographic masters | pending | | |
-| 5 | HR masters | pending | | |
+| 2 | RBAC (Spatie) | done | 36 passed, 1 skipped (Chromium) | 910ed01 |
+| 3 | Dynamic configuration | done | 41 passed, 1 skipped (Chromium) | 6320f3e |
+| 3A | Accounting core | done | 53 passed, 1 skipped (Chromium) | 1d616ce |
+| 4 | Geographic masters | done | 58 passed, 1 skipped (Chromium) | 6a8eac9 |
+| 5 | HR masters | done | 63 passed, 1 skipped (Chromium) | bb54135 |
 
 ## Step 0 — notes
 
@@ -109,10 +109,6 @@ Status: **done**. Tests: 58 passed, 1 skipped (Chromium PDF) — full suite gree
 - `branches` gained nullable `country_id/division_id/district_id/upazila_id/union_id` FKs (strings kept as fallback).
 - Seed: Bangladesh + all 8 divisions, Rajshahi's 8 districts, Sirajganj's 9 upazilas, 6 Shahjadpur unions, Talgachi village + "Talgachi Working Area".
 - Note: the string→FK branch backfill runs in `GeoSeeder`, not in the migration — geo rows are seed data and don't exist at migrate time. Branch 102 is pinned to the Talgachi chain; branches with a district string get matched FKs automatically.
-
-## Step 4 — notes
-
-Status: **done** (commit 6a8eac9). Tests at the time: 58 passed, 1 skipped.
 
 ## Step 5 — notes
 
