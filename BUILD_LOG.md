@@ -78,3 +78,13 @@ Status: **done**. Tests: 36 passed, 1 skipped (Chromium PDF) — full suite gree
 - Segregation of duties: `AuthorizationService::assertDifferentMakerChecker` (used from Step 3A onward).
 - Branch scoping: `BranchAccessService` — switcher + active branch restricted to assignments (super-admin = all); switching to an unassigned branch returns 403.
 - Guards: system roles cannot be deleted or renamed; roles with users cannot be deleted; users cannot remove their own `settings.users-manage`.
+
+## Step 3 — notes
+
+Status: **done**. Tests: 41 passed, 1 skipped (Chromium PDF) — full suite green.
+
+- Seeded exactly per plan: TPDA profile (EN/BN names, NGO type, reg. সিরাজ/৫৮৫/সমাজসেবা/২০০০, mobile app "TPDA e-Sheba", contact Md. Mostafa) + 27 settings incl. `loan.default_profit_rate`=15, MRA cap 24, `llp.rates` {1,5,25,75,100} on `net_outstanding`, allocation order [penalty, profit, principal], auth threshold 50000, GPS 60s/90d, max offline 7 days. Architecture §15 extras also seeded: `deposit.closing_charge`, `sms.gateway`/`sms.credentials`/`sms.enabled`, `collection.sheet_types`, `collection.allow_backdate`.
+- Plan-unspecified money defaults (`loan.fee_defaults`, `deposit.default_profit_rates`, closing charge) seed at **0** — TPDA's real figures are entered in the UI (no invented numbers).
+- `SettingsService`: Redis-cached `get`, cache-busting `set` (tested), org profile cached too; web `<title>`, sidebar app name, and `SetLocale` default all read from settings now.
+- General Settings UI: 6 tabs (Organization incl. logo upload, Application, Loan & Profit, Deposit, SMS & Notifications, GPS & Tracking), guarded by `settings.general`, each change audited (`settings.updated` / `organization.updated`).
+- Lang files now 321 keys in both en/bn.

@@ -25,6 +25,11 @@ class SetLocale
 
         $locale ??= $request->session()->get('locale');
 
+        // Settings-driven default (Step 3), falling back to config.
+        if (! $locale && \Illuminate\Support\Facades\Schema::hasTable('settings')) {
+            $locale = rescue(fn () => app(\App\Services\SettingsService::class)->get('app.locale_default'), null, false);
+        }
+
         $locale ??= config('app.locale', 'bn');
 
         if (! in_array($locale, ['en', 'bn'], true)) {

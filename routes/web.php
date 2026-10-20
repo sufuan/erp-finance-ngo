@@ -9,6 +9,7 @@ use App\Http\Controllers\FileController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Settings\BranchController;
 use App\Http\Controllers\Settings\BusinessDayController;
+use App\Http\Controllers\Settings\GeneralSettingsController;
 use App\Http\Controllers\Settings\PermissionController;
 use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\UserController;
@@ -69,6 +70,11 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
             Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
             Route::put('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
             Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
+        });
+
+        Route::middleware('can:settings.general')->group(function () {
+            Route::get('/general', [GeneralSettingsController::class, 'index'])->name('general.index');
+            Route::post('/general', [GeneralSettingsController::class, 'update'])->name('general.update');
         });
 
         Route::get('/permissions', [PermissionController::class, 'index'])
