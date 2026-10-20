@@ -35,7 +35,7 @@ One git commit per step; commits stay local on this machine (the parent workflow
 | Step | Title | Status | Tests | Commit |
 |---|---|---|---|---|
 | 0 | Project scaffold | done | 9 passed, 1 skipped (Chromium PDF — download stalls in this VM's network; mPDF Bengali smoke passes; CI installs Chrome) | bb0fe05 |
-| 1 | Core infrastructure | done | 19 passed, 1 skipped (Chromium) | see git log |
+| 1 | Core infrastructure | done | 19 passed, 1 skipped (Chromium) | 8d0d92a |
 | 2 | RBAC (Spatie) | pending | | |
 | 3 | Dynamic configuration | pending | | |
 | 3A | Accounting core | pending | | |
@@ -61,3 +61,20 @@ One git commit per step; commits stay local on this machine (the parent workflow
 - Uploads: private disk only, `FileController` requires auth (guests get 403), images re-encoded via GD (payload strip verified by test), `.xls` rejected.
 - Backup: `db:backup` verified locally (dump → disk); scheduler entry at 02:00; Supervisor config + cron/TLS notes in `docs/deploy/`.
 - Tests use `DatabaseTransactions` against the pre-migrated + seeded test DB (CI mirrors this: migrate --seed, then test).
+
+## Step 2 — notes
+
+Status: **done**. Tests: 36 passed, 1 skipped (Chromium PDF) — full suite green.
+
+### Seeded Super Admin (first login)
+- Username: `admin`
+- Password: `Tpda#Admin2026!` (seeded; `must_change_password` forces a change, then TOTP enrollment is mandatory for this role)
+
+### Built
+- Spatie RBAC: 139 permissions from `App\Support\PermissionCatalog` (16 modules), 6 system roles (super-admin 139, branch-manager all-but-3, accountant, field-officer, hr-officer, auditor=read-only set). Roles/permissions extended with label/description/is_system + module columns; every permission has `perm.<name>` labels in both lang files (263 keys total, parity-tested).
+- Users reshaped: username login (email nullable), argon2id (`config/hashing.php`), lockout 5 attempts → 15 min, `login_audits`, last_login tracking, idle session 30 min (`SESSION_LIFETIME`).
+- TOTP (pragmarx/google2fa + Bacon QR SVG): mandatory for super-admin / branch-manager / accountant — enrollment on first login, challenge on later logins; secret stored with the `encrypted` cast. Session flag `totp_passed_at` gates the app via `EnsureTotpVerified`; `EnsurePasswordChanged` runs before it.
+- Admin UI: Users (create/edit, roles + branch assignment with include_children, samity IDs, reset password with one-time temp password flash, activate/deactivate with last-super-admin + self guards, login history), Roles (permission matrix grouped by module, per-module select-all, search), Permissions (read-only catalog).
+- Segregation of duties: `AuthorizationService::assertDifferentMakerChecker` (used from Step 3A onward).
+- Branch scoping: `BranchAccessService` — switcher + active branch restricted to assignments (super-admin = all); switching to an unassigned branch returns 403.
+- Guards: system roles cannot be deleted or renamed; roles with users cannot be deleted; users cannot remove their own `settings.users-manage`.

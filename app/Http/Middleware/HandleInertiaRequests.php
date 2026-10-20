@@ -48,10 +48,12 @@ class HandleInertiaRequests extends Middleware
         $branchData = ['branches' => [], 'activeBranch' => null, 'businessDate' => null];
         if (\Illuminate\Support\Facades\Schema::hasTable('branches')) {
             $active = $request->attributes->get('active_branch');
+            // Step 2: the switcher lists only branches the user may access.
             $branchData = [
-                'branches' => \App\Models\Branch::active()
-                    ->orderBy('code')
-                    ->get(['id', 'code', 'name', 'type'])
+                'branches' => app(\App\Services\BranchAccessService::class)
+                    ->visibleBranches($request->user())
+                    ->map(fn ($b) => ['id' => $b->id, 'code' => $b->code, 'name' => $b->name, 'type' => $b->type])
+                    ->values()
                     ->toArray(),
                 'activeBranch' => $active ? [
                     'id' => $active->id, 'code' => $active->code,
@@ -74,11 +76,24 @@ class HandleInertiaRequests extends Middleware
                     'id' => $request->user()->id,
                     'name' => $request->user()->name,
                     'username' => $request->user()->username ?? null,
+                    'roles' => \Illuminate\Support\Facades\Schema::hasTable('roles')
+                        ? $request->user()->roles->pluck('name')->values()->all()
+                        : [],
                 ] : null,
+                // Nav-level permission hints (server routes remain authoritative).
+                'can' => $request->user() ? [
+                    'users' => $request->user()->can('settings.users-manage'),
+                    'roles' => $request->user()->can('settings.roles-manage'),
+                    'permissions' => $request->user()->can('settings.view'),
+                    'settings' => $request->user()->can('settings.view'),
+                ] : ['users' => false, 'roles' => false, 'permissions' => false, 'settings' => false],
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                // One-time temp password shown to the admin after a reset.
+                'temp_password' => fn () => $request->session()->get('temp_password'),
+                'temp_username' => fn () => $request->session()->get('temp_username'),
             ],
         ];
     }

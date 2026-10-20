@@ -2,14 +2,24 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class ScaffoldTest extends TestCase
 {
+    /**
+     * Since Step 2 the app requires login; tests authenticate as a plain
+     * user with no mandatory-TOTP role (Step 0's shell checks stay valid).
+     */
+    private function user(): User
+    {
+        return User::factory()->create(['must_change_password' => false]);
+    }
+
     public function test_home_page_renders_welcome_with_shared_translations(): void
     {
-        $this->get('/')
+        $this->actingAs($this->user())->get('/')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Welcome')
@@ -19,9 +29,14 @@ class ScaffoldTest extends TestCase
             );
     }
 
+    public function test_guests_are_redirected_to_login(): void
+    {
+        $this->get('/')->assertRedirect('/login');
+    }
+
     public function test_locale_switch_to_english_swaps_translations(): void
     {
-        $this->post('/locale/en')->assertRedirect();
+        $this->actingAs($this->user())->post('/locale/en')->assertRedirect();
 
         $this->get('/')
             ->assertOk()

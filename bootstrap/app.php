@@ -18,6 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\SetBusinessDate::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
         ]);
+        // Step 2 auth hardening: forced password change, then TOTP gate.
+        $middleware->alias([
+            'password.changed' => \App\Http\Middleware\EnsurePasswordChanged::class,
+            'totp' => \App\Http\Middleware\EnsureTotpVerified::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

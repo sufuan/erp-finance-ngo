@@ -111,6 +111,12 @@ class CoreInfrastructureTest extends TestCase
 
     public function test_branch_switcher_sets_active_branch(): void
     {
+        // Step 2: switching requires a logged-in user with branch access.
+        $admin = \App\Models\User::factory()->create(['must_change_password' => false]);
+        $admin->assignRole('super-admin');
+        $this->actingAs($admin);
+        $this->withSession(['totp_passed_at' => now()->toDateTimeString()]); // TOTP gate (Step 2)
+
         $this->post('/branch/switch', ['branch_id' => $this->branch->id])
             ->assertRedirect()
             ->assertSessionHas('active_branch_id', $this->branch->id);

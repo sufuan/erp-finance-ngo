@@ -43,10 +43,14 @@ export default function AppLayout({ children, branches: branchesProp = undefined
         router.post('/branch/switch', { branch_id: branchId }, { preserveScroll: true });
     };
 
+    const can = props.auth?.can ?? {};
     const nav = [
         { key: 'dashboard', href: '/', label: t('dashboard') },
         { key: 'branches', href: '/settings/branches', label: t('branches') },
         { key: 'business-day', href: '/settings/business-day', label: t('closing_business_day') },
+        ...(can.users ? [{ key: 'users', href: '/settings/users', label: t('users') }] : []),
+        ...(can.roles ? [{ key: 'roles', href: '/settings/roles', label: t('roles') }] : []),
+        ...(can.permissions ? [{ key: 'permissions', href: '/settings/permissions', label: t('permissions') }] : []),
     ];
 
     const sidebar = (
@@ -68,8 +72,17 @@ export default function AppLayout({ children, branches: branchesProp = undefined
                     </Link>
                 ))}
             </nav>
-            <div className="border-t border-zinc-200 p-3 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-                {t('powered_by')}
+            <div className="border-t border-zinc-200 p-3 dark:border-zinc-800">
+                {props.auth?.user && (
+                    <button
+                        type="button"
+                        onClick={() => router.post('/logout')}
+                        className="mb-2 block min-h-[44px] w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                    >
+                        {t('logout')} ({props.auth.user.username})
+                    </button>
+                )}
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">{t('powered_by')}</div>
             </div>
         </div>
     );
