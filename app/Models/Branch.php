@@ -13,8 +13,9 @@ class Branch extends Model
         'country', 'division', 'district', 'upazila', 'union',
         'manager_phone', 'address', 'latitude', 'longitude', 'status',
         'created_by', 'updated_by',
-        // Geo FKs (Step 4); string columns above remain the fallback.
-        'country_id', 'division_id', 'district_id', 'upazila_id', 'union_id',
+        // bd-geo-info package ids as plain strings (no FKs — geography
+        // lives in the npm package, not in database masters).
+        'division_id', 'district_id', 'upazila_id', 'union_id',
     ];
 
     protected $casts = [

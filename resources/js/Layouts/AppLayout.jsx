@@ -95,7 +95,7 @@ export default function AppLayout({ children, branches: branchesProp = undefined
             items: [
                 ...item('users', '/settings/users', 'users_roles', Users, 'violet', 'users', ['/settings/users']),
                 ...item('general', '/settings/general', 'general_settings', Settings, 'blue', 'settings', ['/settings/general']),
-                ...item('geo', '/settings/geo/countries', 'geography', Globe2, 'cyan', 'geo', ['/settings/geo']),
+                ...item('geo', '/settings/geo/villages', 'geography', Globe2, 'cyan', 'geo', ['/settings/geo']),
                 ...item('holidays', '/settings/holidays', 'holidays', Sun, 'orange', 'settings', ['/settings/holidays']),
                 ...item('notices', '/settings/notices', 'notices', Megaphone, 'rose', 'settings', ['/settings/notices']),
                 ...item('business-day', '/settings/business-day', 'closing_business_day', CalendarDays, 'amber', null, ['/settings/business-day']),

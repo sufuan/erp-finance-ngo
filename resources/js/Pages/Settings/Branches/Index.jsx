@@ -1,12 +1,14 @@
 import { Head, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import AppLayout from '../../../Layouts/AppLayout';
+import GeoCascade from '../../../Components/GeoCascade';
 import { Card, Field, PrimaryButton, ResponsiveTable, SelectInput, TextInput } from '../../../Components/ui';
 import { t } from '../../../lib/i18n';
 
 const empty = {
     code: '', name: '', type: 'Branch', parent_branch_id: '', opening_date: '',
     country: '', division: '', district: '', upazila: '', union: '',
+    division_id: '', district_id: '', upazila_id: '', union_id: '',
     manager_phone: '', address: '', latitude: '', longitude: '', status: 'Active',
 };
 
@@ -20,7 +22,10 @@ export default function Index({ branches, parents, types }) {
             code: branch.code, name: branch.name, type: branch.type,
             parent_branch_id: branch.parent?.id ?? '', opening_date: branch.opening_date ?? '',
             country: branch.country ?? '', division: branch.division ?? '', district: branch.district ?? '',
-            upazila: branch.upazila ?? '', union: branch.union ?? '', manager_phone: branch.manager_phone ?? '',
+            upazila: branch.upazila ?? '', union: branch.union ?? '',
+            division_id: branch.division_id ?? '', district_id: branch.district_id ?? '',
+            upazila_id: branch.upazila_id ?? '', union_id: branch.union_id ?? '',
+            manager_phone: branch.manager_phone ?? '',
             address: branch.address ?? '', latitude: '', longitude: '', status: branch.status,
         });
     };
@@ -94,21 +99,26 @@ export default function Index({ branches, parents, types }) {
                         <Field label={t('manager_phone')} error={form.errors.manager_phone}>
                             <TextInput value={form.data.manager_phone} onChange={(e) => form.setData('manager_phone', e.target.value)} />
                         </Field>
-                        <Field label={t('country')} error={form.errors.country}>
-                            <TextInput value={form.data.country} onChange={(e) => form.setData('country', e.target.value)} />
-                        </Field>
-                        <Field label={t('division')} error={form.errors.division}>
-                            <TextInput value={form.data.division} onChange={(e) => form.setData('division', e.target.value)} />
-                        </Field>
-                        <Field label={t('district')} error={form.errors.district}>
-                            <TextInput value={form.data.district} onChange={(e) => form.setData('district', e.target.value)} />
-                        </Field>
-                        <Field label={t('upazila')} error={form.errors.upazila}>
-                            <TextInput value={form.data.upazila} onChange={(e) => form.setData('upazila', e.target.value)} />
-                        </Field>
-                        <Field label={t('union')} error={form.errors.union}>
-                            <TextInput value={form.data.union} onChange={(e) => form.setData('union', e.target.value)} />
-                        </Field>
+                        {/* Geography comes from the bd-geo-info package via
+                            GeoCascade (no country level — Bangladesh only);
+                            names land in the plain string columns and the
+                            package ids in the plain *_id columns. */}
+                        <GeoCascade
+                            value={{
+                                division_id: form.data.division_id, division_name: form.data.division,
+                                district_id: form.data.district_id, district_name: form.data.district,
+                                upazila_id: form.data.upazila_id, upazila_name: form.data.upazila,
+                                union_id: form.data.union_id, union_name: form.data.union,
+                            }}
+                            onChange={(next) => form.setData({
+                                ...form.data,
+                                division_id: next.division_id, division: next.division_name,
+                                district_id: next.district_id, district: next.district_name,
+                                upazila_id: next.upazila_id, upazila: next.upazila_name,
+                                union_id: next.union_id, union: next.union_name,
+                            })}
+                            errors={form.errors}
+                        />
                         <Field label={t('status')} required error={form.errors.status}>
                             <SelectInput value={form.data.status} onChange={(e) => form.setData('status', e.target.value)}>
                                 <option value="Active">{t('active')}</option>

@@ -3,19 +3,19 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Village (manual master). Its geography is NOT a database relation:
+ * division/district/upazila/union are plain stored values (bd-geo-info
+ * package id as string + name) captured from the GeoCascade dropdowns.
+ */
 class Village extends Model
 {
-    protected $fillable = ['name', 'union_id', 'upazila_id'];
-
-    public function union(): BelongsTo
-    {
-        return $this->belongsTo(Union::class);
-    }
-
-    public function upazila(): BelongsTo
-    {
-        return $this->belongsTo(Upazila::class);
-    }
+    protected $fillable = [
+        'name',
+        'division_id', 'division_name',
+        'district_id', 'district_name',
+        'upazila_id', 'upazila_name',
+        'union_id', 'union_name',
+    ];
 }

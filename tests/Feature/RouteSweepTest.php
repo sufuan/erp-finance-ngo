@@ -96,9 +96,7 @@ class RouteSweepTest extends TestCase
             '/settings/balance-migrations', "/settings/balance-migrations/{$balanceBatch->id}",
             '/settings/branches', '/settings/business-day', '/settings/directors',
             '/settings/employees', '/settings/general',
-            '/settings/geo/countries', '/settings/geo/divisions', '/settings/geo/districts',
-            '/settings/geo/upazilas', '/settings/geo/unions', '/settings/geo/villages',
-            '/settings/geo/working-areas',
+            '/settings/geo/villages', '/settings/geo/working-areas',
             '/settings/holidays',
             '/settings/member-migrations', "/settings/member-migrations/{$memberBatch->id}",
             '/settings/notices', '/settings/permissions', '/settings/roles', '/settings/samities',
@@ -125,6 +123,6 @@ class RouteSweepTest extends TestCase
         }
 
         $this->assertSame([], $failures, "Route sweep failures:\n".implode("\n", $failures));
-        $this->assertCount(82, $urls);
+        $this->assertCount(77, $urls);
     }
 }

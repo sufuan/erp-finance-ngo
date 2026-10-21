@@ -1,6 +1,6 @@
 import {
     ArrowLeftRight, Ban, Banknote, Briefcase, Building2, CalendarDays, Clock3, FilePlus2,
-    Globe2, HandCoins, History, IdCard, Landmark, LayoutGrid, ListChecks, MapPin, Megaphone,
+    HandCoins, History, IdCard, Landmark, LayoutGrid, ListChecks, MapPin, Megaphone,
     Package, PiggyBank, Scale, ScrollText, Settings, ShieldCheck, Sun, Unlock, UploadCloud,
     UserPlus, Users, UserX, Wallet, XCircle,
 } from 'lucide-react';
@@ -217,11 +217,9 @@ export const MODULES = [
             {
                 titleKey: 'address_settings',
                 links: [
-                    L('/settings/geo/countries', 'countries', Globe2, 'blue', 'geo'),
-                    L('/settings/geo/divisions', 'divisions', MapPin, 'teal', 'geo'),
-                    L('/settings/geo/districts', 'districts', MapPin, 'green', 'geo'),
-                    L('/settings/geo/upazilas', 'upazilas', MapPin, 'amber', 'geo'),
-                    L('/settings/geo/unions', 'unions', MapPin, 'violet', 'geo'),
+                    // Division/district/upazila/union are picked from the
+                    // bd-geo-info package inside forms — only the manual
+                    // masters (villages, working areas) have pages.
                     L('/settings/geo/villages', 'villages', MapPin, 'pink', 'geo'),
                     L('/settings/geo/working-areas', 'working_areas', MapPin, 'cyan', 'geo'),
                 ],

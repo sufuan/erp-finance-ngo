@@ -1,19 +1,30 @@
 import { Link, router, useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import GeoCascade from '../../../Components/GeoCascade';
 import { Field, PrimaryButton, inputCls } from '../../../Components/ui';
 import AppLayout from '../../../Layouts/AppLayout';
 import { t } from '../../../lib/i18n';
 
+const CHAIN_KEYS = [
+    'division_id', 'division_name', 'district_id', 'district_name',
+    'upazila_id', 'upazila_name', 'union_id', 'union_name',
+];
+const emptyChain = Object.fromEntries(CHAIN_KEYS.map((k) => [k, '']));
+
 /**
- * One generic page for all seven geographic masters (Step 4). Desktop
- * shows a table; small screens show cards. Parent selects cascade:
- * choosing a division filters districts, and so on down the chain.
+ * Manual geography masters (reworked): only Villages and Working Areas
+ * live here. Division → District → Upazila → Union are picked through
+ * GeoCascade (bd-geo-info package data) and stored as plain values.
+ * A village's chain is complete (it hangs under a union); a working
+ * area's chain and village are optional.
  */
 export default function GeoIndex({ entity, label, items, parentFields, filters, entities }) {
+    const isVillage = entity === 'villages';
     const [editingId, setEditingId] = useState(null);
     const [search, setSearch] = useState(filters.search ?? '');
-    const empty = { name: '', ...Object.fromEntries(parentFields.map((f) => [f.key, ''])) };
+    const empty = { name: '', ...emptyChain, village_id: '' };
     const { data, setData, post, put, processing, errors, reset } = useForm(empty);
+    const villageField = parentFields.find((f) => f.key === 'village_id');
 
     useEffect(() => {
         const id = setTimeout(() => {
@@ -22,19 +33,12 @@ export default function GeoIndex({ entity, label, items, parentFields, filters, 
         return () => clearTimeout(id);
     }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const optionsFor = (field) => {
-        if (!field.depends_on) return field.options;
-        const parentValue = data[field.depends_on];
-        if (!parentValue) return [];
-        return field.options.filter((o) => String(o[field.depends_on]) === String(parentValue));
-    };
-
     const startEdit = (item) => {
         setEditingId(item.id);
-        const next = { name: item.name };
-        parentFields.forEach((f) => { next[f.key] = item[f.key] ?? ''; });
-        if (entity === 'villages') next.union_id = item.union_id ?? '';
+        const next = { name: item.name, village_id: item.village_id ?? '' };
+        CHAIN_KEYS.forEach((k) => { next[k] = item[k] ?? ''; });
         setData(next);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
     const startCreate = () => { setEditingId(null); reset(); setData(empty); };
     const submit = (e) => {
@@ -42,15 +46,16 @@ export default function GeoIndex({ entity, label, items, parentFields, filters, 
         if (editingId) put(`/settings/geo/${entity}/${editingId}`, { preserveScroll: true, onSuccess: () => setEditingId(null) });
         else post(`/settings/geo/${entity}`, { preserveScroll: true, onSuccess: () => reset() });
     };
-    const changeParent = (field, value) => {
-        // Reset descendants when a parent changes (chain stays valid).
-        const next = { ...data, [field.key]: value };
-        parentFields.forEach((f) => { if (f.depends_on === field.key) next[f.key] = ''; });
-        setData(next);
-    };
 
-    const parentNames = (item) =>
-        parentFields.map((f) => item[f.label]?.name).filter(Boolean).join(' / ');
+    // Location summary for a row: village name (areas) + the chain names.
+    const parentNames = (item) => {
+        const parts = [];
+        if (item.village?.name) parts.push(item.village.name);
+        ['union_name', 'upazila_name', 'district_name', 'division_name'].forEach((k) => {
+            if (item[k]) parts.push(item[k]);
+        });
+        return parts.join(' / ');
+    };
 
     return (
         <AppLayout>
@@ -71,14 +76,20 @@ export default function GeoIndex({ entity, label, items, parentFields, filters, 
                     <Field label={t('full_name')} required error={errors.name}>
                         <input className={inputCls} value={data.name} onChange={(e) => setData('name', e.target.value)} required />
                     </Field>
-                    {parentFields.map((f) => (
-                        <Field key={f.key} label={t(f.label)} required={entity !== 'working-areas'} error={errors[f.key]}>
-                            <select className={inputCls} value={data[f.key]} onChange={(e) => changeParent(f, e.target.value)} required={entity !== 'working-areas'}>
+                    <GeoCascade
+                        value={data}
+                        onChange={(next) => setData({ ...data, ...next })}
+                        required={isVillage}
+                        errors={errors}
+                    />
+                    {villageField && (
+                        <Field label={t('village')} error={errors.village_id}>
+                            <select className={inputCls} value={data.village_id} onChange={(e) => setData('village_id', e.target.value)}>
                                 <option value="">—</option>
-                                {optionsFor(f).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                                {villageField.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                             </select>
                         </Field>
-                    ))}
+                    )}
                 </div>
                 <div className="mt-4 flex gap-2">
                     <PrimaryButton type="submit" disabled={processing}>{t('save')}</PrimaryButton>

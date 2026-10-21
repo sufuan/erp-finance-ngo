@@ -20,6 +20,7 @@
         "@fontsource/hind-siliguri": "^5.3.0",
         "@inertiajs/react": "^3.9.1",
         "@vitejs/plugin-react": "^6.1.2",
+        "bd-geo-info": "^5.0.3",
         "lucide-react": "^1.61.0",
         "puppeteer": "^25.15.0",
         "react": "^19.3.1",

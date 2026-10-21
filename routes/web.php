@@ -109,10 +109,10 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
         });
 
         Route::middleware('can:settings.geo')->group(function () {
-            Route::get('/geo/{entity}', [GeoController::class, 'index'])->name('geo.index');
-            Route::post('/geo/{entity}', [GeoController::class, 'store'])->name('geo.store');
-            Route::put('/geo/{entity}/{id}', [GeoController::class, 'update'])->name('geo.update');
-            Route::delete('/geo/{entity}/{id}', [GeoController::class, 'destroy'])->name('geo.destroy');
+            Route::get('/geo/{entity}', [GeoController::class, 'index'])->name('geo.index')->whereIn('entity', ['villages', 'working-areas']);
+            Route::post('/geo/{entity}', [GeoController::class, 'store'])->name('geo.store')->whereIn('entity', ['villages', 'working-areas']);
+            Route::put('/geo/{entity}/{id}', [GeoController::class, 'update'])->name('geo.update')->whereIn('entity', ['villages', 'working-areas']);
+            Route::delete('/geo/{entity}/{id}', [GeoController::class, 'destroy'])->name('geo.destroy')->whereIn('entity', ['villages', 'working-areas']);
         });
 
         Route::get('/permissions', [PermissionController::class, 'index'])
