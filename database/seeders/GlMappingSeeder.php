@@ -47,6 +47,8 @@ class GlMappingSeeder extends Seeder
             ['loan.fee.emi_locker', '1010', '4034', 'EMI locker fee collected'],
             ['loan.fee.others', '1010', '4035', 'Other fees collected'],
             ['loan.penalty', '1010', '4020', 'Penalty collected'],
+            ['loan.advance', '1010', '2060', 'Loan overpayment held as payable (advance)'],
+            ['loan.advance.refund', '2060', '1010', 'Loan advance refunded in cash'],
             ['loan.provision', '5030', '1120', 'Loan loss provision expense'],
             ['loan.writeoff', '1120', '1100', 'Loan written off against provision'],
 
