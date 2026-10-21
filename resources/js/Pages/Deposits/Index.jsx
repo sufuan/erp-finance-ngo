@@ -19,6 +19,10 @@ export default function DepositIndex({ accounts, filters, products }) {
             <div className="mb-4 flex flex-wrap items-center gap-2">
                 <h1 className="text-xl font-semibold">{t('account_list')}</h1>
                 <Link href="/deposits/opening" className="ml-auto min-h-[44px] rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">{t('deposit_account_opening')}</Link>
+                <Link href="/deposits/receive" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('deposit_receive')}</Link>
+                <Link href="/deposits/payment" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('deposit_payment')}</Link>
+                <Link href="/deposits/transfer" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('deposit_transfer')}</Link>
+                <Link href="/deposits/share" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('share_receive')}</Link>
                 <Link href="/deposits/other" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('other_account_opening')}</Link>
                 <Link href="/deposits/products" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('deposit_products')}</Link>
             </div>
