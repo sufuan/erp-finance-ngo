@@ -29,6 +29,7 @@ class GlMappingSeeder extends Seeder
             ['deposit.profit.tds', '2010', '2040', 'TDS withheld from member profit'],
             ['deposit.profit.pay', '2010', '1010', 'Profit paid to member in cash'],
             ['deposit.close.charge', '2010', '4035', 'Deposit closing charge to fee income'],
+            ['deposit.close.penalty', '2010', '4020', 'Premature closing penalty to penalty income'],
 
             ['loan.disbursement', '1100', '1010', 'Loan disbursed in cash'],
             ['loan.receive', '1010', '1100', 'Installment received against loan portfolio'],

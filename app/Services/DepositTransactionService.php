@@ -43,11 +43,25 @@ class DepositTransactionService
         };
     }
 
+    /** Uncleared withdrawal-block total holding back debits (Step 12). */
+    public function withdrawalBlockTotal(DepositAccount $account): string
+    {
+        $sum = \App\Models\DepositBlock::where('account_id', $account->id)
+            ->whereNull('clear_date')->where('withdrawal_block', true)->sum('block_amount');
+
+        return (string) BigDecimal::of((string) $sum)->toScale(2, \Brick\Math\RoundingMode::HalfUp);
+    }
+
     public function receive(DepositAccount $account, string $amount, ?string $documentNumber, ?string $comments, User $actor): DepositTransaction
     {
         return DB::transaction(function () use ($account, $amount, $documentNumber, $comments, $actor) {
             $account = $this->lockedAccount($account->id);
             $this->assertActive($account);
+            // Step 12: an uncleared deposit block stops money coming in.
+            if (\App\Models\DepositBlock::where('account_id', $account->id)
+                ->whereNull('clear_date')->where('deposit_block', true)->exists()) {
+                throw ValidationException::withMessages(['account_id' => __('deposits_blocked')]);
+            }
             $businessDate = $this->businessDays->currentDate($account->branch_id);
 
             $detail = DepositTransaction::create([
@@ -265,13 +279,19 @@ class DepositTransactionService
         }
     }
 
-    /** Minimum-balance + lien guards shared by payments and transfer-outs. */
+    /** Minimum-balance + lien + block guards shared by payments and transfer-outs. */
     private function assertDebitAllowed(DepositAccount $account, string $amount): void
     {
         $account->loadMissing('product');
         $after = BigDecimal::of((string) $account->current_balance)->minus($amount);
         if ($after->isLessThan(BigDecimal::of((string) $account->product->minimum_balance))) {
             throw ValidationException::withMessages(['amount' => __('below_minimum_balance')]);
+        }
+        // Step 12: uncleared withdrawal blocks reserve their amount, like liens.
+        $reserved = BigDecimal::of($this->accounts->activeLienTotal($account))
+            ->plus($this->withdrawalBlockTotal($account));
+        if ($after->isLessThan($reserved)) {
+            throw ValidationException::withMessages(['amount' => __('amount_blocked')]);
         }
         $this->accounts->assertWithdrawable($account, $amount);
     }

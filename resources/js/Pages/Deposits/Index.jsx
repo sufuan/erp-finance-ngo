@@ -23,6 +23,8 @@ export default function DepositIndex({ accounts, filters, products }) {
                 <Link href="/deposits/payment" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('deposit_payment')}</Link>
                 <Link href="/deposits/transfer" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('deposit_transfer')}</Link>
                 <Link href="/deposits/share" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('share_receive')}</Link>
+                <Link href="/deposits/blocks" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('transaction_block')}</Link>
+                <Link href="/deposits/closing" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('deposit_closing')}</Link>
                 <Link href="/deposits/other" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('other_account_opening')}</Link>
                 <Link href="/deposits/products" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('deposit_products')}</Link>
             </div>
