@@ -49,14 +49,14 @@ class RbacTest extends TestCase
         return $user;
     }
 
-    public function test_permission_catalog_is_seeded_with_139_permissions_and_6_roles(): void
+    public function test_permission_catalog_is_seeded_with_141_permissions_and_6_roles(): void
     {
-        $this->assertSame(139, count(PermissionCatalog::all()));
-        $this->assertSame(139, Permission::count());
+        $this->assertSame(141, count(PermissionCatalog::all()));
+        $this->assertSame(141, Permission::count());
         $this->assertSame(6, Role::count());
         $superAdmin = Role::where('name', 'super-admin')->first();
         $this->assertTrue((bool) $superAdmin->is_system);
-        $this->assertSame(139, $superAdmin->permissions()->count());
+        $this->assertSame(141, $superAdmin->permissions()->count());
         $manager = Role::where('name', 'branch-manager')->first();
         $this->assertFalse($manager->hasPermissionTo('settings.users-manage'));
         $this->assertFalse($manager->hasPermissionTo('accounts.breakglass'));

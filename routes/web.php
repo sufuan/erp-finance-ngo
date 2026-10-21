@@ -21,6 +21,7 @@ use App\Http\Controllers\Settings\GeneralSettingsController;
 use App\Http\Controllers\Settings\GeoController;
 use App\Http\Controllers\Settings\MemberMigrationController;
 use App\Http\Controllers\Settings\PermissionController;
+use App\Http\Controllers\Loans\LoanMasterController;
 use App\Http\Controllers\Reports\DepositReportController;
 use App\Http\Controllers\Settings\RegisterController;
 use App\Http\Controllers\Settings\RoleController;
@@ -214,6 +215,17 @@ Route::middleware(['auth', 'password.changed', 'totp'])->prefix('deposits')->nam
     Route::post('/products', [DepositProductController::class, 'store'])->middleware('can:deposits.profit-setup')->name('products.store');
     Route::put('/products/{product}', [DepositProductController::class, 'update'])->middleware('can:deposits.profit-setup')->name('products.update');
     Route::delete('/products/{product}', [DepositProductController::class, 'destroy'])->middleware('can:deposits.profit-setup')->name('products.destroy');
+});
+
+Route::middleware(['auth', 'password.changed', 'totp'])->prefix('loans')->name('loans.')->group(function () {
+    Route::get('/products', [LoanMasterController::class, 'productsIndex'])->middleware('can:loans.products')->name('products');
+    Route::post('/products', [LoanMasterController::class, 'storeProduct'])->middleware('can:loans.products')->name('products.store');
+    Route::put('/products/{product}', [LoanMasterController::class, 'updateProduct'])->middleware('can:loans.products')->name('products.update');
+    Route::delete('/products/{product}', [LoanMasterController::class, 'destroyProduct'])->middleware('can:loans.products')->name('products.destroy');
+    Route::get('/installment-settings', [LoanMasterController::class, 'emiIndex'])->middleware('can:loans.products')->name('installment-settings');
+    Route::post('/installment-settings', [LoanMasterController::class, 'storeEmi'])->middleware('can:loans.products')->name('installment-settings.store');
+    Route::put('/installment-settings/{template}', [LoanMasterController::class, 'updateEmi'])->middleware('can:loans.products')->name('installment-settings.update');
+    Route::delete('/installment-settings/{template}', [LoanMasterController::class, 'destroyEmi'])->middleware('can:loans.products')->name('installment-settings.destroy');
 });
 
 Route::prefix('reports')->name('reports.')->middleware(['auth', 'password.changed', 'totp'])->group(function () {

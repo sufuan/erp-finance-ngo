@@ -43,6 +43,8 @@ class PermissionCatalog
             'deposits.reports' => ['deposits', 'Deposits — Reports'],
             'deposits.lien' => ['deposits', 'Deposits — Lien'],
             'deposits.maturity' => ['deposits', 'Deposits — Maturity'],
+            'loans.products' => ['loans', 'Loans — Manage Products & Installment Settings'],
+            'loans.rate-override' => ['loans', 'Loans — Rate Override'],
             'loans.view' => ['loans', 'Loans — View'],
             'loans.propose' => ['loans', 'Loans — Propose'],
             'loans.approve' => ['loans', 'Loans — Approve'],
