@@ -298,3 +298,10 @@ Status: **done**. Tests: 155 passed, 1 skipped — full suite green. 92 tables, 
 - Fix: layouts now sync the store during render (children render after, always current). Switch also persists via a 1-year `locale` cookie (SetLocale priority: user → session → cookie → settings default).
 - Default UI language is now English everywhere (settings seed, users.locale DB default via migration, factory, .env.example, JS fallbacks) — still fully changeable per user and in Settings.
 - Tests: new `LocaleSwitchTest` (3 tests: default en, switch persists to DB + applies on next render, guest cookie honoured). Full suite: 158 passed, 1 skipped.
+
+## Fix — General Settings white screen (2026-10-21, owner report)
+
+- Bug: opening General Settings could leave a completely white page. Root cause: the page's form setup calls `.join()` on the list-type settings (`print.header_lines`, `loan.allocation_order`). If such a value reached the browser as a plain string instead of an array — which happens whenever the stored JSON was encoded twice (a JSON string wrapping the real JSON) — `Setting::decodedValue()` returned the string as-is, React threw during render, the whole app unmounted, and with no error boundary anywhere the user got a bare white screen on every visit.
+- Fix (three layers): (1) `Setting::decodeJson()` now unwraps double-encoded JSON until the real array/object comes out, so every consumer gets the documented shape; (2) the General Settings page coerces its json settings with `asArray`/`asObject` guards before any array operation, so no stored shape can throw again; (3) a new app-wide `ErrorBoundary` shows a bilingual reload panel instead of a white screen if any component ever fails.
+- Verified: a DOM harness mounting the real page with the poisoned (string-shaped) props reproduced the crash before the fix (`.join is not a function`) and renders all six tabs after it.
+- Tests: new `SettingsTest` cases — the page props contain every key all six tabs need with the correct shapes, and the page survives double-encoded list/object settings (200 + recovered arrays). SettingsTest 7 passed.

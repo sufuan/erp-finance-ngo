@@ -7,6 +7,7 @@ import '@fontsource/hind-siliguri/700.css';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
+import ErrorBoundary from './Components/ErrorBoundary';
 import { initI18n } from './lib/i18n';
 
 // Night mode: restore before first paint to avoid a flash.
@@ -28,7 +29,11 @@ createInertiaApp({
             translations_version: props.initialPage.props.translations_version,
         });
         const root = createRoot(el);
-        root.render(<App {...props} />);
+        root.render(
+            <ErrorBoundary>
+                <App {...props} />
+            </ErrorBoundary>,
+        );
     },
     progress: {
         color: '#16a34a',

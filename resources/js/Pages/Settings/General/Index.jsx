@@ -8,6 +8,12 @@ import { t } from '../../../lib/i18n';
  * General Settings (Step 3): one form, tabbed sections. Every value is
  * dynamic — app name, rates, fees, GPS — stored via SettingsService.
  */
+// Shape guards: a stored setting can arrive in an unexpected shape (older
+// build, manual DB edit). Array/object operations on a string used to throw
+// during render and white-screen the whole page — coerce instead.
+const asArray = (v) => (Array.isArray(v) ? v : []);
+const asObject = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+
 export default function GeneralSettings({ profile, settings }) {
     const [tab, setTab] = useState('organization');
     const s = settings ?? {};
@@ -25,19 +31,19 @@ export default function GeneralSettings({ profile, settings }) {
             'app.locale_default': s['app.locale_default'] ?? 'bn',
             'locale.number_system': s['locale.number_system'] ?? 'arabic',
             'locale.date_format': s['locale.date_format'] ?? 'd-M-Y',
-            'print.header_lines': (s['print.header_lines'] ?? []).join('\n'),
+            'print.header_lines': asArray(s['print.header_lines']).join('\n'),
             'print.footer_text': s['print.footer_text'] ?? '',
             'loan.default_profit_rate': s['loan.default_profit_rate'] ?? 15,
             'loan.max_service_charge_rate': s['loan.max_service_charge_rate'] ?? 24,
-            'loan.allocation_order': (s['loan.allocation_order'] ?? []).join(', '),
+            'loan.allocation_order': asArray(s['loan.allocation_order']).join(', '),
             'loan.allow_overpayment': !!s['loan.allow_overpayment'],
-            'loan.enabled_frequencies': s['loan.enabled_frequencies'] ?? ['D', 'W', 'M'],
-            'loan.fee_defaults': { form: 0, health: 0, risk: 0, document: 0, emi_locker: 0, others: 0, ...(s['loan.fee_defaults'] ?? {}) },
-            'llp.rates': { standard: 1, watchlist: 5, substandard: 25, doubtful: 75, loss: 100, ...(s['llp.rates'] ?? {}) },
+            'loan.enabled_frequencies': Array.isArray(s['loan.enabled_frequencies']) ? s['loan.enabled_frequencies'] : ['D', 'W', 'M'],
+            'loan.fee_defaults': { form: 0, health: 0, risk: 0, document: 0, emi_locker: 0, others: 0, ...asObject(s['loan.fee_defaults']) },
+            'llp.rates': { standard: 1, watchlist: 5, substandard: 25, doubtful: 75, loss: 100, ...asObject(s['llp.rates']) },
             'llp.basis': s['llp.basis'] ?? 'net_outstanding',
             'profit.tax_withholding_rate': s['profit.tax_withholding_rate'] ?? 0,
             'accounts.auth_amount_threshold': s['accounts.auth_amount_threshold'] ?? 50000,
-            'deposit.default_profit_rates': { savings: 0, dps: 0, fdr: 0, ...(s['deposit.default_profit_rates'] ?? {}) },
+            'deposit.default_profit_rates': { savings: 0, dps: 0, fdr: 0, ...asObject(s['deposit.default_profit_rates']) },
             'deposit.closing_charge': s['deposit.closing_charge'] ?? 0,
             'sms.sender_id': s['sms.sender_id'] ?? '',
             'sms.gateway': s['sms.gateway'] ?? '',

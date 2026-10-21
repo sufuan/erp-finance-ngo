@@ -84,6 +84,81 @@ class SettingsTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->component('Settings/General/Index')->has('profile')->has('settings'));
     }
 
+    public function test_general_settings_page_props_contain_every_sections_data(): void
+    {
+        $this->admin();
+
+        // Every key the six tabs (organization, application, loan, deposit,
+        // sms, gps) read must be present in the props with the right shape —
+        // a missing or string-shaped list setting is what white-screened
+        // this page in the browser.
+        $settingKeys = [
+            'app.name', 'app.locale_default', 'locale.number_system', 'locale.date_format',
+            'print.header_lines', 'print.footer_text',
+            'loan.default_profit_rate', 'loan.max_service_charge_rate', 'loan.allocation_order',
+            'loan.allow_overpayment', 'loan.enabled_frequencies', 'loan.fee_defaults',
+            'llp.rates', 'llp.basis', 'profit.tax_withholding_rate', 'accounts.auth_amount_threshold',
+            'deposit.default_profit_rates', 'deposit.closing_charge',
+            'sms.sender_id', 'sms.gateway', 'sms.enabled',
+            'gps.enabled', 'gps.interval_seconds', 'gps.retention_days', 'app.max_offline_days',
+        ];
+
+        $response = $this->get('/settings/general')->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Settings/General/Index')->has('profile')->has('settings'));
+
+        // Setting keys literally contain dots, so assert on the raw props
+        // array rather than Inertia's dot-path assertions.
+        $props = $response->viewData('page')['props'];
+        foreach (['name_en', 'name_bn', 'org_type', 'registration_no', 'mobile_app_name', 'contact_person'] as $field) {
+            $this->assertArrayHasKey($field, $props['profile'], "profile.{$field} missing");
+        }
+        foreach ($settingKeys as $key) {
+            $this->assertArrayHasKey($key, $props['settings'], "settings key {$key} missing");
+        }
+        $s = $props['settings'];
+        $this->assertSame(['penalty', 'profit', 'principal'], $s['loan.allocation_order']);
+        $this->assertSame(['D', 'W', 'M'], $s['loan.enabled_frequencies']);
+        $this->assertIsArray($s['print.header_lines']);
+        $this->assertNotEmpty($s['print.header_lines']);
+        foreach (['form', 'health', 'risk', 'document', 'emi_locker', 'others'] as $fee) {
+            $this->assertArrayHasKey($fee, $s['loan.fee_defaults'], "fee_defaults.{$fee} missing");
+        }
+        foreach (['standard', 'watchlist', 'substandard', 'doubtful', 'loss'] as $class) {
+            $this->assertArrayHasKey($class, $s['llp.rates'], "llp.rates.{$class} missing");
+        }
+        foreach (['savings', 'dps', 'fdr'] as $kind) {
+            $this->assertArrayHasKey($kind, $s['deposit.default_profit_rates'], "default_profit_rates.{$kind} missing");
+        }
+    }
+
+    public function test_general_settings_page_survives_double_encoded_json_settings(): void
+    {
+        $this->admin();
+
+        // Regression: a list/object setting stored double-encoded (a JSON
+        // string wrapping the real JSON) used to reach the page as a plain
+        // string; the form initializer called .join() on it, React threw,
+        // and the whole app went white. The decoder must unwrap it.
+        foreach (['loan.allocation_order', 'print.header_lines', 'loan.fee_defaults'] as $key) {
+            $setting = \App\Models\Setting::where('key', $key)->first();
+            $setting->forceFill(['value' => json_encode(json_encode($setting->decodedValue()))])->save();
+        }
+        Cache::flush();
+
+        $settings = app(SettingsService::class);
+        $this->assertSame(['penalty', 'profit', 'principal'], $settings->get('loan.allocation_order'));
+        $this->assertIsArray($settings->get('print.header_lines'));
+        $this->assertIsArray($settings->get('loan.fee_defaults'));
+
+        $response = $this->get('/settings/general')->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Settings/General/Index')->has('settings'));
+        $s = $response->viewData('page')['props']['settings'];
+        $this->assertSame(['penalty', 'profit', 'principal'], $s['loan.allocation_order']);
+        $this->assertIsArray($s['print.header_lines']);
+        $this->assertNotEmpty($s['print.header_lines']);
+        $this->assertArrayHasKey('form', $s['loan.fee_defaults']);
+    }
+
     public function test_updating_settings_via_ui_changes_app_name_and_audits(): void
     {
         $admin = $this->admin();
