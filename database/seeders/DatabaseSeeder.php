@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             GeoSeeder::class,
             HrmMasterSeeder::class,
             EmployeeSeeder::class,
+            SamitySeeder::class,
         ]);
     }
 }

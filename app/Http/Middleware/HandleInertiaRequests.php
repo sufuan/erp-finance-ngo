@@ -91,6 +91,8 @@ class HandleInertiaRequests extends Middleware
                     'employees' => $request->user()->can('hrm.employees'),
                 ] : ['users' => false, 'roles' => false, 'permissions' => false, 'settings' => false, 'geo' => false, 'hrm' => false, 'employees' => false],
             ],
+            // Latest topbar notice (Step 7).
+            'notice' => $this->latestNotice(),
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
@@ -119,6 +121,21 @@ class HandleInertiaRequests extends Middleware
         }
 
         return (string) config('app.name');
+    }
+
+    private function latestNotice(): ?array
+    {
+        if (\Illuminate\Support\Facades\Schema::hasTable('notices')) {
+            try {
+                $notice = \App\Models\Notice::orderByDesc('id')->first();
+
+                return $notice ? ['text' => $notice->text, 'color' => $notice->text_color] : null;
+            } catch (\Throwable) {
+                // Notices not migrated yet.
+            }
+        }
+
+        return null;
     }
 
     private function orgName(string $locale): ?string

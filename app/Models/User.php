@@ -39,6 +39,12 @@ class User extends Authenticatable
         return $this->belongsToMany(Branch::class, 'branch_user')->withPivot('include_children')->withTimestamps();
     }
 
+    /** Samities assigned for Field Officer row scoping (Step 7). */
+    public function samities(): BelongsToMany
+    {
+        return $this->belongsToMany(Samity::class, 'samity_user')->withTimestamps();
+    }
+
     public function isLocked(): bool
     {
         return $this->locked_until && $this->locked_until->isFuture();

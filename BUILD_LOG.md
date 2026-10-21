@@ -137,3 +137,16 @@ Status: **done**. Tests: 72 passed, 1 skipped (Chromium PDF) — full suite gree
 - Seeds: Md. Mostafa (Executive Director, HO) + Talgachi branch manager (wired into `branches.manager_id` and the Microfinance Operations department `incharge_id`) + 2 field officers.
 - Step 5's `HrmMastersTest` used `incharge_id = 42` with the comment "plain column until Step 6" — updated to a real employee id now that the FK exists, exactly as that test anticipated.
 - Lang files now 403 keys in both en/bn.
+
+## Step 7 — notes
+
+Status: **done**. Tests: 82 passed, 1 skipped (Chromium PDF) — full suite green.
+
+- Environment incident: the VM was replaced a second time mid-step (PHP/MySQL/Redis binaries vanished; `~/workspace` intact, Step 6 commit safe). The platform's os-intent replay restored parts (Ubuntu MySQL 8.0, Redis) but not the pinned stack; `env_setup.sh` then rebuilt everything — PHP 8.4.26, MySQL **8.4.13**, Redis PONG, both DBs recreated. Note: a backgrounded `env_setup.sh | tail` masked the script's real exit code earlier in the incident; the script itself is fine and idempotent. `log_bin_trust_function_creators` re-set globally + persisted in `/etc/mysql/mysql.conf.d/zz-tpda.cnf`.
+- Tables: `samities` (code = one global 4-digit sequence via NumberingService head-office scope, geo lat/lng, day/center-type enums), `samity_day_changes` / `samity_officer_changes` / `samity_manager_changes`, `holidays`, `notices`. `samity_user.samity_id` FK enforced here as planned.
+- `SamityScope` (global scope, applied via attribute on Samity; reads the pivot table directly to avoid scope recursion) restricts Field Officers to assigned samities at query level; `SamityAccessService` guards single-samity routes with 403. Both unit- and web-tested (list scoping + change-page 403 for unassigned samity).
+- Pages: Samity Opening (form + list, browser-geolocation "Use My Location" + OpenStreetMap link), Day/Officer/Manager change (current readonly → new value + effective date + comments, history tables), Holidays (single/range, max 31 days, existing dates skipped), Notices (latest renders in the topbar via shared Inertia prop, in its chosen color), Merge (same-branch only; members moved with a per-member audit entry; source closed as `Merged`; active-loan block unless manager-approved), Split (new-samity form pre-filled from source, member pick-list). Gated `settings.view` (read) / `settings.general` (write).
+- Merge/split loan-block checks and member moves already operate on `members`/`loan_accounts` when those tables exist (`Schema::hasTable` guards) — they become fully live in Steps 8/17 with no code change.
+- Step 2's `RbacTest` used placeholder samity ids `11, 12`; updated to the real seeded samity ids now that the FK is live (same anticipated forward-fix pattern as Step 6).
+- Seeds: Talgachi Samity (Wed, officer Rofiqul) + Talgachi Mohila Samity (Sun, Female, officer Sharmin).
+- Lang files now 467 keys in both en/bn.

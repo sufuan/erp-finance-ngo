@@ -153,20 +153,22 @@ class RbacTest extends TestCase
     {
         $admin = $this->makeUser('super-admin');
         $branch = Branch::where('code', '102')->first();
+        // Real samity ids since Step 7 (samity_user.samity_id FK is live).
+        $samityIds = \App\Models\Samity::withoutGlobalScopes()->orderBy('id')->pluck('id')->all();
 
         $this->actingAsTotpPassed($admin)->post('/settings/users', [
             'name' => 'Karim Uddin', 'username' => 'karim', 'email' => 'karim@example.com',
             'password' => 'temp-pass-123', 'locale' => 'bn',
             'roles' => ['field-officer'],
             'branch_ids' => [$branch->id], 'branch_children' => [],
-            'samity_ids' => '11, 12',
+            'samity_ids' => implode(', ', $samityIds),
         ])->assertRedirect()->assertSessionHas('success');
 
         $created = User::where('username', 'karim')->first();
         $this->assertTrue($created->hasRole('field-officer'));
         $this->assertTrue($created->must_change_password);
         $this->assertSame([$branch->id], $created->branches->pluck('id')->all());
-        $this->assertSame([11, 12], \Illuminate\Support\Facades\DB::table('samity_user')->where('user_id', $created->id)->pluck('samity_id')->all());
+        $this->assertSame($samityIds, \Illuminate\Support\Facades\DB::table('samity_user')->where('user_id', $created->id)->pluck('samity_id')->all());
     }
 
     public function test_cannot_remove_own_users_manage_access(): void

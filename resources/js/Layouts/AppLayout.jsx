@@ -56,6 +56,9 @@ export default function AppLayout({ children, branches: branchesProp = undefined
         ...(can.hrm ? [{ key: 'hrm', href: '/hrm/departments', label: t('hrm') }] : []),
         ...(can.employees ? [{ key: 'employees', href: '/settings/employees', label: t('employees') }] : []),
         ...(can.employees ? [{ key: 'directors', href: '/settings/directors', label: t('directors') }] : []),
+        ...(can.settings ? [{ key: 'samities', href: '/settings/samities', label: t('samities') }] : []),
+        ...(can.settings ? [{ key: 'holidays', href: '/settings/holidays', label: t('holidays') }] : []),
+        ...(can.settings ? [{ key: 'notices', href: '/settings/notices', label: t('notices') }] : []),
     ];
 
     const sidebar = (
@@ -196,6 +199,16 @@ export default function AppLayout({ children, branches: branchesProp = undefined
                         )}
                     </div>
                 </header>
+
+                {props.notice && (
+                    <div className={`px-4 py-2 text-center text-sm font-medium ${
+                        props.notice.color === 'Red' ? 'bg-red-600 text-white'
+                        : props.notice.color === 'Green' ? 'bg-emerald-600 text-white'
+                        : props.notice.color === 'Yellow' ? 'bg-yellow-300 text-zinc-900'
+                        : 'bg-zinc-900 text-white'}`}>
+                        {props.notice.text}
+                    </div>
+                )}
 
                 <main className="mx-auto w-full max-w-7xl p-3 sm:p-4 lg:p-6">
                     {props.flash?.success && (

@@ -15,6 +15,7 @@ use App\Http\Controllers\Settings\GeoController;
 use App\Http\Controllers\Settings\PermissionController;
 use App\Http\Controllers\Settings\RegisterController;
 use App\Http\Controllers\Settings\RoleController;
+use App\Http\Controllers\Settings\SamityController;
 use App\Http\Controllers\Settings\UserController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -90,6 +91,27 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
         Route::get('/permissions', [PermissionController::class, 'index'])
             ->middleware('can:settings.view')
             ->name('permissions.index');
+
+        // Samities, holidays, notices (Step 7).
+        Route::middleware('can:settings.view')->group(function () {
+            Route::get('/samities', [SamityController::class, 'index'])->name('samities.index');
+            Route::get('/samities/changes/{type}', [SamityController::class, 'changeForm'])->whereIn('type', ['day', 'officer', 'manager'])->name('samities.changes');
+            Route::get('/samities/merge', [SamityController::class, 'mergeForm'])->name('samities.merge');
+            Route::get('/samities/split', [SamityController::class, 'splitForm'])->name('samities.split');
+            Route::get('/holidays', [SamityController::class, 'holidays'])->name('holidays.index');
+            Route::get('/notices', [SamityController::class, 'notices'])->name('notices.index');
+        });
+        Route::middleware('can:settings.general')->group(function () {
+            Route::post('/samities', [SamityController::class, 'store'])->name('samities.store');
+            Route::put('/samities/{samity}', [SamityController::class, 'update'])->name('samities.update');
+            Route::post('/samities/changes/{type}', [SamityController::class, 'applyChange'])->whereIn('type', ['day', 'officer', 'manager'])->name('samities.changes.apply');
+            Route::post('/samities/merge', [SamityController::class, 'merge'])->name('samities.merge.apply');
+            Route::post('/samities/split', [SamityController::class, 'split'])->name('samities.split.apply');
+            Route::post('/holidays', [SamityController::class, 'storeHoliday'])->name('holidays.store');
+            Route::delete('/holidays/{holiday}', [SamityController::class, 'destroyHoliday'])->name('holidays.destroy');
+            Route::post('/notices', [SamityController::class, 'storeNotice'])->name('notices.store');
+            Route::delete('/notices/{notice}', [SamityController::class, 'destroyNotice'])->name('notices.destroy');
+        });
 
         // Employee & director registers (Step 6).
         Route::middleware('can:hrm.employees')->group(function () {
