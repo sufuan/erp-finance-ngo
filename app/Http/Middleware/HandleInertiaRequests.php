@@ -92,7 +92,8 @@ class HandleInertiaRequests extends Middleware
                     'members' => $request->user()->can('members.view'),
                     'deposits' => $request->user()->can('deposits.view'),
                     'loans' => $request->user()->can('loans.view'),
-                ] : ['users' => false, 'roles' => false, 'permissions' => false, 'settings' => false, 'geo' => false, 'hrm' => false, 'employees' => false, 'members' => false, 'deposits' => false, 'loans' => false],
+                    'reports' => $request->user()->can('reports.view'),
+                ] : ['users' => false, 'roles' => false, 'permissions' => false, 'settings' => false, 'geo' => false, 'hrm' => false, 'employees' => false, 'members' => false, 'deposits' => false, 'loans' => false, 'reports' => false],
             ],
             // Latest topbar notice (Step 7).
             'notice' => $this->latestNotice(),

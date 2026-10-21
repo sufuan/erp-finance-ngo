@@ -65,8 +65,14 @@ Route::middleware('auth')->group(function () {
 // --- The application: login + password changed + TOTP passed -------------
 Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
     Route::get('/', function () {
-        return Inertia::render('Welcome');
+        return Inertia::render('Home');
     })->name('home');
+
+    // Module hub pages (redesign): navigation only — tiles/cards are
+    // permission-filtered client-side, target routes stay authoritative.
+    Route::get('/hub/{module}', function (string $module) {
+        return Inertia::render('Hub/Show', ['module' => $module]);
+    })->whereIn('module', ['member', 'deposit', 'loan', 'hrm', 'settings'])->name('hub.show');
 
     Route::post('/branch/switch', [BranchSwitchController::class, 'switch'])->name('branch.switch');
 

@@ -1,14 +1,21 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import {
+    Briefcase, Building2, CalendarDays, Globe2, Home, IdCard, Landmark, LogOut, Megaphone,
+    Menu, Moon, PiggyBank, Scale, ScrollText, Settings, Sun, Users,
+} from 'lucide-react';
+import { TONES } from '../lib/hubs';
 import { getLocale, initI18n, t } from '../lib/i18n';
 
 /**
- * Application shell — responsive sidebar (desktop) → drawer (mobile),
- * topbar with branch switcher slot, locale toggle (বাংলা | English)
- * and night-mode toggle. Module nav links are added by later steps.
+ * Application shell (redesign to the approved prototype): blue top header
+ * with org branding, business date, locale + night toggles and the user
+ * block; NOTICE ticker under the header; grouped icon sidebar (no search
+ * box in the sidebar) that becomes a drawer on mobile; logged-in user card
+ * at the sidebar bottom. Active item = soft green highlight.
  */
 export default function AppLayout({ children, branches: branchesProp = undefined, activeBranchId: activeBranchIdProp = undefined }) {
-    const { props } = usePage();
+    const { props, url } = usePage();
     const branches = branchesProp !== undefined ? branchesProp : props.branches ?? null;
     const activeBranchId =
         activeBranchIdProp !== undefined ? activeBranchIdProp : props.activeBranch?.id ?? null;
@@ -45,136 +52,187 @@ export default function AppLayout({ children, branches: branchesProp = undefined
     };
 
     const can = props.auth?.can ?? {};
-    const nav = [
-        { key: 'dashboard', href: '/', label: t('dashboard') },
-        { key: 'branches', href: '/settings/branches', label: t('branches') },
-        { key: 'business-day', href: '/settings/business-day', label: t('closing_business_day') },
-        ...(can.users ? [{ key: 'users', href: '/settings/users', label: t('users') }] : []),
-        ...(can.roles ? [{ key: 'roles', href: '/settings/roles', label: t('roles') }] : []),
-        ...(can.permissions ? [{ key: 'permissions', href: '/settings/permissions', label: t('permissions') }] : []),
-        ...(can.settings ? [{ key: 'general', href: '/settings/general', label: t('general_settings') }] : []),
-        ...(can.geo ? [{ key: 'geo', href: '/settings/geo/countries', label: t('geography') }] : []),
-        ...(can.hrm ? [{ key: 'hrm', href: '/hrm/departments', label: t('hrm') }] : []),
-        ...(can.employees ? [{ key: 'employees', href: '/settings/employees', label: t('employees') }] : []),
-        ...(can.employees ? [{ key: 'directors', href: '/settings/directors', label: t('directors') }] : []),
-        ...(can.members ? [{ key: 'members', href: '/members', label: t('members') }] : []),
-        ...(can.deposits ? [{ key: 'deposits', href: '/deposits', label: t('deposits') }] : []),
-        ...(can.loans ? [{ key: 'loans', href: '/loans/proposals', label: t('loans') }] : []),
-        ...(can.settings ? [{ key: 'samities', href: '/settings/samities', label: t('samities') }] : []),
-        ...(can.settings ? [{ key: 'member_migrations', href: '/settings/member-migrations', label: t('member_migrations') }] : []),
-        ...(can.settings ? [{ key: 'holidays', href: '/settings/holidays', label: t('holidays') }] : []),
-        ...(can.settings ? [{ key: 'notices', href: '/settings/notices', label: t('notices') }] : []),
-    ];
+    const item = (key, href, labelKey, icon, tone, gate, activeWhen) =>
+        (!gate || can[gate] ? [{ key, href, labelKey, icon, tone, activeWhen: activeWhen ?? [href] }] : []);
+    const groups = [
+        {
+            labelKey: 'nav_main',
+            items: [...item('home', '/', 'home', Home, 'blue', null, ['/'])],
+        },
+        {
+            labelKey: 'nav_field_work',
+            items: [
+                ...item('members', '/hub/member', 'members', Users, 'blue', 'members', ['/hub/member', '/members']),
+                ...item('samities', '/settings/samities', 'samities', Users, 'violet', 'settings', ['/settings/samities']),
+            ],
+        },
+        {
+            labelKey: 'nav_money',
+            items: [
+                ...item('deposits', '/hub/deposit', 'deposits', PiggyBank, 'teal', 'deposits', ['/hub/deposit', '/deposits']),
+                ...item('loans', '/hub/loan', 'loans', Landmark, 'amber', 'loans', ['/hub/loan', '/loans']),
+            ],
+        },
+        {
+            labelKey: 'nav_office',
+            items: [
+                ...item('employees', '/settings/employees', 'employees', IdCard, 'blue', 'employees', ['/settings/employees']),
+                ...item('hrm', '/hub/hrm', 'hrm', Briefcase, 'violet', 'hrm', ['/hub/hrm', '/hrm']),
+                ...item('branches', '/settings/branches', 'branches', Building2, 'teal', null, ['/settings/branches']),
+            ],
+        },
+        {
+            labelKey: 'nav_reports',
+            items: [
+                ...item('reports-deposits', '/reports/deposits', 'deposit_reports', ScrollText, 'violet', 'reports', ['/reports/deposits']),
+                ...item('reports-loans', '/reports/loans', 'loan_reports', ScrollText, 'amber', 'reports', ['/reports/loans']),
+                ...item('reports-llp', '/reports/llp', 'llp', Scale, 'orange', 'reports', ['/reports/llp']),
+            ],
+        },
+        {
+            labelKey: 'nav_settings',
+            items: [
+                ...item('users', '/settings/users', 'users_roles', Users, 'violet', 'users', ['/settings/users']),
+                ...item('general', '/settings/general', 'general_settings', Settings, 'blue', 'settings', ['/settings/general']),
+                ...item('geo', '/settings/geo/countries', 'geography', Globe2, 'cyan', 'geo', ['/settings/geo']),
+                ...item('holidays', '/settings/holidays', 'holidays', Sun, 'orange', 'settings', ['/settings/holidays']),
+                ...item('notices', '/settings/notices', 'notices', Megaphone, 'rose', 'settings', ['/settings/notices']),
+                ...item('business-day', '/settings/business-day', 'closing_business_day', CalendarDays, 'amber', null, ['/settings/business-day']),
+            ],
+        },
+    ].filter((g) => g.items.length > 0);
 
-    const sidebar = (
+    const isActive = (it) =>
+        it.activeWhen.some((p) => (p === '/' ? url === '/' : url.startsWith(p)));
+
+    const user = props.auth?.user;
+    const initials = (user?.name ?? '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase())
+        .join('');
+
+    const sidebarBody = (onNavigate) => (
         <div className="flex h-full flex-col bg-white dark:bg-zinc-900">
-            <div className="flex h-16 items-center gap-2 border-b border-zinc-200 px-4 dark:border-zinc-800">
-                <span className="text-lg font-semibold text-emerald-700 dark:text-emerald-400">
-                    {props.appName}
-                </span>
-            </div>
-            <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-                {nav.map((item) => (
-                    <Link
-                        key={item.key}
-                        href={item.href}
-                        className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                        onClick={() => setDrawerOpen(false)}
-                    >
-                        {item.label}
-                    </Link>
+            <nav className="flex-1 overflow-y-auto px-2.5 py-2">
+                {groups.map((g) => (
+                    <div key={g.labelKey}>
+                        <p className="px-2 pb-1 pt-3.5 text-[11px] font-bold uppercase tracking-[1.4px] text-ink-3">
+                            {t(g.labelKey)}
+                        </p>
+                        <div className="space-y-0.5">
+                            {g.items.map((it) => {
+                                const Icon = it.icon;
+                                const active = isActive(it);
+                                return (
+                                    <Link
+                                        key={it.key}
+                                        href={it.href}
+                                        onClick={onNavigate}
+                                        className={`flex min-h-[40px] items-center gap-[11px] rounded-[9px] px-2.5 py-[8.5px] text-[13.5px] font-medium transition ${
+                                            active
+                                                ? 'bg-active-bg font-semibold text-accent-ink dark:bg-emerald-900/30 dark:text-emerald-300'
+                                                : 'text-ink-2 hover:bg-surface-2 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                                        }`}
+                                    >
+                                        <Icon className="h-[18px] w-[18px] shrink-0" style={{ color: (TONES[it.tone] ?? TONES.blue).fg }} strokeWidth={1.9} />
+                                        <span className="leading-snug">{t(it.labelKey)}</span>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    </div>
                 ))}
             </nav>
-            <div className="border-t border-zinc-200 p-3 dark:border-zinc-800">
-                {props.auth?.user && (
+            {user && (
+                <div className="border-t border-line p-3 dark:border-zinc-800">
+                    <div className="mb-2 flex items-center gap-2.5 px-1">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand/10 text-[13px] font-bold text-brand dark:bg-zinc-800 dark:text-zinc-100">
+                            {initials}
+                        </span>
+                        <span className="min-w-0">
+                            <span className="block truncate text-[13px] font-semibold text-ink dark:text-zinc-100">{user.name}</span>
+                            <span className="block truncate text-[11.5px] text-ink-3">
+                                {user.username}
+                                {props.activeBranch ? ` • ${props.activeBranch.name}` : ''}
+                            </span>
+                        </span>
+                    </div>
                     <button
                         type="button"
                         onClick={() => router.post('/logout')}
-                        className="mb-2 block min-h-[44px] w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                        className="flex min-h-[40px] w-full items-center gap-2 rounded-[9px] px-2.5 py-2 text-left text-[13.5px] font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                     >
-                        {t('logout')} ({props.auth.user.username})
+                        <LogOut className="h-[18px] w-[18px]" /> {t('logout')}
                     </button>
-                )}
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">{t('powered_by')}</div>
-            </div>
+                </div>
+            )}
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-            {/* Desktop sidebar */}
-            <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-zinc-200 lg:block dark:border-zinc-800">
-                {sidebar}
-            </aside>
+        <div className="flex min-h-screen flex-col bg-paper text-ink dark:bg-zinc-950 dark:text-zinc-100">
+            {/* Top header */}
+            <header className="sticky top-0 z-40 bg-[linear-gradient(90deg,var(--color-brand),var(--color-brand-deep))] text-white shadow-[var(--shadow-card)] dark:bg-[linear-gradient(90deg,var(--color-brand-night),var(--color-brand-night-deep))]">
+                <div className="flex min-h-[58px] flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 sm:px-4">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                        <button
+                            type="button"
+                            className="rounded-lg p-2 hover:bg-white/10 lg:hidden"
+                            onClick={() => setDrawerOpen(true)}
+                            aria-label={t('menu')}
+                        >
+                            <Menu className="h-6 w-6" />
+                        </button>
+                        <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 sm:flex">
+                            <Landmark className="h-5 w-5" />
+                        </span>
+                        <span className="min-w-0 leading-tight">
+                            <span className="block truncate text-[17px] font-bold">{props.appName}</span>
+                            {props.orgName && (
+                                <span className="block truncate text-[11.5px] text-white/75">{props.orgName}</span>
+                            )}
+                        </span>
+                    </div>
 
-            {/* Mobile drawer */}
-            {drawerOpen && (
-                <div className="fixed inset-0 z-40 lg:hidden">
-                    <div
-                        className="absolute inset-0 bg-black/50"
-                        onClick={() => setDrawerOpen(false)}
-                        aria-hidden="true"
-                    />
-                    <aside className="absolute inset-y-0 left-0 w-64 shadow-xl">{sidebar}</aside>
-                </div>
-            )}
-
-            <div className="lg:pl-64">
-                {/* Topbar */}
-                <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-zinc-200 bg-white px-3 sm:gap-3 sm:px-4 dark:border-zinc-800 dark:bg-zinc-900">
-                    <button
-                        type="button"
-                        className="rounded-lg p-2 hover:bg-zinc-100 lg:hidden dark:hover:bg-zinc-800"
-                        onClick={() => setDrawerOpen(true)}
-                        aria-label={t('menu')}
-                    >
-                        <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
-                        </svg>
-                    </button>
-
-                    <span className="truncate text-base font-semibold lg:hidden">{props.appName}</span>
-
-                    <div className="ml-auto flex items-center gap-2 sm:gap-3">
+                    <div className="ml-auto flex flex-wrap items-center gap-2 sm:gap-3">
                         {props.businessDate && (
-                            <span className="hidden text-sm text-zinc-500 md:inline dark:text-zinc-400">
-                                {t('business_day')}: {props.businessDate}
+                            <span className="text-sm">
+                                <span className="hidden text-white/80 md:inline">{t('business_day')}: </span>
+                                <span className="font-bold text-tang">{props.businessDate}</span>
                             </span>
                         )}
                         {branches && branches.length > 0 && (
-                            <label className="flex items-center gap-2 text-sm">
-                                <span className="hidden text-zinc-500 md:inline dark:text-zinc-400">
-                                    {t('select_branch')}
-                                </span>
-                                <select
-                                    className="min-h-[44px] rounded-lg border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
-                                    value={activeBranchId ?? ''}
-                                    onChange={(e) => switchBranch(e.target.value)}
-                                >
-                                    {branches.map((b) => (
-                                        <option key={b.id} value={b.id}>
-                                            {b.code} — {b.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
+                            <select
+                                className="min-h-[40px] max-w-[180px] rounded-lg border border-white/30 bg-white/10 px-2 py-1.5 text-sm text-white [&>option]:text-ink"
+                                value={activeBranchId ?? ''}
+                                onChange={(e) => switchBranch(e.target.value)}
+                                aria-label={t('select_branch')}
+                            >
+                                {branches.map((b) => (
+                                    <option key={b.id} value={b.id}>
+                                        {b.code} — {b.name}
+                                    </option>
+                                ))}
+                            </select>
                         )}
 
-                        {/* Locale toggle: বাংলা | English */}
-                        <div className="flex overflow-hidden rounded-lg border border-zinc-300 text-sm dark:border-zinc-700">
-                            <button
-                                type="button"
-                                onClick={() => switchLocale('bn')}
-                                className={`min-h-[44px] px-3 py-2 ${props.locale === 'bn' ? 'bg-emerald-600 text-white' : 'bg-white hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700'}`}
-                            >
-                                বাংলা
-                            </button>
+                        {/* Locale toggle: EN | বাংলা */}
+                        <div className="flex overflow-hidden rounded-lg border border-white/40 text-sm">
                             <button
                                 type="button"
                                 onClick={() => switchLocale('en')}
-                                className={`min-h-[44px] px-3 py-2 ${props.locale === 'en' ? 'bg-emerald-600 text-white' : 'bg-white hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700'}`}
+                                className={`min-h-[40px] px-3 py-1.5 ${props.locale === 'en' ? 'bg-white font-semibold text-brand' : 'text-white hover:bg-white/10'}`}
                             >
-                                English
+                                EN
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => switchLocale('bn')}
+                                className={`min-h-[40px] px-3 py-1.5 ${props.locale === 'bn' ? 'bg-white font-semibold text-brand' : 'text-white hover:bg-white/10'}`}
+                            >
+                                বাংলা
                             </button>
                         </div>
 
@@ -182,56 +240,97 @@ export default function AppLayout({ children, branches: branchesProp = undefined
                         <button
                             type="button"
                             onClick={toggleDark}
-                            className="min-h-[44px] rounded-lg p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            className="rounded-lg p-2 hover:bg-white/10"
                             aria-label={t('night_mode')}
                             title={t('night_mode')}
                         >
-                            {dark ? (
-                                <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
-                                </svg>
-                            ) : (
-                                <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
-                                </svg>
-                            )}
+                            {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                         </button>
 
-                        {props.auth?.user && (
-                            <span className="hidden text-sm font-medium sm:inline">
-                                {props.auth.user.name}
+                        {user && (
+                            <span className="hidden items-center gap-2 md:flex">
+                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-xs font-bold">
+                                    {initials}
+                                </span>
+                                <span className="leading-tight">
+                                    <span className="block text-[13px] font-medium">{user.name}</span>
+                                    {props.activeBranch && (
+                                        <span className="block text-[11px] text-white/75">{props.activeBranch.name}</span>
+                                    )}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => router.post('/logout')}
+                                    className="rounded-lg p-2 hover:bg-white/10"
+                                    aria-label={t('logout')}
+                                    title={t('logout')}
+                                >
+                                    <LogOut className="h-5 w-5" />
+                                </button>
                             </span>
                         )}
                     </div>
-                </header>
+                </div>
+            </header>
 
-                {props.notice && (
-                    <div className={`px-4 py-2 text-center text-sm font-medium ${
-                        props.notice.color === 'Red' ? 'bg-red-600 text-white'
-                        : props.notice.color === 'Green' ? 'bg-emerald-600 text-white'
-                        : props.notice.color === 'Yellow' ? 'bg-yellow-300 text-zinc-900'
-                        : 'bg-zinc-900 text-white'}`}>
-                        {props.notice.text}
+            {/* NOTICE ticker */}
+            {props.notice && (
+                <div className="flex h-[38px] items-center gap-3 border-b border-line bg-white px-3 sm:px-4 dark:border-zinc-800 dark:bg-zinc-900">
+                    <span className="shrink-0 rounded-full bg-[#e05252] px-2.5 py-1 text-[11px] font-bold tracking-wide text-white">
+                        {t('notice_label')}
+                    </span>
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                        <div className="flex w-max animate-ticker hover:[animation-play-state:paused]">
+                            <span className="whitespace-nowrap pr-16 text-[14.5px] font-semibold text-accent-ink dark:text-emerald-400">
+                                {props.notice.text}
+                            </span>
+                            <span className="whitespace-nowrap pr-16 text-[14.5px] font-semibold text-accent-ink dark:text-emerald-400" aria-hidden="true">
+                                {props.notice.text}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="flex flex-1 items-start">
+                {/* Desktop sidebar */}
+                <aside className="sticky top-[58px] hidden h-[calc(100vh-58px)] w-[238px] shrink-0 border-r border-line lg:block dark:border-zinc-800">
+                    {sidebarBody(undefined)}
+                </aside>
+
+                {/* Mobile drawer */}
+                {drawerOpen && (
+                    <div className="fixed inset-0 z-50 lg:hidden">
+                        <div
+                            className="absolute inset-0 bg-black/50"
+                            onClick={() => setDrawerOpen(false)}
+                            aria-hidden="true"
+                        />
+                        <aside className="absolute inset-y-0 left-0 w-[260px] shadow-xl">
+                            {sidebarBody(() => setDrawerOpen(false))}
+                        </aside>
                     </div>
                 )}
 
-                <main className="mx-auto w-full max-w-7xl p-3 sm:p-4 lg:p-6">
-                    {props.flash?.success && (
-                        <div className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
-                            {props.flash.success}
-                        </div>
-                    )}
-                    {props.flash?.error && (
-                        <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">
-                            {props.flash.error}
-                        </div>
-                    )}
-                    {children}
-                </main>
-
-                <footer className="px-4 pb-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
-                    {t('powered_by')}
-                </footer>
+                {/* Content */}
+                <div className="min-w-0 flex-1">
+                    <main className="mx-auto w-full max-w-[1400px] px-3 py-4 sm:px-5 lg:px-7 lg:py-6">
+                        {props.flash?.success && (
+                            <div className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
+                                {props.flash.success}
+                            </div>
+                        )}
+                        {props.flash?.error && (
+                            <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">
+                                {props.flash.error}
+                            </div>
+                        )}
+                        {children}
+                    </main>
+                    <footer className="px-4 pb-6 text-center text-xs text-ink-3 dark:text-zinc-500">
+                        {t('powered_by')}
+                    </footer>
+                </div>
             </div>
         </div>
     );

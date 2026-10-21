@@ -10,6 +10,34 @@
     /* G10 — Unicode-compliant Bengali fonts FIRST in the stack, self-hosted. */
     --font-sans: 'Hind Siliguri', 'Noto Sans Bengali', 'SolaimanLipi', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Prototype design tokens (approved home/hub design, 2026-10-21). */
+    --color-brand: #1668b0;
+    --color-brand-deep: #0f548f;
+    --color-brand-night: #0e4d80;
+    --color-brand-night-deep: #0a3c66;
+    --color-paper: #edf1f6;
+    --color-surface-2: #f6f9fc;
+    --color-surface-3: #eef4fa;
+    --color-ink: #1d2c3d;
+    --color-ink-2: #506274;
+    --color-ink-3: #8496a9;
+    --color-line: #dce4ee;
+    --color-accent: #1e9e62;
+    --color-accent-ink: #0c6b3e;
+    --color-active-bg: #d9f4e3;
+    --color-tang: #ef8f00;
+    --shadow-card: 0 1px 2px rgba(18, 45, 74, 0.06), 0 6px 18px rgba(18, 45, 74, 0.06);
+    --animate-ticker: ticker 36s linear infinite;
+
+    @keyframes ticker {
+        from {
+            transform: translateX(0);
+        }
+        to {
+            transform: translateX(-50%);
+        }
+    }
 }
 
 /* Bengali conjuncts (যুক্তাক্ষর) need vertical room — G10. */
