@@ -29,6 +29,8 @@ use App\Http\Controllers\Loans\LoanMoneyController;
 use App\Http\Controllers\Loans\LoanOpeningController;
 use App\Http\Controllers\Loans\LoanProposalController;
 use App\Http\Controllers\Reports\DepositReportController;
+use App\Http\Controllers\Reports\LlpController;
+use App\Http\Controllers\Reports\LoanReportController;
 use App\Http\Controllers\Settings\RegisterController;
 use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\SamityController;
@@ -270,6 +272,10 @@ Route::middleware(['auth', 'password.changed', 'totp'])->prefix('loans')->name('
 Route::prefix('reports')->name('reports.')->middleware(['auth', 'password.changed', 'totp'])->group(function () {
     Route::get('/deposits', [DepositReportController::class, 'index'])->middleware('can:reports.view')->name('deposits');
     Route::get('/deposits/{key}/pdf', [DepositReportController::class, 'pdf'])->middleware('can:reports.print')->name('deposits.pdf');
+    Route::get('/loans', [LoanReportController::class, 'index'])->middleware('can:reports.view')->name('loans');
+    Route::get('/loans/{key}/pdf', [LoanReportController::class, 'pdf'])->middleware('can:reports.print')->name('loans.pdf');
+    Route::get('/llp', [LlpController::class, 'index'])->middleware('can:reports.view')->name('llp');
+    Route::post('/llp/post', [LlpController::class, 'post'])->middleware('can:reports.view')->name('llp.post');
 });
 
 // Private files: the controller itself requires an authenticated user.

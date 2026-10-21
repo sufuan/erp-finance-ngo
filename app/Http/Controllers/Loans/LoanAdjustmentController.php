@@ -32,7 +32,7 @@ class LoanAdjustmentController extends Controller
         return [
             'id' => $loan->id, 'loan_number' => $loan->loan_number, 'status' => $loan->status,
             'borrower' => $loan->member?->name ?? $loan->employee?->name ?? '—',
-            'samity' => $loan->member?->samity?->samity_name,
+            'samity' => $loan->member?->samity?->name,
             'loan_amount' => $loan->loan_amount, 'profit_amount' => $loan->profit_amount,
             'total_repayment' => $loan->total_repayment, 'frequency' => $loan->frequency,
             'no_of_installments' => $loan->no_of_installments,

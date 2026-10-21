@@ -69,6 +69,11 @@ class LoanAccount extends Model
         return $this->hasMany(LoanSchedule::class);
     }
 
+    public function reschedules(): HasMany
+    {
+        return $this->hasMany(LoanReschedule::class);
+    }
+
     public function guarantors(): HasMany
     {
         return $this->hasMany(Guarantor::class);
