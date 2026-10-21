@@ -83,6 +83,8 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
 
         Route::get('/business-day', [BusinessDayController::class, 'index'])->name('business-day.index');
         Route::post('/business-day/close', [BusinessDayController::class, 'close'])->name('business-day.close');
+        Route::post('/business-day/auto-close', [BusinessDayController::class, 'toggleAutoClose'])
+            ->middleware('can:settings.closing')->name('business-day.auto-close');
 
         // RBAC administration (Step 2), guarded by Spatie permissions.
         Route::middleware('can:settings.users-manage')->group(function () {

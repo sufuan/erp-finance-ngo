@@ -47,6 +47,8 @@ class SettingsSeeder extends Seeder
             ['gps.retention_days', 'gps', 'number', 90, 'Days GPS history is retained'],
             ['app.max_offline_days', 'gps', 'number', 7, 'Max days the mobile app may work offline'],
 
+            ['business_day.auto_close', 'business_day', 'boolean', false, 'Close every branch business day automatically at 11:59 PM (Asia/Dhaka)'],
+
             ['collection.sheet_types', 'collection', 'json', ['member', 'samity', 'simple'], 'Collection sheet types in use'],
             ['collection.allow_backdate', 'collection', 'boolean', false, 'Allow back-dated collection entries'],
         ];

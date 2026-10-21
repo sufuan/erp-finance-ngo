@@ -66,6 +66,8 @@
     "assign_roles": "Assign Roles",
     "assign_samities": "Assign Samities (IDs)",
     "auth_amount_threshold": "Authorization Amount Threshold",
+    "auto_closing": "Auto Closing",
+    "auto_closing_hint": "When on, the system closes every branch's business day automatically at 11:59 PM each night.",
     "auto_profit_distribution": "Auto Profit Distribution",
     "auto_renew": "Auto Renew",
     "back": "Back",
