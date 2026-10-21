@@ -273,6 +273,16 @@ class RegisterController extends Controller
             throw ValidationException::withMessages(['mobile' => __('duplicate_mobile')]);
         }
 
+        // An untouched status select submits '' (converted to null), and a
+        // null passed explicitly to create()/update() overrides the column
+        // default and violates NOT NULL — fall back to 'Active' here so the
+        // register forms can never persist a null status.
+        if ($cfg['table'] === 'employees') {
+            $data['status'] = ! empty($data['status']) ? $data['status'] : 'Active';
+        } else {
+            $data['director_status'] = ! empty($data['director_status']) ? $data['director_status'] : 'Active';
+        }
+
         return $data;
     }
 }

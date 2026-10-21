@@ -13,6 +13,10 @@ export default function RegistersIndex({ entity, label, items, fields, search })
     const [editing, setEditing] = useState(null);
     const [query, setQuery] = useState(search ?? '');
     const empty = Object.fromEntries(fields.map((f) => [f.key, '']));
+    // Status starts at Active (the register form's "—" option would
+    // otherwise submit an empty status, which the backend rejects).
+    if ('status' in empty) empty.status = 'Active';
+    if ('director_status' in empty) empty.director_status = 'Active';
     const { data, setData, post, processing, errors, reset } = useForm({ ...empty, photo: null });
 
     const base = `/settings/${entity}`;

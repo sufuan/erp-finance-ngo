@@ -127,6 +127,37 @@ class EmployeeRegisterTest extends TestCase
         $this->assertSame('1960112233', $director->national_id);
     }
 
+    public function test_employee_create_without_status_defaults_to_active(): void
+    {
+        $this->hrOfficer();
+        // No status key at all.
+        $this->post('/settings/employees', $this->payload())->assertSessionHas('success');
+        $this->assertSame('Active', Employee::where('mobile', '01715555555')->first()->status);
+
+        // Empty status — exactly what the browser form submits when the
+        // select is left untouched ('' → null must never reach the insert).
+        $this->post('/settings/employees', $this->payload([
+            'status' => '', 'mobile' => '01716666666', 'national_id' => '1995987654',
+        ]))->assertSessionHas('success');
+        $this->assertSame('Active', Employee::where('mobile', '01716666666')->first()->status);
+
+        // Explicit Inactive is respected.
+        $this->post('/settings/employees', $this->payload([
+            'status' => 'Inactive', 'mobile' => '01717777777', 'national_id' => '1995111222',
+        ]))->assertSessionHas('success');
+        $this->assertSame('Inactive', Employee::where('mobile', '01717777777')->first()->status);
+    }
+
+    public function test_director_create_without_status_defaults_to_active(): void
+    {
+        $this->hrOfficer();
+        $this->post('/settings/directors', [
+            'name' => 'No Status Director', 'gender' => 'Male', 'mobile' => '01718888888',
+            'national_id' => '1960998877', 'director_status' => '',
+        ])->assertSessionHas('success');
+        $this->assertSame('Active', Director::where('mobile', '01718888888')->first()->director_status);
+    }
+
     public function test_register_requires_hrm_employees_permission(): void
     {
         $user = User::factory()->create(['must_change_password' => false]);
