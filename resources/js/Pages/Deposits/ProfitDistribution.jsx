@@ -26,7 +26,7 @@ export default function ProfitDistribution({ auto, samities, products, businessD
             </div>
             <Card>
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <Field label={`${t('samity')} *`} error={form.errors.samity_id}>
+                    <Field label={t('samity')} required error={form.errors.samity_id}>
                         <select className={inputCls} value={form.data.samity_id} onChange={(e) => form.setData('samity_id', e.target.value)} required>
                             {samities.map((s) => <option key={s.id} value={s.id}>{s.samity_code} — {s.name}</option>)}
                         </select>
@@ -42,21 +42,21 @@ export default function ProfitDistribution({ auto, samities, products, businessD
                             {BASES.map((b) => <option key={b} value={b}>{b} — {t(`basis_${b.toLowerCase()}`)}</option>)}
                         </select>
                     </Field>
-                    <Field label={`${t('from_date')} *`} error={form.errors.from_date}>
+                    <Field label={t('from_date')} required error={form.errors.from_date}>
                         <input type="date" className={inputCls} value={form.data.from_date} onChange={(e) => form.setData('from_date', e.target.value)} required />
                     </Field>
-                    <Field label={`${t('upto_date')} *`} error={form.errors.to_date}>
+                    <Field label={t('upto_date')} required error={form.errors.to_date}>
                         <input type="date" className={inputCls} value={form.data.to_date} onChange={(e) => form.setData('to_date', e.target.value)} required />
                     </Field>
                     {!auto && (
-                        <Field label={`${t('profit_rate')} *`} error={form.errors.profit_rate}>
+                        <Field label={t('profit_rate')} required error={form.errors.profit_rate}>
                             <input type="number" step="0.01" min="0" className={inputCls} value={form.data.profit_rate} onChange={(e) => form.setData('profit_rate', e.target.value)} required />
                         </Field>
                     )}
-                    <Field label={`${t('posting_date')} *`} error={form.errors.posting_date}>
+                    <Field label={t('posting_date')} required error={form.errors.posting_date}>
                         <input type="date" className={inputCls} value={form.data.posting_date} onChange={(e) => form.setData('posting_date', e.target.value)} required />
                     </Field>
-                    <Field label={`${t('exclude_zero_balance')} *`}>
+                    <Field label={t('exclude_zero_balance')} required>
                         <select className={inputCls} value={form.data.exclude_zero_balance ? '1' : '0'} onChange={(e) => form.setData('exclude_zero_balance', e.target.value === '1')}>
                             <option value="1">{t('yes')}</option>
                             <option value="0">{t('no')}</option>

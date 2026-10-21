@@ -43,7 +43,7 @@ export default function RegistersIndex({ entity, label, items, fields, search })
     const doSearch = (e) => { e.preventDefault(); router.get(base, { search: query }, { preserveState: true }); };
 
     const renderField = (f) => (
-        <Field key={f.key} label={`${t(f.label)}${f.required ? ' *' : ''}`} error={errors[f.key]}>
+        <Field key={f.key} label={t(f.label)} required={f.required} error={errors[f.key]}>
             {f.type === 'select' ? (
                 <select className={inputCls} value={data[f.key]} onChange={(e) => setData(f.key, e.target.value)} required={f.required}>
                     <option value="">—</option>

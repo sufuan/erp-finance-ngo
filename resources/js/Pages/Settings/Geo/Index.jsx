@@ -68,11 +68,11 @@ export default function GeoIndex({ entity, label, items, parentFields, filters, 
             <form onSubmit={submit} className="mb-6 rounded-2xl bg-white p-4 shadow dark:bg-zinc-900">
                 <h2 className="mb-3 font-medium">{editingId ? t('edit') : t('create')} — {t(label)}</h2>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <Field label={t('full_name')} error={errors.name}>
+                    <Field label={t('full_name')} required error={errors.name}>
                         <input className={inputCls} value={data.name} onChange={(e) => setData('name', e.target.value)} required />
                     </Field>
                     {parentFields.map((f) => (
-                        <Field key={f.key} label={t(f.label)} error={errors[f.key]}>
+                        <Field key={f.key} label={t(f.label)} required={entity !== 'working-areas'} error={errors[f.key]}>
                             <select className={inputCls} value={data[f.key]} onChange={(e) => changeParent(f, e.target.value)} required={entity !== 'working-areas'}>
                                 <option value="">—</option>
                                 {optionsFor(f).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}

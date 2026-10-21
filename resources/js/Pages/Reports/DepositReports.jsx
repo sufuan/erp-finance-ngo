@@ -59,12 +59,12 @@ export default function DepositReports({ reportKey, reports, activeFilters, filt
                         </Field>
                     )}
                     {has('from_date') && (
-                        <Field label={`${t('from_date')} *`}>
+                        <Field label={t('from_date')} required>
                             <input type="date" className={inputCls} value={values.from_date} onChange={(e) => set('from_date', e.target.value)} required />
                         </Field>
                     )}
                     {has('to_date') && (
-                        <Field label={`${t('upto_date')} *`}>
+                        <Field label={t('upto_date')} required>
                             <input type="date" className={inputCls} value={values.to_date} onChange={(e) => set('to_date', e.target.value)} required />
                         </Field>
                     )}
@@ -76,7 +76,7 @@ export default function DepositReports({ reportKey, reports, activeFilters, filt
                         </Field>
                     )}
                     {has('year') && (
-                        <Field label={`${t('transaction_year')} *`}>
+                        <Field label={t('transaction_year')} required>
                             <input type="number" min="2000" max="2100" className={inputCls} value={values.year} onChange={(e) => set('year', e.target.value)} required />
                         </Field>
                     )}

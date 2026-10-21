@@ -31,7 +31,7 @@ export default function Holidays({ holidays, options, samities, activeBranchId, 
                     ))}
                 </div>
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <Field label={`${t('branch')} *`} error={errors.branch_id}>
+                    <Field label={t('branch')} required error={errors.branch_id}>
                         <select className={inputCls} value={data.branch_id} onChange={(e) => setData('branch_id', e.target.value)} required>
                             <option value="">—</option>
                             {options.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -43,19 +43,19 @@ export default function Holidays({ holidays, options, samities, activeBranchId, 
                             {samities.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                     </Field>
-                    <Field label={`${t('holiday_details')} *`} error={errors.details}>
+                    <Field label={t('holiday_details')} required error={errors.details}>
                         <input className={inputCls} value={data.details} onChange={(e) => setData('details', e.target.value)} required />
                     </Field>
                     {mode === 'single' ? (
-                        <Field label={`${t('holiday_date')} *`} error={errors.holiday_date}>
+                        <Field label={t('holiday_date')} required error={errors.holiday_date}>
                             <input type="date" className={inputCls} value={data.holiday_date} onChange={(e) => setData('holiday_date', e.target.value)} required />
                         </Field>
                     ) : (
                         <>
-                            <Field label={`${t('date_from')} *`} error={errors.date_from}>
+                            <Field label={t('date_from')} required error={errors.date_from}>
                                 <input type="date" className={inputCls} value={data.date_from} onChange={(e) => setData('date_from', e.target.value)} required />
                             </Field>
-                            <Field label={`${t('date_to')} *`} error={errors.date_to}>
+                            <Field label={t('date_to')} required error={errors.date_to}>
                                 <input type="date" className={inputCls} value={data.date_to} onChange={(e) => setData('date_to', e.target.value)} required />
                             </Field>
                         </>

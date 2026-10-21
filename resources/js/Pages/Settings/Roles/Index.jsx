@@ -60,7 +60,7 @@ export default function RolesIndex({ roles, permissionGroups }) {
             <form onSubmit={submit} className="rounded-2xl bg-white p-4 shadow dark:bg-zinc-900">
                 <h2 className="mb-3 font-medium">{editingId ? t('edit') : t('new_role')}</h2>
                 <div className="grid gap-4 sm:grid-cols-3">
-                    <Field label={t('role_name')} error={errors.name}><input className={inputCls} value={data.name} onChange={(e) => setData('name', e.target.value)} placeholder="e.g. data-entry" required /></Field>
+                    <Field label={t('role_name')} required error={errors.name}><input className={inputCls} value={data.name} onChange={(e) => setData('name', e.target.value)} placeholder="e.g. data-entry" required /></Field>
                     <Field label={t('full_name')} error={errors.label}><input className={inputCls} value={data.label} onChange={(e) => setData('label', e.target.value)} /></Field>
                     <Field label={t('description')} error={errors.description}><input className={inputCls} value={data.description} onChange={(e) => setData('description', e.target.value)} /></Field>
                 </div>

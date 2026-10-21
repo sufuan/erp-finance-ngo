@@ -16,7 +16,7 @@ export default function MemberTransfer({ members, samities, businessDate, transf
             <h1 className="mb-4 text-xl font-semibold">{t('member_transfer')}</h1>
             <Card className="mb-6">
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-                    <Field label={`${t('members')} *`} error={errors.member_id}>
+                    <Field label={t('members')} required error={errors.member_id}>
                         <select className={inputCls} value={data.member_id} onChange={(e) => setData('member_id', e.target.value)} required>
                             <option value="">—</option>
                             {members.filter((m) => m.status === 'Active').map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
@@ -25,13 +25,13 @@ export default function MemberTransfer({ members, samities, businessDate, transf
                     <Field label={t('current_value')}>
                         <input className={inputCls} value={selected ? (samities.find((s) => s.id === selected.samity_id)?.name ?? '—') : ''} readOnly />
                     </Field>
-                    <Field label={`${t('to_samity')} *`} error={errors.to_samity_id}>
+                    <Field label={t('to_samity')} required error={errors.to_samity_id}>
                         <select className={inputCls} value={data.to_samity_id} onChange={(e) => setData('to_samity_id', e.target.value)} required>
                             <option value="">—</option>
                             {samities.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                     </Field>
-                    <Field label={`${t('transfer_date')} *`} error={errors.transfer_date}>
+                    <Field label={t('transfer_date')} required error={errors.transfer_date}>
                         <input type="date" className={inputCls} value={data.transfer_date} onChange={(e) => setData('transfer_date', e.target.value)} required />
                     </Field>
                     <Field label={t('transfer_reason')} error={errors.reason}>

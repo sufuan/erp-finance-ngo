@@ -33,7 +33,7 @@ export default function DepositBlocks({ mode, member, memberQuery, accounts, acc
             <Card className="mb-4">
                 <form onSubmit={lookup} className="flex flex-wrap items-end gap-3">
                     <div className="min-w-56 flex-1">
-                        <Field label={`${t('member_no')} *`}>
+                        <Field label={t('member_no')} required>
                             <input name="member" className={inputCls} defaultValue={memberQuery} />
                         </Field>
                     </div>
@@ -60,13 +60,13 @@ export default function DepositBlocks({ mode, member, memberQuery, accounts, acc
             {mode === 'add' && member && (
                 <Card className="mb-4">
                     <form onSubmit={submitAdd} className="grid gap-4 sm:grid-cols-2">
-                        <Field label={`${t('block_effective_date')} *`} error={addForm.errors.block_effective_date}>
+                        <Field label={t('block_effective_date')} required error={addForm.errors.block_effective_date}>
                             <input type="date" className={inputCls} value={addForm.data.block_effective_date} onChange={(e) => addForm.setData('block_effective_date', e.target.value)} required />
                         </Field>
-                        <Field label={`${t('block_amount')} *`} error={addForm.errors.block_amount}>
+                        <Field label={t('block_amount')} required error={addForm.errors.block_amount}>
                             <input type="number" step="0.01" min="0" className={inputCls} value={addForm.data.block_amount} onChange={(e) => addForm.setData('block_amount', e.target.value)} required />
                         </Field>
-                        <Field label={`${t('blocking_reason')} *`} error={addForm.errors.reason}>
+                        <Field label={t('blocking_reason')} required error={addForm.errors.reason}>
                             <input className={inputCls} value={addForm.data.reason} onChange={(e) => addForm.setData('reason', e.target.value)} required />
                         </Field>
                         <div className="flex items-end gap-4">
@@ -90,13 +90,13 @@ export default function DepositBlocks({ mode, member, memberQuery, accounts, acc
             {mode === 'clear' && clearing !== null && (
                 <Card className="mb-4">
                     <form onSubmit={submitClear} className="grid gap-4 sm:grid-cols-2">
-                        <Field label={`${t('remove_date')} *`} error={clearForm.errors.clear_date}>
+                        <Field label={t('remove_date')} required error={clearForm.errors.clear_date}>
                             <input type="date" className={inputCls} value={clearForm.data.clear_date} onChange={(e) => clearForm.setData('clear_date', e.target.value)} required />
                         </Field>
-                        <Field label={`${t('remove_amount')} *`} error={clearForm.errors.clear_amount}>
+                        <Field label={t('remove_amount')} required error={clearForm.errors.clear_amount}>
                             <input type="number" step="0.01" min="0" className={inputCls} value={clearForm.data.clear_amount} onChange={(e) => clearForm.setData('clear_amount', e.target.value)} required />
                         </Field>
-                        <Field label={`${t('clear_reason')} *`} error={clearForm.errors.clear_reason}>
+                        <Field label={t('clear_reason')} required error={clearForm.errors.clear_reason}>
                             <input className={inputCls} value={clearForm.data.clear_reason} onChange={(e) => clearForm.setData('clear_reason', e.target.value)} required />
                         </Field>
                         <div className="flex items-end gap-4">

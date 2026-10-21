@@ -26,7 +26,7 @@ export default function DepositOpening({ products, member, memberQuery, business
     const submit = (e) => { e.preventDefault(); post('/deposits'); };
 
     const text = (key, label, type = 'text', required = false) => (
-        <Field label={`${t(label)}${required ? ' *' : ''}`} error={errors[key]}>
+        <Field label={t(label)} required={required} error={errors[key]}>
             <input type={type} className={inputCls} value={data[key]} onChange={(e) => setData(key, e.target.value)} required={required} />
         </Field>
     );
@@ -53,7 +53,7 @@ export default function DepositOpening({ products, member, memberQuery, business
                             <Field label={t('samity')}>
                                 <input className={inputCls} value={member.samity ?? ''} readOnly />
                             </Field>
-                            <Field label={`${t('account_type')} *`} error={errors.deposit_product_id}>
+                            <Field label={t('account_type')} required error={errors.deposit_product_id}>
                                 <select className={inputCls} value={data.deposit_product_id} onChange={(e) => pickProduct(e.target.value)} required>
                                     <option value="">—</option>
                                     {products.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name_en}</option>)}

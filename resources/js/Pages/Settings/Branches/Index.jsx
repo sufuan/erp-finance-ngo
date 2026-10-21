@@ -67,13 +67,13 @@ export default function Index({ branches, parents, types }) {
                 <Card>
                     <h2 className="mb-4 text-lg font-semibold">{editing ? t('edit_branch') : t('add_branch')}</h2>
                     <form onSubmit={submit} className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        <Field label={t('branch_code')} error={form.errors.code}>
+                        <Field label={t('branch_code')} required error={form.errors.code}>
                             <TextInput value={form.data.code} onChange={(e) => form.setData('code', e.target.value)} required />
                         </Field>
-                        <Field label={t('branch_name')} error={form.errors.name}>
+                        <Field label={t('branch_name')} required error={form.errors.name}>
                             <TextInput value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} required />
                         </Field>
-                        <Field label={t('branch_type')} error={form.errors.type}>
+                        <Field label={t('branch_type')} required error={form.errors.type}>
                             <SelectInput value={form.data.type} onChange={(e) => form.setData('type', e.target.value)}>
                                 {types.map((type) => (
                                     <option key={type} value={type}>{type}</option>
@@ -109,7 +109,7 @@ export default function Index({ branches, parents, types }) {
                         <Field label={t('union')} error={form.errors.union}>
                             <TextInput value={form.data.union} onChange={(e) => form.setData('union', e.target.value)} />
                         </Field>
-                        <Field label={t('status')} error={form.errors.status}>
+                        <Field label={t('status')} required error={form.errors.status}>
                             <SelectInput value={form.data.status} onChange={(e) => form.setData('status', e.target.value)}>
                                 <option value="Active">{t('active')}</option>
                                 <option value="Inactive">{t('inactive')}</option>

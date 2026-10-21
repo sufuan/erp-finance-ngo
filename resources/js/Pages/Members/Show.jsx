@@ -108,7 +108,7 @@ export default function MemberShow({ member, nominees, documents, visits, docTyp
             <Card>
                 <h2 className="mb-3 font-medium" id="visits">{t('visiting_history')}</h2>
                 <form onSubmit={submitVisit} className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <Field label={`${t('visit_date')} *`} error={visitForm.errors.visit_date}>
+                    <Field label={t('visit_date')} required error={visitForm.errors.visit_date}>
                         <input type="date" className={inputCls} value={visitForm.data.visit_date} onChange={(e) => visitForm.setData('visit_date', e.target.value)} required />
                     </Field>
                     <Field label={t('visit_info')} error={visitForm.errors.info}>

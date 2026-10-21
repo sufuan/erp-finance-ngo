@@ -16,21 +16,21 @@ export default function MemberClosing({ members, reasons, businessDate, closings
             <h1 className="mb-4 text-xl font-semibold">{t('member_closing')}</h1>
             <Card className="mb-6">
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-                    <Field label={`${t('members')} *`} error={errors.member_id}>
+                    <Field label={t('members')} required error={errors.member_id}>
                         <select className={inputCls} value={data.member_id} onChange={(e) => setData('member_id', e.target.value)} required>
                             <option value="">—</option>
                             {members.filter((m) => m.status !== 'Closed').map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                         </select>
                     </Field>
-                    <Field label={`${t('closing_date')} *`} error={errors.closing_date}>
+                    <Field label={t('closing_date')} required error={errors.closing_date}>
                         <input type="date" className={inputCls} value={data.closing_date} onChange={(e) => setData('closing_date', e.target.value)} required />
                     </Field>
-                    <Field label={`${t('closing_reason')} *`} error={errors.closing_reason}>
+                    <Field label={t('closing_reason')} required error={errors.closing_reason}>
                         <select className={inputCls} value={data.closing_reason} onChange={(e) => setData('closing_reason', e.target.value)}>
                             {reasons.map((r) => <option key={r} value={r}>{t(`reason_${r.toLowerCase()}`)}</option>)}
                         </select>
                     </Field>
-                    <Field label={`${t('share_disposition')} *`} error={errors.share_disposition}>
+                    <Field label={t('share_disposition')} required error={errors.share_disposition}>
                         <select className={inputCls} value={data.share_disposition} onChange={(e) => setData('share_disposition', e.target.value)}>
                             <option value="Refunded">{t('share_refunded')}</option>
                             <option value="Forfeited">{t('share_forfeited')}</option>

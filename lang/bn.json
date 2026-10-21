@@ -47,6 +47,7 @@
     "age": "বয়স",
     "all": "সব",
     "allocation_order": "বরাদ্দের ক্রম",
+    "and_n_more": "এবং আরো :count টি",
     "allocation_order_hint": "ক্রম ঠিক করতে টেনে সাজান — প্রথমটি আগে পরিশোধ হয়।",
     "allow_overpayment": "অতিরিক্ত পরিশোধ অনুমোদন",
     "allowed_frequencies": "অনুমোদিত ফ্রিকোয়েন্সি",

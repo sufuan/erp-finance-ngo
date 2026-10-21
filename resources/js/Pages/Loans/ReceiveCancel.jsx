@@ -27,7 +27,7 @@ export default function ReceiveCancel({ mode, member, memberQuery, loans, loanId
                 <Card className="mb-4">
                     <form onSubmit={lookup} className="flex flex-wrap items-end gap-3">
                         <div className="min-w-56 flex-1">
-                            <Field label={`${t('member_no')} *`}>
+                            <Field label={t('member_no')} required>
                                 <input name="member" className={inputCls} defaultValue={memberQuery} />
                             </Field>
                         </div>
@@ -60,7 +60,7 @@ export default function ReceiveCancel({ mode, member, memberQuery, loans, loanId
                 <Card className="mb-4">
                     <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
                         <div className="min-w-56 flex-1">
-                            <Field label={`${t('cancel_reason')} *`} error={form.errors.reason}>
+                            <Field label={t('cancel_reason')} required error={form.errors.reason}>
                                 <input className={inputCls} value={form.data.reason} onChange={(e) => form.setData('reason', e.target.value)} required />
                             </Field>
                         </div>

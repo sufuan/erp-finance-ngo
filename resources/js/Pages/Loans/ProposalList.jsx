@@ -43,10 +43,10 @@ export default function ProposalList({ proposals, samities, officers, filters, c
                             <option value="Rejected">{t('rejected')}</option>
                         </select>
                     </Field>
-                    <Field label={`${t('from_date')} *`}>
+                    <Field label={t('from_date')} required>
                         <input type="date" name="from_date" className={inputCls} defaultValue={filters.from_date ?? ''} />
                     </Field>
-                    <Field label={`${t('upto_date')} *`}>
+                    <Field label={t('upto_date')} required>
                         <input type="date" name="to_date" className={inputCls} defaultValue={filters.to_date ?? ''} />
                     </Field>
                     <div className="flex items-end">

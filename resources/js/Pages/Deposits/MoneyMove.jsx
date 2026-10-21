@@ -52,7 +52,7 @@ export default function MoneyMove({ mode, member, memberQuery, accounts, snapsho
                 <div className="grid gap-4 lg:grid-cols-3">
                     <Card className="lg:col-span-2">
                         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-                            <Field label={`${t(isReceive ? 'deposit_amount' : 'payment_amount')} *`} error={form.errors.amount}>
+                            <Field label={t(isReceive ? 'deposit_amount' : 'payment_amount')} required error={form.errors.amount}>
                                 <input type="number" step="0.01" min="0" className={inputCls} value={form.data.amount} onChange={(e) => form.setData('amount', e.target.value)} required />
                             </Field>
                             <Field label={t(isReceive ? 'deposit_date' : 'payment_date')}>

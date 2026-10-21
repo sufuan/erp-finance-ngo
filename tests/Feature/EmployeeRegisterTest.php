@@ -198,6 +198,16 @@ class EmployeeRegisterTest extends TestCase
         $this->assertSame('Inactive', $employee->status);
     }
 
+    public function test_employee_create_missing_required_fields_returns_errors(): void
+    {
+        $this->hrOfficer();
+        // Empty submission: every backend-required field must come back
+        // as a validation error (this is what the frontend toast shows).
+        $this->post('/settings/employees', [])
+            ->assertSessionHasErrors(['name', 'gender', 'mobile', 'branch_id', 'joining_date']);
+        $this->assertSame(4, Employee::count());
+    }
+
     public function test_register_requires_hrm_employees_permission(): void
     {
         $user = User::factory()->create(['must_change_password' => false]);

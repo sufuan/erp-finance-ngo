@@ -42,10 +42,10 @@ export default function ProfitPayment({ member, memberQuery, accounts, accountId
                         <Field label={t('profit_due')}>
                             <input className={inputCls} value={pending ?? ''} readOnly />
                         </Field>
-                        <Field label={`${t('profit_amount')} *`} error={form.errors.profit_amount}>
+                        <Field label={t('profit_amount')} required error={form.errors.profit_amount}>
                             <input type="number" step="0.01" min="0" className={inputCls} value={form.data.profit_amount} onChange={(e) => form.setData('profit_amount', e.target.value)} required />
                         </Field>
-                        <Field label={`${t('payment_date')} *`} error={form.errors.payment_date}>
+                        <Field label={t('payment_date')} required error={form.errors.payment_date}>
                             <input type="date" className={inputCls} value={form.data.payment_date} onChange={(e) => form.setData('payment_date', e.target.value)} required />
                         </Field>
                         <Field label={t('comments')}>

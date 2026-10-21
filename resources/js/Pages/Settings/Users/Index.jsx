@@ -44,12 +44,12 @@ export default function UsersIndex({ users, roles, branches }) {
             <form onSubmit={submit} className="mb-6 rounded-2xl bg-white p-4 shadow dark:bg-zinc-900">
                 <h2 className="mb-3 font-medium">{editingId ? t('edit') : t('new_user')}</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label={t('full_name')} error={errors.name}><input className={inputCls} value={data.name} onChange={(e) => setData('name', e.target.value)} required /></Field>
-                    <Field label={t('username')} error={errors.username}><input className={inputCls} value={data.username} onChange={(e) => setData('username', e.target.value)} required /></Field>
+                    <Field label={t('full_name')} required error={errors.name}><input className={inputCls} value={data.name} onChange={(e) => setData('name', e.target.value)} required /></Field>
+                    <Field label={t('username')} required error={errors.username}><input className={inputCls} value={data.username} onChange={(e) => setData('username', e.target.value)} required /></Field>
                     <Field label={t('email_address')} error={errors.email}><input type="email" className={inputCls} value={data.email} onChange={(e) => setData('email', e.target.value)} /></Field>
                     <Field label={t('employees_short')} error={errors.employee_id}><input type="number" className={inputCls} value={data.employee_id} onChange={(e) => setData('employee_id', e.target.value)} /></Field>
                     {!editingId && (
-                        <Field label={t('password')} error={errors.password}><input type="password" className={inputCls} value={data.password} onChange={(e) => setData('password', e.target.value)} required /></Field>
+                        <Field label={t('password')} required error={errors.password}><input type="password" className={inputCls} value={data.password} onChange={(e) => setData('password', e.target.value)} required /></Field>
                     )}
                     <Field label={t('language')} error={errors.locale}>
                         <select className={inputCls} value={data.locale} onChange={(e) => setData('locale', e.target.value)}>

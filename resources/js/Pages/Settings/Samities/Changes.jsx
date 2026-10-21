@@ -34,7 +34,7 @@ export default function SamityChanges({ type, label, field, samities, history, o
 
             <Card className="mb-6">
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <Field label={`${t('samity')} *`} error={errors.samity_id}>
+                    <Field label={t('samity')} required error={errors.samity_id}>
                         <select className={inputCls} value={data.samity_id} onChange={(e) => pickSamity(e.target.value)} required>
                             <option value="">—</option>
                             {samities.map((s) => <option key={s.id} value={s.id}>{s.samity_code} — {s.name}</option>)}
@@ -43,16 +43,16 @@ export default function SamityChanges({ type, label, field, samities, history, o
                     <Field label={t('current_value')}>
                         <input className={inputCls} value={selected ? (field === 'samity_day' ? t(`day_${String(selected.current).toLowerCase()}`) : selected.current_label ?? '—') : ''} readOnly />
                     </Field>
-                    <Field label={`${t('new_value')} *`} error={errors.new_value}>
+                    <Field label={t('new_value')} required error={errors.new_value}>
                         <select className={inputCls} value={data.new_value} onChange={(e) => setData('new_value', e.target.value)} required>
                             <option value="">—</option>
                             {valueOptions.map((o) => <option key={o.id} value={o.id}>{o.label_key ? t(o.label_key) : o.name}</option>)}
                         </select>
                     </Field>
-                    <Field label={`${t('date')} *`} error={errors.change_date}>
+                    <Field label={t('date')} required error={errors.change_date}>
                         <input type="date" className={inputCls} value={data.change_date} onChange={(e) => setData('change_date', e.target.value)} required />
                     </Field>
-                    <Field label={`${t('effective_from')} *`} error={errors.effective_from}>
+                    <Field label={t('effective_from')} required error={errors.effective_from}>
                         <input type="date" className={inputCls} value={data.effective_from} onChange={(e) => setData('effective_from', e.target.value)} required />
                     </Field>
                     <Field label={t('comments')} error={errors.comments}>

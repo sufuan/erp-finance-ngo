@@ -4,6 +4,7 @@ import {
     Briefcase, Building2, CalendarDays, Globe2, Home, IdCard, Landmark, LogOut, Megaphone,
     Menu, Moon, PiggyBank, Scale, ScrollText, Settings, Sun, Users,
 } from 'lucide-react';
+import Toasts from '../Components/Toast';
 import { TONES } from '../lib/hubs';
 import { getLocale, initI18n, t } from '../lib/i18n';
 
@@ -315,16 +316,6 @@ export default function AppLayout({ children, branches: branchesProp = undefined
                 {/* Content */}
                 <div className="min-w-0 flex-1">
                     <main className="mx-auto w-full max-w-[1400px] px-3 py-4 sm:px-5 lg:px-7 lg:py-6">
-                        {props.flash?.success && (
-                            <div className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
-                                {props.flash.success}
-                            </div>
-                        )}
-                        {props.flash?.error && (
-                            <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">
-                                {props.flash.error}
-                            </div>
-                        )}
                         {children}
                     </main>
                     <footer className="px-4 pb-6 text-center text-xs text-ink-3 dark:text-zinc-500">
@@ -332,6 +323,7 @@ export default function AppLayout({ children, branches: branchesProp = undefined
                     </footer>
                 </div>
             </div>
+            <Toasts />
         </div>
     );
 }

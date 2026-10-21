@@ -180,11 +180,11 @@ export default function GeneralSettings({ profile, settings }) {
 
                 {tab === 'organization' && (
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <Field label={`${t('organization')} (English)`} error={errors['profile.name_en']}><input className={inputCls} value={data.profile.name_en} onChange={(e) => setProfile('name_en', e.target.value)} required /></Field>
-                        <Field label={`${t('organization')} (বাংলা)`} error={errors['profile.name_bn']}><input className={inputCls} value={data.profile.name_bn} onChange={(e) => setProfile('name_bn', e.target.value)} required /></Field>
-                        <Field label={t('org_type')} error={errors['profile.org_type']}><input className={inputCls} value={data.profile.org_type} onChange={(e) => setProfile('org_type', e.target.value)} required /></Field>
-                        <Field label={t('registration_no')} error={errors['profile.registration_no']}><input className={inputCls} value={data.profile.registration_no} onChange={(e) => setProfile('registration_no', e.target.value)} required /></Field>
-                        <Field label={t('mobile_app_name')} error={errors['profile.mobile_app_name']}><input className={inputCls} value={data.profile.mobile_app_name} onChange={(e) => setProfile('mobile_app_name', e.target.value)} required /></Field>
+                        <Field label={`${t('organization')} (English)`} required error={errors['profile.name_en']}><input className={inputCls} value={data.profile.name_en} onChange={(e) => setProfile('name_en', e.target.value)} required /></Field>
+                        <Field label={`${t('organization')} (বাংলা)`} required error={errors['profile.name_bn']}><input className={inputCls} value={data.profile.name_bn} onChange={(e) => setProfile('name_bn', e.target.value)} required /></Field>
+                        <Field label={t('org_type')} required error={errors['profile.org_type']}><input className={inputCls} value={data.profile.org_type} onChange={(e) => setProfile('org_type', e.target.value)} required /></Field>
+                        <Field label={t('registration_no')} required error={errors['profile.registration_no']}><input className={inputCls} value={data.profile.registration_no} onChange={(e) => setProfile('registration_no', e.target.value)} required /></Field>
+                        <Field label={t('mobile_app_name')} required error={errors['profile.mobile_app_name']}><input className={inputCls} value={data.profile.mobile_app_name} onChange={(e) => setProfile('mobile_app_name', e.target.value)} required /></Field>
                         <Field label={t('contact_person')} error={errors['profile.contact_person']}><input className={inputCls} value={data.profile.contact_person} onChange={(e) => setProfile('contact_person', e.target.value)} /></Field>
                         <Field label={t('address')} error={errors['profile.address']}><input className={inputCls} value={data.profile.address} onChange={(e) => setProfile('address', e.target.value)} /></Field>
                         <Field label={t('phone')} error={errors['profile.phone']}><input className={inputCls} value={data.profile.phone} onChange={(e) => setProfile('phone', e.target.value)} /></Field>

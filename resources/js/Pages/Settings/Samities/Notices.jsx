@@ -15,10 +15,10 @@ export default function Notices({ notices, colors }) {
 
             <Card className="mb-6">
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-                    <Field label={`${t('notice_text')} *`} error={errors.text}>
+                    <Field label={t('notice_text')} required error={errors.text}>
                         <input className={inputCls} value={data.text} onChange={(e) => setData('text', e.target.value)} required maxLength={500} />
                     </Field>
-                    <Field label={`${t('text_color')} *`} error={errors.text_color}>
+                    <Field label={t('text_color')} required error={errors.text_color}>
                         <select className={inputCls} value={data.text_color} onChange={(e) => setData('text_color', e.target.value)}>
                             {colors.map((c) => <option key={c} value={c}>{t(`color_${c.toLowerCase()}`)}</option>)}
                         </select>

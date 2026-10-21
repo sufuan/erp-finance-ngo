@@ -50,10 +50,10 @@ export default function DepositIndex({ accounts, filters, products }) {
                     <Field label={t('select_account')}>
                         <input className={inputCls} value={f.account} onChange={(e) => set('account', e.target.value)} />
                     </Field>
-                    <Field label={`${t('from_date')} *`}>
+                    <Field label={t('from_date')} required>
                         <input type="date" className={inputCls} value={f.from} onChange={(e) => set('from', e.target.value)} />
                     </Field>
-                    <Field label={`${t('upto_date')} *`}>
+                    <Field label={t('upto_date')} required>
                         <input type="date" className={inputCls} value={f.upto} onChange={(e) => set('upto', e.target.value)} />
                     </Field>
                     <div className="flex items-end">

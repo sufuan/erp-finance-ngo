@@ -50,7 +50,7 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
             <Card className="mb-4">
                 <form onSubmit={lookup} className="flex flex-wrap items-end gap-3">
                     <div className="min-w-56 flex-1">
-                        <Field label={`${t('member_no')} *`}>
+                        <Field label={t('member_no')} required>
                             <input name="member" className={inputCls} defaultValue={memberQuery} />
                         </Field>
                     </div>
@@ -62,7 +62,7 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
                 <div className="grid gap-4 lg:grid-cols-3">
                     <Card className="lg:col-span-2">
                         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-                            <Field label={`${t('account_type')} *`} error={form.errors.loan_product_id}>
+                            <Field label={t('account_type')} required error={form.errors.loan_product_id}>
                                 <select className={inputCls} value={form.data.loan_product_id} onChange={(e) => {
                                     const p = products.find((x) => String(x.id) === e.target.value);
                                     form.setData((prev) => ({ ...prev, loan_product_id: e.target.value, profit_rate: p ? p.profit_rate : prev.profit_rate }));
@@ -73,13 +73,13 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
                             <Field label={t('samity')}>
                                 <input className={inputCls} value={member.samity ?? ''} readOnly />
                             </Field>
-                            <Field label={t('proposal_date')} error={form.errors.proposal_date}>
+                            <Field label={t('proposal_date')} required error={form.errors.proposal_date}>
                                 <input type="date" className={inputCls} value={form.data.proposal_date} onChange={(e) => form.setData('proposal_date', e.target.value)} />
                             </Field>
                             <Field label={t('loan_purpose')}>
                                 <input className={inputCls} value={form.data.loan_purpose} onChange={(e) => form.setData('loan_purpose', e.target.value)} />
                             </Field>
-                            <Field label={`${t('loan_amount')} *`} error={form.errors.loan_amount}>
+                            <Field label={t('loan_amount')} required error={form.errors.loan_amount}>
                                 <input type="number" step="0.01" min="0" className={inputCls} value={form.data.loan_amount} onChange={(e) => form.setData('loan_amount', e.target.value)} onBlur={runPreview} required />
                             </Field>
                             <Field label={t('fdr_account')}>
@@ -88,12 +88,12 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
                                     {fdrAccounts.map((a) => <option key={a.id} value={a.id}>{a.account_number} · {a.current_balance}</option>)}
                                 </select>
                             </Field>
-                            <Field label={`${t('frequency')} *`} error={form.errors.frequency}>
+                            <Field label={t('frequency')} required error={form.errors.frequency}>
                                 <select className={inputCls} value={form.data.frequency} onChange={(e) => form.setData('frequency', e.target.value)} onBlur={runPreview} required>
                                     {allowedFreqs.map((f) => <option key={f.code} value={f.code}>{f.code} — {f.label_en}</option>)}
                                 </select>
                             </Field>
-                            <Field label={`${t('no_of_installments')} *`} error={form.errors.no_of_installments}>
+                            <Field label={t('no_of_installments')} required error={form.errors.no_of_installments}>
                                 <input type="number" min="1" className={inputCls} value={form.data.no_of_installments} onChange={(e) => form.setData('no_of_installments', e.target.value)} onBlur={runPreview} required />
                             </Field>
                             <Field label={t('profit_rate')} error={form.errors.profit_rate}>
@@ -114,7 +114,7 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
                             <Field label={t('total_repayment')}>
                                 <input className={inputCls} value={calc?.total_repayment ?? ''} readOnly />
                             </Field>
-                            <Field label={`${t('installment_from_date')} *`} error={form.errors.installment_from_date}>
+                            <Field label={t('installment_from_date')} required error={form.errors.installment_from_date}>
                                 <input type="date" className={inputCls} value={form.data.installment_from_date} onChange={(e) => form.setData('installment_from_date', e.target.value)} onBlur={runPreview} required />
                             </Field>
                             <Field label={t('installment_expire_date')}>

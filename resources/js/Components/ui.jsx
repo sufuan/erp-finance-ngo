@@ -1,10 +1,15 @@
 export const inputCls =
     'min-h-[44px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-emerald-600 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100';
 
-export function Field({ label, error, children }) {
+export function Field({ label, error, required = false, children }) {
     return (
         <label className="block">
-            <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-200">{label}</span>
+            <span className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                {label}
+                {required && (
+                    <span className="text-red-600 dark:text-red-400" aria-hidden="true"> *</span>
+                )}
+            </span>
             {children}
             {error && <span className="mt-1 block text-sm text-red-600 dark:text-red-400">{error}</span>}
         </label>

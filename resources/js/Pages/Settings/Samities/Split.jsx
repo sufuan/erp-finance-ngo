@@ -32,7 +32,7 @@ export default function SamitySplit({ samities, members, options }) {
     const sourceMembers = members.filter((m) => String(m.samity_id) === String(sourceId));
 
     const select = (key, opts, label, required = false) => (
-        <Field label={`${t(label)}${required ? ' *' : ''}`} error={errors[key]}>
+        <Field label={t(label)} required={required} error={errors[key]}>
             <select className={inputCls} value={data[key]} onChange={(e) => setData(key, e.target.value)} required={required}>
                 <option value="">—</option>
                 {opts.map((o) => <option key={o.id} value={o.id}>{o.label_key ? t(o.label_key) : o.name}</option>)}
@@ -46,16 +46,16 @@ export default function SamitySplit({ samities, members, options }) {
             <Card className="mb-6">
                 <form onSubmit={submit}>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <Field label={`${t('source_samity')} *`} error={errors.source_samity_id}>
+                        <Field label={t('source_samity')} required error={errors.source_samity_id}>
                             <select className={inputCls} value={sourceId} onChange={(e) => pickSource(e.target.value)} required>
                                 <option value="">—</option>
                                 {samities.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                             </select>
                         </Field>
-                        <Field label={`${t('samity_name')} *`} error={errors.name}>
+                        <Field label={t('samity_name')} required error={errors.name}>
                             <input className={inputCls} value={data.name} onChange={(e) => setData('name', e.target.value)} required />
                         </Field>
-                        <Field label={`${t('open_date')} *`} error={errors.open_date}>
+                        <Field label={t('open_date')} required error={errors.open_date}>
                             <input type="date" className={inputCls} value={data.open_date} onChange={(e) => setData('open_date', e.target.value)} required />
                         </Field>
                         {select('field_officer_id', options.employees, 'field_officer')}

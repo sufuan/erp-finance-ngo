@@ -44,7 +44,7 @@ export default function Llp({ filters, ran, rows, totals, provision_balance, run
                             {frequencies.map((fr) => <option key={fr} value={fr}>{fr}</option>)}
                         </select>
                     </Field>
-                    <Field label={`${t('report_date')} *`}>
+                    <Field label={t('report_date')} required>
                         <input type="date" name="report_date" required className={inputCls} defaultValue={filters.report_date} />
                     </Field>
                     <div className="flex flex-wrap items-end gap-2">

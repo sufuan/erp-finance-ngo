@@ -29,7 +29,7 @@ export default function TransactionProfile({ member, memberQuery, accounts, acco
                                 {accounts.map((a) => <option key={a.id} value={a.id}>{a.account_number} · {a.product} · {a.installment_amount ?? '—'}</option>)}
                             </select>
                         </Field>
-                        <Field label={`${t('installment_amount')} *`} error={form.errors.installment_amount}>
+                        <Field label={t('installment_amount')} required error={form.errors.installment_amount}>
                             <input type="number" step="0.01" min="0" className={inputCls} value={form.data.installment_amount} onChange={(e) => form.setData('installment_amount', e.target.value)} required />
                         </Field>
                         <Field label={t('from_date')} error={form.errors.from_date}>

@@ -16,13 +16,13 @@ export default function SamityMerge({ samities }) {
             <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">{t('merge_help')}</p>
             <Card>
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-                    <Field label={`${t('source_samity')} *`} error={errors.source_samity_id}>
+                    <Field label={t('source_samity')} required error={errors.source_samity_id}>
                         <select className={inputCls} value={data.source_samity_id} onChange={(e) => setData('source_samity_id', e.target.value)} required>
                             <option value="">—</option>
                             {samities.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.member_count})</option>)}
                         </select>
                     </Field>
-                    <Field label={`${t('target_samity')} *`} error={errors.target_samity_id}>
+                    <Field label={t('target_samity')} required error={errors.target_samity_id}>
                         <select className={inputCls} value={data.target_samity_id} onChange={(e) => setData('target_samity_id', e.target.value)} required>
                             <option value="">—</option>
                             {samities.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.member_count})</option>)}

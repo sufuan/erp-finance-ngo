@@ -30,7 +30,7 @@ export default function InstallmentReceive({ mode, member, memberQuery, loans, l
                 <Card className="mb-4">
                     <form onSubmit={lookup} className="flex flex-wrap items-end gap-3">
                         <div className="min-w-56 flex-1">
-                            <Field label={`${t('member_no')} *`}>
+                            <Field label={t('member_no')} required>
                                 <input name="member" className={inputCls} defaultValue={memberQuery} />
                             </Field>
                         </div>
@@ -43,13 +43,13 @@ export default function InstallmentReceive({ mode, member, memberQuery, loans, l
                 <div className="grid gap-4 lg:grid-cols-3">
                     <Card className="lg:col-span-2">
                         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-                            <Field label={`${t('member_account')} *`} error={form.errors.loan_account_id}>
+                            <Field label={t('member_account')} required error={form.errors.loan_account_id}>
                                 <select className={inputCls} value={form.data.loan_account_id} onChange={(e) => { form.setData('loan_account_id', e.target.value); pickLoan(e.target.value); }} required>
                                     <option value="">—</option>
                                     {loans.map((l) => <option key={l.id} value={l.id}>{l.label ?? l.loan_number}</option>)}
                                 </select>
                             </Field>
-                            <Field label={`${t('installment_amount')} *`} error={form.errors.amount}>
+                            <Field label={t('installment_amount')} required error={form.errors.amount}>
                                 <input type="number" step="0.01" min="0" className={inputCls} value={form.data.amount} onChange={(e) => form.setData('amount', e.target.value)} required />
                             </Field>
                             {mode === 'manual' && (
@@ -70,7 +70,7 @@ export default function InstallmentReceive({ mode, member, memberQuery, loans, l
                                     <input type="number" step="0.01" min="0" className={inputCls} value={form.data.penalty_charge} onChange={(e) => form.setData('penalty_charge', e.target.value)} placeholder={snapshot?.penalty_due ?? ''} />
                                 </Field>
                             )}
-                            <Field label={`${t('installment_date')} *`}>
+                            <Field label={t('installment_date')} required>
                                 <input type="date" className={inputCls} value={form.data.receive_date} onChange={(e) => form.setData('receive_date', e.target.value)} />
                             </Field>
                             <Field label={t('document_number')}>

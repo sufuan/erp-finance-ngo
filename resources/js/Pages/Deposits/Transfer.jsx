@@ -57,13 +57,13 @@ export default function DepositTransfer({ fromMember, toMember, fromQuery, toQue
                     <Field label={t('transfer_date')}>
                         <input type="date" className={inputCls} value={businessDate} readOnly />
                     </Field>
-                    <Field label={`${t('transfer_amount')} *`} error={form.errors.amount}>
+                    <Field label={t('transfer_amount')} required error={form.errors.amount}>
                         <input type="number" step="0.01" min="0" className={inputCls} value={form.data.amount} onChange={(e) => form.setData('amount', e.target.value)} required />
                     </Field>
                     <Field label={t('document_number')} error={form.errors.document_number}>
                         <input className={inputCls} value={form.data.document_number} onChange={(e) => form.setData('document_number', e.target.value)} />
                     </Field>
-                    <Field label={`${t('comments')} *`} error={form.errors.comments}>
+                    <Field label={t('comments')} required error={form.errors.comments}>
                         <input className={inputCls} value={form.data.comments} onChange={(e) => form.setData('comments', e.target.value)} required />
                     </Field>
                     <div className="sm:col-span-2">

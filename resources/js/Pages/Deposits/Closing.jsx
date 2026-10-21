@@ -59,7 +59,7 @@ export default function DepositClosing({ member, memberQuery, accounts, accountI
                         <Field label={t('payable_amount')}>
                             <input className={inputCls} value={preview.payable} readOnly />
                         </Field>
-                        <Field label={`${t('closing_date')} *`} error={form.errors.closing_date}>
+                        <Field label={t('closing_date')} required error={form.errors.closing_date}>
                             <input type="date" className={inputCls} value={form.data.closing_date} onChange={(e) => form.setData('closing_date', e.target.value)} required />
                         </Field>
                         <Field label={t('closing_reason')} error={form.errors.reason}>

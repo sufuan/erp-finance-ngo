@@ -43,7 +43,7 @@ export default function DepositShare({ member, memberQuery, snapshot, mode, busi
                             <Field label={t('member_name')}>
                                 <input className={inputCls} value={snapshot.name} readOnly />
                             </Field>
-                            <Field label={`${t('share_amount')} *`} error={form.errors.amount}>
+                            <Field label={t('share_amount')} required error={form.errors.amount}>
                                 <input type="number" step="0.01" min="0" className={inputCls} value={form.data.amount} onChange={(e) => form.setData('amount', e.target.value)} required />
                             </Field>
                             <Field label={t(mode === 'receive' ? 'purchase_date' : 'payment_date')}>

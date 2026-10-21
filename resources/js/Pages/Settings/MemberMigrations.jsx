@@ -46,7 +46,7 @@ export default function MemberMigrations({ samities, batches, preview }) {
                                 {samities.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                             </select>
                         </Field>
-                        <Field label={`${t('choose_excel_file')} *`} error={excelForm.errors.file}>
+                        <Field label={t('choose_excel_file')} required error={excelForm.errors.file}>
                             <input type="file" accept=".xlsx,.csv" className={inputCls} required
                                 onChange={(e) => excelForm.setData('file', e.target.files?.[0] ?? null)} />
                         </Field>

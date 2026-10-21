@@ -39,16 +39,16 @@ export default function LoanProducts({ products, frequencies, defaultRate, cap }
             {editing !== null && (
                 <Card className="mb-4">
                     <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <Field label={`${t('code')} *`} error={form.errors.code}>
+                        <Field label={t('code')} required error={form.errors.code}>
                             <input className={inputCls} value={form.data.code} onChange={(e) => form.setData('code', e.target.value)} required />
                         </Field>
-                        <Field label={`${t('name_en')} *`} error={form.errors.name_en}>
+                        <Field label={t('name_en')} required error={form.errors.name_en}>
                             <input className={inputCls} value={form.data.name_en} onChange={(e) => form.setData('name_en', e.target.value)} required />
                         </Field>
                         <Field label={t('name_bn')}>
                             <input className={inputCls} value={form.data.name_bn ?? ''} onChange={(e) => form.setData('name_bn', e.target.value)} />
                         </Field>
-                        <Field label={`${t('profit_rate')} *`} error={form.errors.profit_rate}>
+                        <Field label={t('profit_rate')} required error={form.errors.profit_rate}>
                             <input type="number" step="0.01" min="0" className={inputCls} value={form.data.profit_rate} onChange={(e) => form.setData('profit_rate', e.target.value)} required />
                         </Field>
                         <Field label={t('rate_method')}>

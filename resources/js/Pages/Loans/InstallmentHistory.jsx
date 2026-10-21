@@ -19,7 +19,7 @@ export default function InstallmentHistory({ member, memberQuery, loans, loanId,
             <Card className="mb-4">
                 <form onSubmit={lookup} className="flex flex-wrap items-end gap-3">
                     <div className="min-w-56 flex-1">
-                        <Field label={`${t('member_no')} *`}>
+                        <Field label={t('member_no')} required>
                             <input name="member" className={inputCls} defaultValue={memberQuery} />
                         </Field>
                     </div>
@@ -34,10 +34,10 @@ export default function InstallmentHistory({ member, memberQuery, loans, loanId,
                             </select>
                         </Field>
                         <form onSubmit={filterDates} className="flex items-end gap-2 sm:col-span-2">
-                            <Field label={`${t('from_date')} *`}>
+                            <Field label={t('from_date')} required>
                                 <input type="date" name="from_date" className={inputCls} defaultValue={filters.from_date ?? ''} />
                             </Field>
-                            <Field label={`${t('upto_date')} *`}>
+                            <Field label={t('upto_date')} required>
                                 <input type="date" name="to_date" className={inputCls} defaultValue={filters.to_date ?? ''} />
                             </Field>
                             <PrimaryButton type="submit">{t('search')}</PrimaryButton>

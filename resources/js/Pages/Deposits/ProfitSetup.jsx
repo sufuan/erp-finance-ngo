@@ -30,10 +30,10 @@ export default function ProfitSetup({ member, memberQuery, accounts, accountId, 
                                 {accounts.map((a) => <option key={a.id} value={a.id}>{a.account_number} · {a.product} · {a.current_balance}</option>)}
                             </select>
                         </Field>
-                        <Field label={`${t('effective_date')} *`} error={form.errors.effective_date}>
+                        <Field label={t('effective_date')} required error={form.errors.effective_date}>
                             <input type="date" className={inputCls} value={form.data.effective_date} onChange={(e) => form.setData('effective_date', e.target.value)} required />
                         </Field>
-                        <Field label={`${t('profit_rate')} *`} error={form.errors.profit_rate}>
+                        <Field label={t('profit_rate')} required error={form.errors.profit_rate}>
                             <input type="number" step="0.01" min="0" className={inputCls} value={form.data.profit_rate} onChange={(e) => form.setData('profit_rate', e.target.value)} required />
                         </Field>
                         <div className="sm:col-span-3">

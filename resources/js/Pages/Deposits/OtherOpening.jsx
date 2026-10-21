@@ -10,7 +10,7 @@ export default function OtherOpening({ accounts, businessDate }) {
     });
     const submit = (e) => { e.preventDefault(); post('/deposits/other', { preserveScroll: true }); };
     const text = (key, label, type = 'text', required = false) => (
-        <Field label={`${t(label)}${required ? ' *' : ''}`} error={errors[key]}>
+        <Field label={t(label)} required={required} error={errors[key]}>
             <input type={type} className={inputCls} value={data[key]} onChange={(e) => setData(key, e.target.value)} required={required} />
         </Field>
     );
@@ -25,7 +25,7 @@ export default function OtherOpening({ accounts, businessDate }) {
                     {text('account_number', 'account_number')}
                     {text('opening_date', 'opening_date', 'date', true)}
                     {text('balance', 'balance', 'number', true)}
-                    <Field label={`${t('comments')} *`} error={errors.comments}>
+                    <Field label={t('comments')} required error={errors.comments}>
                         <textarea className={inputCls} rows={2} value={data.comments} onChange={(e) => setData('comments', e.target.value)} required />
                     </Field>
                     <div className="sm:col-span-2">

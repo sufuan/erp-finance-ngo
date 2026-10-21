@@ -44,7 +44,7 @@ export default function SamitiesIndex({ samities, options, businessDate, activeB
         ? `https://www.openstreetmap.org/?mlat=${data.latitude}&mlon=${data.longitude}#map=15/${data.latitude}/${data.longitude}` : null;
 
     const select = (key, opts, label, required = false) => (
-        <Field label={`${t(label)}${required ? ' *' : ''}`} error={errors[key]}>
+        <Field label={t(label)} required={required} error={errors[key]}>
             <select className={inputCls} value={data[key]} onChange={(e) => setData(key, e.target.value)} required={required}>
                 <option value="">—</option>
                 {opts.map((o) => <option key={o.id} value={o.id}>{o.label_key ? t(o.label_key) : o.name}</option>)}
@@ -52,7 +52,7 @@ export default function SamitiesIndex({ samities, options, businessDate, activeB
         </Field>
     );
     const text = (key, label, type = 'text', required = false) => (
-        <Field label={`${t(label)}${required ? ' *' : ''}`} error={errors[key]}>
+        <Field label={t(label)} required={required} error={errors[key]}>
             <input type={type} className={inputCls} value={data[key]} onChange={(e) => setData(key, e.target.value)} required={required} />
         </Field>
     );

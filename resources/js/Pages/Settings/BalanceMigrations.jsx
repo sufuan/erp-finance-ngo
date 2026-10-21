@@ -42,16 +42,16 @@ export default function BalanceMigrations({ samities, columns, batches, preview 
 
     const metaFields = (values, setValues) => (
         <>
-            <Field label={`${t('samity')} *`}>
+            <Field label={t('samity')} required>
                 <select className={inputCls} value={values.samity_id} onChange={(e) => setValues('samity_id', e.target.value)} required>
                     <option value="">—</option>
                     {samities.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                 </select>
             </Field>
-            <Field label={`${t('transaction_date')} *`}>
+            <Field label={t('transaction_date')} required>
                 <input type="date" className={inputCls} value={values.transaction_date} onChange={(e) => setValues('transaction_date', e.target.value)} required />
             </Field>
-            <Field label={`${t('add_members')} *`}>
+            <Field label={t('add_members')} required>
                 <select className={inputCls} value={values.add_members} onChange={(e) => setValues('add_members', e.target.value)}>
                     <option value="1">{t('yes')}</option>
                     <option value="0">{t('no')}</option>
@@ -68,7 +68,7 @@ export default function BalanceMigrations({ samities, columns, batches, preview 
                     <h2 className="mb-3 font-medium">{t('excel_import')}</h2>
                     <form onSubmit={submitExcel} className="grid gap-4">
                         {metaFields(excelForm.data, excelForm.setData)}
-                        <Field label={`${t('choose_excel_file')} *`} error={excelForm.errors.file}>
+                        <Field label={t('choose_excel_file')} required error={excelForm.errors.file}>
                             <input type="file" accept=".xlsx,.csv" className={inputCls} required
                                 onChange={(e) => excelForm.setData('file', e.target.files?.[0] ?? null)} />
                         </Field>
