@@ -92,6 +92,8 @@ class ScheduleEngine
         for ($i = 1; $i < $installments; $i++) {
             $expiry = $this->stepDate($expiry, $frequency);
         }
+        // (expiry here is the raw stepped date; generate() applies the
+        // working-day shift when writing real schedule rows.)
 
         return [
             'installment_amount' => (string) $installment->toScale(2, RoundingMode::HalfUp),
@@ -102,5 +104,120 @@ class ScheduleEngine
             'total_repayment' => (string) $total->toScale(2, RoundingMode::HalfUp),
             'installment_expire_date' => $expiry->toDateString(),
         ];
+    }
+
+    /** Bangladesh weekend: Friday + Saturday. */
+    public function isWeekend(Carbon $date): bool
+    {
+        return $date->isFriday() || $date->isSaturday();
+    }
+
+    /**
+     * Shift a due date forward until it lands on a working day: not a
+     * Fri/Sat weekend and not a holiday (branch/samity scoped rows in the
+     * `holidays` table).
+     */
+    public function shiftToWorkingDay(Carbon $date, ?int $branchId = null, ?int $samityId = null): Carbon
+    {
+        $cursor = $date->copy();
+        for ($guard = 0; $guard < 370; $guard++) {
+            if (! $this->isWeekend($cursor) && ! $this->isHoliday($cursor, $branchId, $samityId)) {
+                return $cursor;
+            }
+            $cursor->addDay();
+        }
+
+        return $cursor;
+    }
+
+    private function isHoliday(Carbon $date, ?int $branchId, ?int $samityId): bool
+    {
+        return \App\Models\Holiday::where('holiday_date', $date->toDateString())
+            ->where(function ($q) use ($branchId, $samityId) {
+                $q->whereNull('branch_id')->whereNull('samity_id');
+                if ($branchId) {
+                    $q->orWhere('branch_id', $branchId);
+                }
+                if ($samityId) {
+                    $q->orWhere('samity_id', $samityId);
+                }
+            })->exists();
+    }
+
+    /**
+     * Build the full split rows for a loan (Step 17 generate()). Due dates
+     * step from the first installment date and shift to working days;
+     * weekly loans first align to the samity's meeting day when given.
+     * The final row absorbs all rounding remainders.
+     *
+     * @return array<int, array{installment_no: int, due_date: string, principal_due: string, profit_due: string, total_due: string}>
+     */
+    public function rows(string $amount, string $ratePercent, string $rateMethod, string $frequency, int $installments, string $fromDate, ?int $branchId = null, ?int $samityId = null, ?string $samityDay = null): array
+    {
+        $principal = BigDecimal::of($amount);
+        $ppy = $this->periodsPerYear($frequency);
+        $first = Carbon::parse($fromDate);
+        if ($frequency === 'W' && $samityDay) {
+            // Weekly installments fall on the samity's meeting day.
+            for ($guard = 0; $guard < 7 && $first->format('l') !== $samityDay; $guard++) {
+                $first->addDay();
+            }
+        }
+        $dates = [];
+        $cursor = $first->copy();
+        for ($i = 0; $i < $installments; $i++) {
+            $dates[] = $this->shiftToWorkingDay($cursor, $branchId, $samityId)->toDateString();
+            $cursor = $this->stepDate($cursor, $frequency);
+        }
+
+        $rows = [];
+        if ($rateMethod === 'flat') {
+            $preview = $this->preview($amount, $ratePercent, $rateMethod, $frequency, $installments, $fromDate);
+            $totalProfit = BigDecimal::of($preview['profit_amount']);
+            $perPrincipal = $principal->dividedBy($installments, 2, RoundingMode::HalfUp);
+            $perProfit = $totalProfit->dividedBy($installments, 2, RoundingMode::HalfUp);
+            $principalLeft = $principal;
+            $profitLeft = $totalProfit;
+            for ($i = 1; $i <= $installments; $i++) {
+                $isLast = $i === $installments;
+                $p = $isLast ? $principalLeft : $perPrincipal;
+                $f = $isLast ? $profitLeft : $perProfit;
+                $principalLeft = $principalLeft->minus($p);
+                $profitLeft = $profitLeft->minus($f);
+                $rows[] = [
+                    'installment_no' => $i, 'due_date' => $dates[$i - 1],
+                    'principal_due' => (string) $p->toScale(2, RoundingMode::HalfUp),
+                    'profit_due' => (string) $f->toScale(2, RoundingMode::HalfUp),
+                    'total_due' => (string) $p->plus($f)->toScale(2, RoundingMode::HalfUp),
+                ];
+            }
+
+            return $rows;
+        }
+
+        // Declining amortization.
+        $preview = $this->preview($amount, $ratePercent, $rateMethod, $frequency, $installments, $fromDate);
+        $installment = BigDecimal::of($preview['installment_amount']);
+        $r = BigDecimal::of($ratePercent)->dividedBy(100 * $ppy, 10, RoundingMode::HalfUp);
+        $outstanding = $principal;
+        for ($i = 1; $i <= $installments; $i++) {
+            $profit = $outstanding->multipliedBy($r)->toScale(2, RoundingMode::HalfUp);
+            if ($i === $installments) {
+                $principalPart = $outstanding;
+                $total = $principalPart->plus($profit);
+            } else {
+                $principalPart = $installment->minus($profit);
+                $total = $installment;
+            }
+            $outstanding = $outstanding->minus($principalPart);
+            $rows[] = [
+                'installment_no' => $i, 'due_date' => $dates[$i - 1],
+                'principal_due' => (string) $principalPart->toScale(2, RoundingMode::HalfUp),
+                'profit_due' => (string) $profit->toScale(2, RoundingMode::HalfUp),
+                'total_due' => (string) $total->toScale(2, RoundingMode::HalfUp),
+            ];
+        }
+
+        return $rows;
     }
 }

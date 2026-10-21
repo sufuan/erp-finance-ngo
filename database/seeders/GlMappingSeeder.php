@@ -31,6 +31,12 @@ class GlMappingSeeder extends Seeder
             ['deposit.close.charge', '2010', '4035', 'Deposit closing charge to fee income'],
             ['deposit.close.penalty', '2010', '4020', 'Premature closing penalty to penalty income'],
 
+            ['loan.fee.form', '1010', '4030', 'Loan form fee received'],
+            ['loan.fee.health', '1010', '4031', 'Loan health fee received'],
+            ['loan.fee.risk', '1010', '4032', 'Loan risk fee received'],
+            ['loan.fee.document', '1010', '4033', 'Loan document fee received'],
+            ['loan.fee.emi_locker', '1010', '4034', 'Loan EMI locker fee received'],
+            ['loan.fee.others', '1010', '4035', 'Other loan fees received'],
             ['loan.disbursement', '1100', '1010', 'Loan disbursed in cash'],
             ['loan.receive', '1010', '1100', 'Installment received against loan portfolio'],
             ['loan.receive.profit', '1010', '4010', 'Service charge/profit portion of installment'],
