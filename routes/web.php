@@ -22,6 +22,7 @@ use App\Http\Controllers\Settings\GeoController;
 use App\Http\Controllers\Settings\MemberMigrationController;
 use App\Http\Controllers\Settings\PermissionController;
 use App\Http\Controllers\Loans\LoanMasterController;
+use App\Http\Controllers\Loans\LoanProposalController;
 use App\Http\Controllers\Reports\DepositReportController;
 use App\Http\Controllers\Settings\RegisterController;
 use App\Http\Controllers\Settings\RoleController;
@@ -218,6 +219,12 @@ Route::middleware(['auth', 'password.changed', 'totp'])->prefix('deposits')->nam
 });
 
 Route::middleware(['auth', 'password.changed', 'totp'])->prefix('loans')->name('loans.')->group(function () {
+    Route::get('/proposals', [LoanProposalController::class, 'index'])->middleware('can:loans.view')->name('proposals');
+    Route::get('/proposals/create', [LoanProposalController::class, 'create'])->middleware('can:loans.propose')->name('proposals.create');
+    Route::post('/proposals/preview', [LoanProposalController::class, 'preview'])->middleware('can:loans.propose')->name('proposals.preview');
+    Route::post('/proposals', [LoanProposalController::class, 'store'])->middleware('can:loans.propose')->name('proposals.store');
+    Route::post('/proposals/{proposal}/approve', [LoanProposalController::class, 'approve'])->middleware('can:loans.approve')->name('proposals.approve');
+    Route::post('/proposals/{proposal}/reject', [LoanProposalController::class, 'reject'])->middleware('can:loans.approve')->name('proposals.reject');
     Route::get('/products', [LoanMasterController::class, 'productsIndex'])->middleware('can:loans.products')->name('products');
     Route::post('/products', [LoanMasterController::class, 'storeProduct'])->middleware('can:loans.products')->name('products.store');
     Route::put('/products/{product}', [LoanMasterController::class, 'updateProduct'])->middleware('can:loans.products')->name('products.update');
