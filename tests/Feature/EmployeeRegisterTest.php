@@ -158,6 +158,46 @@ class EmployeeRegisterTest extends TestCase
         $this->assertSame('Active', Director::where('mobile', '01718888888')->first()->director_status);
     }
 
+    public function test_director_update_with_photo_upload_succeeds(): void
+    {
+        $this->hrOfficer();
+        $this->post('/settings/directors', [
+            'name' => 'Photo Director', 'gender' => 'Female', 'mobile' => '01719999999',
+            'national_id' => '1960554433', 'director_status' => 'Active',
+        ])->assertSessionHas('success');
+        $director = Director::where('mobile', '01719999999')->first();
+        $this->assertNull($director->photo_path);
+
+        // The browser edits via POST + _method=PUT with multipart data.
+        $photo = UploadedFile::fake()->image('director.jpg', 200, 200);
+        $this->post("/settings/directors/{$director->id}", [
+            '_method' => 'PUT',
+            'name' => 'Photo Director', 'gender' => 'Female', 'mobile' => '01719999999',
+            'national_id' => '1960554433', 'director_status' => 'Active',
+            'photo' => $photo,
+        ])->assertSessionHas('success');
+
+        $director->refresh();
+        $this->assertNotNull($director->photo_path);
+        $this->assertStringStartsWith('directors/', $director->photo_path);
+    }
+
+    public function test_employee_update_via_spoofed_put_succeeds(): void
+    {
+        $this->hrOfficer();
+        $this->post('/settings/employees', $this->payload())->assertSessionHas('success');
+        $employee = Employee::where('mobile', '01715555555')->first();
+
+        $this->post("/settings/employees/{$employee->id}", [
+            '_method' => 'PUT',
+        ] + $this->payload(['name' => 'Renamed Employee', 'status' => 'Inactive']))
+            ->assertSessionHas('success');
+
+        $employee->refresh();
+        $this->assertSame('Renamed Employee', $employee->name);
+        $this->assertSame('Inactive', $employee->status);
+    }
+
     public function test_register_requires_hrm_employees_permission(): void
     {
         $user = User::factory()->create(['must_change_password' => false]);

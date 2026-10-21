@@ -172,7 +172,7 @@ class RegisterController extends Controller
         return back()->with('success', __('saved'));
     }
 
-    public function update(Request $request, string $entity, int $id, IdentityCheckService $identity, UploadService $uploads, AuditService $audit): RedirectResponse
+    public function update(Request $request, string $entity, string $id, IdentityCheckService $identity, UploadService $uploads, AuditService $audit): RedirectResponse
     {
         $cfg = $this->entity($entity);
         $model = $cfg['model'];

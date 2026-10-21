@@ -168,10 +168,13 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
         Route::middleware('can:hrm.employees')->group(function () {
             Route::get('/employees', [RegisterController::class, 'index'])->defaults('entity', 'employees')->name('employees.index');
             Route::post('/employees', [RegisterController::class, 'store'])->defaults('entity', 'employees')->name('employees.store');
-            Route::put('/employees/{id}', [RegisterController::class, 'update'])->defaults('entity', 'employees')->name('employees.update');
             Route::get('/directors', [RegisterController::class, 'index'])->defaults('entity', 'directors')->name('directors.index');
             Route::post('/directors', [RegisterController::class, 'store'])->defaults('entity', 'directors')->name('directors.store');
-            Route::put('/directors/{id}', [RegisterController::class, 'update'])->defaults('entity', 'directors')->name('directors.update');
+            // One parameterized update route (HRM-masters pattern): route
+            // params reach the controller positionally, so {entity} must be
+            // a real URL segment — ->defaults() values arrive AFTER {id}
+            // and silently swapped the two arguments.
+            Route::put('/{entity}/{id}', [RegisterController::class, 'update'])->whereIn('entity', ['employees', 'directors'])->name('registers.update');
         });
     });
 });
