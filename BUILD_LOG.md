@@ -291,3 +291,10 @@ Status: **done**. Tests: 155 passed, 1 skipped — full suite green. 92 tables, 
 - Opening voucher: one Journal per member on the current business day — outstanding principal via `migration.opening`, each deposit balance as Dr 3020 / Cr 2010 savings control, with OPENING sub-ledger movements for the loan and deposit accounts; deposit caches resynced from the sub-ledger afterwards. Trial balance stays balanced (test-pinned). The form's transaction date is the value date recorded on the receive/accounts; vouchers post on the migration business day (PostingService's closed-date rule).
 - Deposits land in SAVINGS (General) / CSAV (Compulsory) accounts — opened on demand, reused when an active account already exists. One bad row (total_receive > total_loan) fails validation while the rest of the batch still imports (test-pinned).
 - Deviation (documented): Add Members = Yes creates a stub member from the file's legacy ID + name only (the grid carries nothing else). `members.mobile` is NOT NULL + unique, so the stub gets a placeholder mobile derived from the legacy ID digits (`01` + zero-padded), checked for collision (collision = row failure); officers must correct it on the member profile, and no member portal user is created for stubs.
+
+## Fix — language switcher (2026-10-21, owner report)
+
+- Bug: UI language lagged one switch behind and appeared non-persistent. Root cause: both layouts synced the i18n store in `useEffect` (after render); the module store update never re-rendered components, so labels always showed the previous locale.
+- Fix: layouts now sync the store during render (children render after, always current). Switch also persists via a 1-year `locale` cookie (SetLocale priority: user → session → cookie → settings default).
+- Default UI language is now English everywhere (settings seed, users.locale DB default via migration, factory, .env.example, JS fallbacks) — still fully changeable per user and in Settings.
+- Tests: new `LocaleSwitchTest` (3 tests: default en, switch persists to DB + applies on next render, guest cookie honoured). Full suite: 158 passed, 1 skipped.

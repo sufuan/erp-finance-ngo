@@ -26,6 +26,8 @@ class LocaleController extends Controller
 
         app()->setLocale($locale);
 
-        return back();
+        // Remember the choice for a year so it survives logout, session
+        // expiry and browser restarts (users.locale covers logged-in use).
+        return back()->withCookie(cookie('locale', $locale, 60 * 24 * 365));
     }
 }

@@ -1,18 +1,16 @@
 import { router, usePage } from '@inertiajs/react';
-import { useEffect } from 'react';
 import { getLocale, initI18n, t } from '../lib/i18n';
 
 /** Centered card shell for login / TOTP / password pages (no sidebar). */
 export default function AuthLayout({ title, children }) {
     const { props } = usePage();
 
-    useEffect(() => {
-        initI18n({
-            locale: props.locale,
-            translations: props.translations,
-            translations_version: props.translations_version,
-        });
-    }, [props.locale, props.translations_version]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Render-time i18n sync — see AppLayout (useEffect sync lagged one switch).
+    initI18n({
+        locale: props.locale,
+        translations: props.translations,
+        translations_version: props.translations_version,
+    });
 
     const switchLocale = (locale) => {
         if (locale !== getLocale()) router.post(`/locale/${locale}`, {}, { preserveScroll: true });

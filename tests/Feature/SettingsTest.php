@@ -46,7 +46,7 @@ class SettingsTest extends TestCase
     {
         $settings = app(SettingsService::class);
         $this->assertSame('TPDA e-Sheba', $settings->get('app.name'));
-        $this->assertSame('bn', $settings->get('app.locale_default'));
+        $this->assertSame('en', $settings->get('app.locale_default'));
         $this->assertSame(15, $settings->get('loan.default_profit_rate'));
         $this->assertSame(24, $settings->get('loan.max_service_charge_rate'));
         $this->assertSame(['standard' => 1, 'watchlist' => 5, 'substandard' => 25, 'doubtful' => 75, 'loss' => 100], $settings->get('llp.rates'));

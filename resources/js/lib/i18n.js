@@ -3,7 +3,7 @@
 // keyed by translations_version, so the full file is not re-downloaded
 // on every Inertia response — only when the version changes.
 
-let current = { locale: 'bn', translations: {} };
+let current = { locale: 'en', translations: {} };
 
 export function initI18n({ locale, translations, translations_version }) {
     const cachedVersion = localStorage.getItem('tpda_translations_version');
@@ -29,9 +29,9 @@ export function initI18n({ locale, translations, translations_version }) {
     // Fall back to the localStorage cache (e.g. first paint before props).
     try {
         const cached = JSON.parse(localStorage.getItem('tpda_translations') || '{}');
-        current = { locale: cachedLocale || locale || 'bn', translations: cached };
+        current = { locale: cachedLocale || locale || 'en', translations: cached };
     } catch {
-        current = { locale: locale || 'bn', translations: {} };
+        current = { locale: locale || 'en', translations: {} };
     }
 }
 

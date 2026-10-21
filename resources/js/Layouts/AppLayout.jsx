@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { getLocale, initI18n, t } from '../lib/i18n';
 
 /**
@@ -17,14 +17,15 @@ export default function AppLayout({ children, branches: branchesProp = undefined
         () => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
     );
 
-    // Keep the i18n store in sync with the latest shared props.
-    useEffect(() => {
-        initI18n({
-            locale: props.locale,
-            translations: props.translations,
-            translations_version: props.translations_version,
-        });
-    }, [props.locale, props.translations_version]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Sync the i18n store DURING render, before children render, so labels
+    // always use the latest server locale. (Syncing in useEffect made the
+    // UI lag one language switch behind — the old language rendered first
+    // and nothing re-rendered after the store updated.)
+    initI18n({
+        locale: props.locale,
+        translations: props.translations,
+        translations_version: props.translations_version,
+    });
 
     const toggleDark = () => {
         const next = !dark;

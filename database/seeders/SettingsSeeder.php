@@ -17,7 +17,7 @@ class SettingsSeeder extends Seeder
         $defs = [
             // key, group, type, value, description
             ['app.name', 'application', 'string', 'TPDA e-Sheba', 'Application name shown everywhere'],
-            ['app.locale_default', 'application', 'string', 'bn', 'Default language for new users'],
+            ['app.locale_default', 'application', 'string', 'en', 'Default language for new users'],
             ['locale.number_system', 'application', 'string', 'arabic', 'Number display: arabic or bengali digits'],
             ['locale.date_format', 'application', 'string', 'd-M-Y', 'Date display format'],
             ['print.header_lines', 'application', 'json', ['Talgachi Poor Development Association (T.P.D.A.)', 'তালগাছী দরিদ্র উন্নয়ন সংস্থা', 'Reg: সিরাজ/৫৮৫/সমাজসেবা/২০০০'], 'Lines printed at the top of reports'],

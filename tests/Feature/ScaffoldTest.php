@@ -25,7 +25,7 @@ class ScaffoldTest extends TestCase
                 ->component('Welcome')
                 ->has('locale')
                 ->has('translations_version')
-                ->where('translations.welcome', 'স্বাগতম') // default locale = bn
+                ->where('translations.welcome', 'Welcome') // default locale = en
             );
     }
 

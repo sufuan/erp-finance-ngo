@@ -10,7 +10,8 @@ use Symfony\Component\HttpFoundation\Response;
  * Resolves the active UI locale for every web request.
  *
  * Priority: authenticated user's saved locale (users.locale, Step 2) →
- * session → app default (settings app.locale_default, seeded as "bn").
+ * session → locale cookie (set by the switcher, 1 year) → app default
+ * (settings app.locale_default, seeded as "en").
  */
 class SetLocale
 {
@@ -25,15 +26,17 @@ class SetLocale
 
         $locale ??= $request->session()->get('locale');
 
+        $locale ??= $request->cookie('locale');
+
         // Settings-driven default (Step 3), falling back to config.
         if (! $locale && \Illuminate\Support\Facades\Schema::hasTable('settings')) {
             $locale = rescue(fn () => app(\App\Services\SettingsService::class)->get('app.locale_default'), null, false);
         }
 
-        $locale ??= config('app.locale', 'bn');
+        $locale ??= config('app.locale', 'en');
 
         if (! in_array($locale, ['en', 'bn'], true)) {
-            $locale = 'bn';
+            $locale = 'en';
         }
 
         app()->setLocale($locale);

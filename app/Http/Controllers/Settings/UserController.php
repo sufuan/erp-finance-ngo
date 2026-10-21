@@ -60,7 +60,7 @@ class UserController extends Controller
             'username' => $validated['username'],
             'email' => $validated['email'] ?? null,
             'employee_id' => $validated['employee_id'] ?? null,
-            'locale' => $validated['locale'] ?? 'bn',
+            'locale' => $validated['locale'] ?? 'en',
             'password' => Hash::make($validated['password']),
             'must_change_password' => true,
             'is_active' => true,
