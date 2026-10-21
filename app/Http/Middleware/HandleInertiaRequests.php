@@ -89,7 +89,8 @@ class HandleInertiaRequests extends Middleware
                     'geo' => $request->user()->can('settings.geo'),
                     'hrm' => $request->user()->can('hrm.masters'),
                     'employees' => $request->user()->can('hrm.employees'),
-                ] : ['users' => false, 'roles' => false, 'permissions' => false, 'settings' => false, 'geo' => false, 'hrm' => false, 'employees' => false],
+                    'members' => $request->user()->can('members.view'),
+                ] : ['users' => false, 'roles' => false, 'permissions' => false, 'settings' => false, 'geo' => false, 'hrm' => false, 'employees' => false, 'members' => false],
             ],
             // Latest topbar notice (Step 7).
             'notice' => $this->latestNotice(),
@@ -98,6 +99,8 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 // One-time temp password shown to the admin after a reset.
                 'temp_password' => fn () => $request->session()->get('temp_password'),
+                // Member number of a just-admitted member (success modal, Step 8).
+                'created_member_no' => fn () => $request->session()->get('created_member_no'),
                 'temp_username' => fn () => $request->session()->get('temp_username'),
             ],
         ];

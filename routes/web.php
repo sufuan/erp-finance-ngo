@@ -8,6 +8,8 @@ use App\Http\Controllers\BranchSwitchController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\Hrm\MasterController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\Members\MemberController;
+use App\Http\Controllers\Members\MemberLifecycleController;
 use App\Http\Controllers\Settings\BranchController;
 use App\Http\Controllers\Settings\BusinessDayController;
 use App\Http\Controllers\Settings\GeneralSettingsController;
@@ -130,6 +132,26 @@ Route::middleware(['auth', 'password.changed', 'totp', 'can:hrm.masters'])->pref
     Route::post('/{entity}', [MasterController::class, 'store'])->name('masters.store');
     Route::put('/{entity}/{id}', [MasterController::class, 'update'])->name('masters.update');
     Route::delete('/{entity}/{id}', [MasterController::class, 'destroy'])->name('masters.destroy');
+});
+
+// --- Members (Step 8) ------------------------------------------------------
+Route::middleware(['auth', 'password.changed', 'totp'])->prefix('members')->name('members.')->group(function () {
+    Route::get('/', [MemberController::class, 'index'])->middleware('can:members.view')->name('index');
+    Route::get('/admission', [MemberController::class, 'create'])->middleware('can:members.create')->name('admission');
+    Route::post('/', [MemberController::class, 'store'])->middleware('can:members.create')->name('store');
+    Route::get('/transfer', [MemberLifecycleController::class, 'transferForm'])->middleware('can:members.transfer')->name('transfer');
+    Route::post('/transfer', [MemberLifecycleController::class, 'transfer'])->middleware('can:members.transfer')->name('transfer.apply');
+    Route::get('/closing', [MemberLifecycleController::class, 'closingForm'])->middleware('can:members.close')->name('closing');
+    Route::post('/closing', [MemberLifecycleController::class, 'close'])->middleware('can:members.close')->name('closing.apply');
+    Route::post('/closing/{closing}/cancel', [MemberLifecycleController::class, 'cancelClosing'])->middleware('can:members.close')->name('closing.cancel');
+    Route::get('/{member}', [MemberController::class, 'show'])->middleware('can:members.view')->name('show');
+    Route::get('/{member}/edit', [MemberController::class, 'edit'])->middleware('can:members.edit')->name('edit');
+    Route::put('/{member}', [MemberController::class, 'update'])->middleware('can:members.edit')->name('update');
+    Route::get('/{member}/admission-form', [MemberController::class, 'admissionForm'])->middleware('can:members.print')->name('admission-form');
+    Route::post('/{member}/documents', [MemberController::class, 'storeDocument'])->middleware('can:members.documents')->name('documents.store');
+    Route::post('/{member}/visits', [MemberController::class, 'storeVisit'])->middleware('can:members.visits')->name('visits.store');
+    Route::post('/{member}/check-in', [MemberController::class, 'checkIn'])->middleware('can:members.visits')->name('check-in');
+    Route::post('/{member}/location', [MemberController::class, 'updateLocation'])->middleware('can:members.visits')->name('location');
 });
 
 // Private files: the controller itself requires an authenticated user.

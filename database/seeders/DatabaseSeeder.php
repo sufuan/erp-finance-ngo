@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             HrmMasterSeeder::class,
             EmployeeSeeder::class,
             SamitySeeder::class,
+            MemberSeeder::class,
         ]);
     }
 }

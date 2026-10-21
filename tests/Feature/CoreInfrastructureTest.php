@@ -35,10 +35,19 @@ class CoreInfrastructureTest extends TestCase
     {
         $numbers = app(NumberingService::class);
 
-        $this->assertSame(1, $numbers->next($this->head->id, 'member'));
-        $this->assertSame(2, $numbers->next($this->head->id, 'member'));
-        $this->assertSame(1, $numbers->next($this->branch->id, 'member')); // per-branch
-        $this->assertSame(1, $numbers->next($this->head->id, 'voucher')); // per-entity
+        // Seed-agnostic since Step 8: MemberSeeder legitimately consumes
+        // 'member' numbers on the Talgachi branch, so assert relative
+        // increments and cross-pair independence instead of absolute 1/2.
+        $branchBefore = $numbers->next($this->branch->id, 'member');
+        $headFirst = $numbers->next($this->head->id, 'member');
+        $this->assertSame($headFirst + 1, $numbers->next($this->head->id, 'member'));
+        // Head-office calls must not move the branch counter (per-branch).
+        $this->assertSame($branchBefore + 1, $numbers->next($this->branch->id, 'member'));
+
+        $voucherBefore = $numbers->next($this->head->id, 'voucher');
+        $numbers->next($this->head->id, 'member');
+        // Member calls must not move the voucher counter (per-entity).
+        $this->assertSame($voucherBefore + 1, $numbers->next($this->head->id, 'voucher'));
     }
 
     public function test_display_id_is_branch_prefixed_and_zero_padded(): void

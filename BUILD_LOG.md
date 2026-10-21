@@ -41,7 +41,8 @@ One git commit per step; commits stay local on this machine (the parent workflow
 | 3A | Accounting core | done | 53 passed, 1 skipped (Chromium) | 1d616ce |
 | 4 | Geographic masters | done | 58 passed, 1 skipped (Chromium) | 6a8eac9 |
 | 5 | HR masters | done | 63 passed, 1 skipped (Chromium) | bb54135 |
-| 6 | Employees & directors | done | 72 passed, 1 skipped (Chromium) | (this run) |
+| 6 | Employees & directors | done | 72 passed, 1 skipped (Chromium) | 337ae86 |
+| 7 | Samities, holidays, notices | done | 82 passed, 1 skipped (Chromium) | (this run) |
 
 ## Step 0 — notes
 
@@ -150,3 +151,14 @@ Status: **done**. Tests: 82 passed, 1 skipped (Chromium PDF) — full suite gree
 - Step 2's `RbacTest` used placeholder samity ids `11, 12`; updated to the real seeded samity ids now that the FK is live (same anticipated forward-fix pattern as Step 6).
 - Seeds: Talgachi Samity (Wed, officer Rofiqul) + Talgachi Mohila Samity (Sun, Female, officer Sharmin).
 - Lang files now 467 keys in both en/bn.
+
+## Step 8 — notes
+
+Status: **done**. Tests: 89 passed, 1 skipped (Chromium PDF) — full suite green. 58 tables, 529 lang keys in both en/bn.
+
+- Tables: `members` (member_no unique via NumberingService per-branch display id, branch derived from the samity, encrypted NID/passport/TIN + unique SHA-256 hashes, `share_amount` DECIMAL(18,2) = canonical share capital), `member_users` (portal login; username = mobile, fallback `M<member_no>`; argon2id; inactive until activated; must-change-password), `nominees` (age derived from dob — deliberately no age column), `member_closings` (share snapshot + `share_disposition` Refunded/Forfeited, closed_by/at, cancelled_by/at), `member_visits` (lat/lng + check_in_at), `member_documents`, `member_login_logs`, `member_transfers`.
+- Admission: tabbed Basic / Other / Pictures form with member-profile side panel; success modal "Save Successfully! ID is: N" via a one-time flash prop; nominee row + portal user created in the same transaction; photos via UploadService (GD re-encode, private disk). KYC uniqueness (NID/mobile/passport) enforced through Step 6's `IdentityCheckService`, which now spans employees + directors + members.
+- List: samity/name/phone/member-no/NID-hash/status/gender/open-date filters + advance filter, the reference's 20-column table with expandable rows, mobile cards; row actions: 360, Edit, Documents, Admission Form, Add Visit, Check In, Update Location (browser geolocation when available).
+- Transfer: same-samity rejected; active-loan block unless manager-approved; writes `member_transfers` + audit entry. Closing: already-closed / active-loan / deposit-balance blocks — the loan and deposit checks are `Schema::hasTable`-guarded and go fully live in Steps 17/10; share disposition is recorded on the closing row now, and the actual money posting lands with Step 11's share flow (no fake money movement at this step). Cancel-closing restores the member to Active.
+- Forward-fixes (same anticipated pattern as Steps 6/7): `MembersTest` uses a fresh factory super-admin with `must_change_password = false` (the seeded admin still owes its first-login change); `CoreInfrastructureTest`'s numbering assertions made seed-agnostic (relative increments + cross-pair independence) because MemberSeeder now legitimately consumes Talgachi-branch `member` numbers.
+- Seeds: 3 members (Rokeya Begum, Hanif Sheikh in Talgachi Samity; Fatema Khatun in Talgachi Mohila Samity), each with a nominee where given and an inactive portal user.
