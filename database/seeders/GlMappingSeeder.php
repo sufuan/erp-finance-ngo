@@ -37,6 +37,7 @@ class GlMappingSeeder extends Seeder
             ['loan.fee.document', '1010', '4033', 'Loan document fee received'],
             ['loan.fee.emi_locker', '1010', '4034', 'Loan EMI locker fee received'],
             ['loan.fee.others', '1010', '4035', 'Other loan fees received'],
+            ['migration.opening', '1100', '3020', 'Migrated loan opening balance against fund balance'],
             ['loan.disbursement', '1100', '1010', 'Loan disbursed in cash'],
             ['loan.receive', '1010', '1100', 'Installment received against loan portfolio'],
             ['loan.receive.profit', '1010', '4010', 'Service charge/profit portion of installment'],

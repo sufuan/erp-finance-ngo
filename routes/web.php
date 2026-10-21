@@ -15,6 +15,7 @@ use App\Http\Controllers\Deposits\DepositTransactionController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Members\MemberController;
 use App\Http\Controllers\Members\MemberLifecycleController;
+use App\Http\Controllers\Settings\BalanceMigrationController;
 use App\Http\Controllers\Settings\BranchController;
 use App\Http\Controllers\Settings\BusinessDayController;
 use App\Http\Controllers\Settings\GeneralSettingsController;
@@ -141,6 +142,18 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
             Route::post('/member-migrations/dry-run/excel', [MemberMigrationController::class, 'dryRunExcel'])->name('member-migrations.dry-run.excel');
             Route::post('/member-migrations/dry-run/grid', [MemberMigrationController::class, 'dryRunGrid'])->name('member-migrations.dry-run.grid');
             Route::post('/member-migrations/{batch}/confirm', [MemberMigrationController::class, 'confirm'])->name('member-migrations.confirm');
+        });
+
+        // Balance migrations (Step 20A).
+        Route::middleware('can:settings.view')->group(function () {
+            Route::get('/balance-migrations', [BalanceMigrationController::class, 'index'])->name('balance-migrations.index');
+            Route::get('/balance-migrations/{batch}', [BalanceMigrationController::class, 'index'])->name('balance-migrations.show');
+            Route::get('/balance-migrations/{batch}/error-report', [BalanceMigrationController::class, 'errorReport'])->name('balance-migrations.error-report');
+        });
+        Route::middleware('can:settings.general')->group(function () {
+            Route::post('/balance-migrations/dry-run/excel', [BalanceMigrationController::class, 'dryRunExcel'])->name('balance-migrations.dry-run.excel');
+            Route::post('/balance-migrations/dry-run/grid', [BalanceMigrationController::class, 'dryRunGrid'])->name('balance-migrations.dry-run.grid');
+            Route::post('/balance-migrations/{batch}/confirm', [BalanceMigrationController::class, 'confirm'])->name('balance-migrations.confirm');
         });
 
         // Employee & director registers (Step 6).

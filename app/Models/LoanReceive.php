@@ -14,7 +14,7 @@ class LoanReceive extends Model
         'installment_amount', 'investment_amount', 'profit_amount',
         'penalty_charge', 'transfer_from_deposit', 'deposit_account_id',
         'document_number', 'comments', 'voucher_id', 'deposit_voucher_id',
-        'entry_by', 'entry_at', 'cancel_by', 'cancel_at',
+        'is_migrated', 'entry_by', 'entry_at', 'cancel_by', 'cancel_at',
     ];
 
     protected function casts(): array
@@ -23,7 +23,7 @@ class LoanReceive extends Model
             'receive_date' => 'date', 'business_date' => 'date',
             'installment_amount' => 'decimal:2', 'investment_amount' => 'decimal:2',
             'profit_amount' => 'decimal:2', 'penalty_charge' => 'decimal:2',
-            'transfer_from_deposit' => 'boolean',
+            'transfer_from_deposit' => 'boolean', 'is_migrated' => 'boolean',
             'entry_at' => 'datetime', 'cancel_at' => 'datetime',
         ];
     }
