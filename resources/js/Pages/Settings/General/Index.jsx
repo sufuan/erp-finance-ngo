@@ -1,4 +1,5 @@
 import { useForm } from '@inertiajs/react';
+import { ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
 import { useState } from 'react';
 import { Field, PrimaryButton, inputCls } from '../../../Components/ui';
 import AppLayout from '../../../Layouts/AppLayout';
@@ -13,6 +14,17 @@ import { t } from '../../../lib/i18n';
 // during render and white-screen the whole page — coerce instead.
 const asArray = (v) => (Array.isArray(v) ? v : []);
 const asObject = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+
+// The allocation order is a permutation of exactly these three buckets —
+// LoanMoneyService applies a received amount in this sequence. Whatever a
+// stored value looks like (missing bucket, junk entry, duplicate), the form
+// normalizes it back to the full set so the reorder control can never build
+// an invalid order.
+const ALLOCATION_KEYS = ['penalty', 'profit', 'principal'];
+const normalizeAllocationOrder = (v) => {
+    const kept = asArray(v).filter((k, i, arr) => ALLOCATION_KEYS.includes(k) && arr.indexOf(k) === i);
+    return [...kept, ...ALLOCATION_KEYS.filter((k) => !kept.includes(k))];
+};
 
 export default function GeneralSettings({ profile, settings }) {
     const [tab, setTab] = useState('organization');
@@ -35,7 +47,7 @@ export default function GeneralSettings({ profile, settings }) {
             'print.footer_text': s['print.footer_text'] ?? '',
             'loan.default_profit_rate': s['loan.default_profit_rate'] ?? 15,
             'loan.max_service_charge_rate': s['loan.max_service_charge_rate'] ?? 24,
-            'loan.allocation_order': asArray(s['loan.allocation_order']).join(', '),
+            'loan.allocation_order': normalizeAllocationOrder(s['loan.allocation_order']),
             'loan.allow_overpayment': !!s['loan.allow_overpayment'],
             'loan.enabled_frequencies': Array.isArray(s['loan.enabled_frequencies']) ? s['loan.enabled_frequencies'] : ['D', 'W', 'M'],
             'loan.fee_defaults': { form: 0, health: 0, risk: 0, document: 0, emi_locker: 0, others: 0, ...asObject(s['loan.fee_defaults']) },
@@ -64,13 +76,14 @@ export default function GeneralSettings({ profile, settings }) {
 
     const submit = (e) => {
         e.preventDefault();
-        // Convert text-held JSON fields back to arrays before submit.
+        // Convert the one text-held JSON field back to an array before
+        // submit. loan.allocation_order is already a real array end-to-end
+        // (the reorder control only ever produces a valid permutation).
         const payload = {
             ...data,
             settings: {
                 ...data.settings,
                 'print.header_lines': data.settings['print.header_lines'].split('\n').map((x) => x.trim()).filter(Boolean),
-                'loan.allocation_order': data.settings['loan.allocation_order'].split(',').map((x) => x.trim()).filter(Boolean),
             },
         };
         post('/settings/general', { data: payload, forceFormData: true, preserveScroll: true });
@@ -94,6 +107,62 @@ export default function GeneralSettings({ profile, settings }) {
         <label className="flex min-h-[44px] items-center gap-2 text-sm">
             <input type="checkbox" className="h-5 w-5" checked={!!value} onChange={(e) => onChange(e.target.checked)} /> {label}
         </label>
+    );
+
+    // Allocation-order reorder control. Rows drag by their grip handle
+    // (HTML5 drag & drop); the up/down buttons are the keyboard/touch
+    // fallback. The state is always a permutation of ALLOCATION_KEYS, so
+    // no invalid order can ever be submitted.
+    const [dragFrom, setDragFrom] = useState(null);
+    const [dragArmed, setDragArmed] = useState(null); // index whose grip armed dragging
+    const allocOrder = data.settings['loan.allocation_order'];
+    const moveAlloc = (from, to) => {
+        if (from === to || from < 0 || to < 0 || from >= allocOrder.length || to >= allocOrder.length) return;
+        const next = [...allocOrder];
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        set('loan.allocation_order', next);
+    };
+    const allocationOrderControl = (
+        <div>
+            <span className="mb-1 block text-sm font-medium">{t('allocation_order')}</span>
+            <ul className="max-w-md divide-y divide-zinc-200 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+                {allocOrder.map((key, i) => (
+                    <li key={key}
+                        draggable={dragArmed === i}
+                        onDragStart={() => setDragFrom(i)}
+                        onDragEnd={() => { setDragFrom(null); setDragArmed(null); }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => { e.preventDefault(); if (dragFrom !== null) moveAlloc(dragFrom, i); setDragFrom(null); setDragArmed(null); }}
+                        className={`flex items-center gap-2 px-2 py-1.5 ${dragFrom === i ? 'opacity-50' : ''}`}>
+                        <span role="button" aria-label={t('allocation_order')} title={t('allocation_order_hint')}
+                            onMouseDown={() => setDragArmed(i)} onTouchStart={() => setDragArmed(i)}
+                            className="flex min-h-[44px] cursor-grab items-center px-1 text-zinc-400 active:cursor-grabbing">
+                            <GripVertical className="h-5 w-5" />
+                        </span>
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">{i + 1}</span>
+                        <span className="flex-1 text-sm">{t(key)}</span>
+                        <button type="button" title={t('move_up')} aria-label={t('move_up')} disabled={i === 0}
+                            onClick={() => moveAlloc(i, i - 1)}
+                            className="flex min-h-[44px] items-center px-1 text-zinc-500 disabled:opacity-30">
+                            <ChevronUp className="h-5 w-5" />
+                        </button>
+                        <button type="button" title={t('move_down')} aria-label={t('move_down')} disabled={i === allocOrder.length - 1}
+                            onClick={() => moveAlloc(i, i + 1)}
+                            className="flex min-h-[44px] items-center px-1 text-zinc-500 disabled:opacity-30">
+                            <ChevronDown className="h-5 w-5" />
+                        </button>
+                    </li>
+                ))}
+            </ul>
+            <div className="mt-2 flex max-w-md flex-wrap items-center justify-between gap-2">
+                <span className="text-xs text-zinc-500">{t('allocation_order_hint')}</span>
+                <button type="button" onClick={() => set('loan.allocation_order', [...ALLOCATION_KEYS])}
+                    className="min-h-[44px] text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-400">
+                    {t('reset_default')}
+                </button>
+            </div>
+        </div>
     );
 
     return (
@@ -154,7 +223,6 @@ export default function GeneralSettings({ profile, settings }) {
                         <div className="grid gap-4 sm:grid-cols-2">
                             {num(t('default_profit_rate'), data.settings['loan.default_profit_rate'], (v) => set('loan.default_profit_rate', v))}
                             {num(t('max_service_charge_rate'), data.settings['loan.max_service_charge_rate'], (v) => set('loan.max_service_charge_rate', v))}
-                            <Field label={t('allocation_order')}><input className={inputCls} value={data.settings['loan.allocation_order']} onChange={(e) => set('loan.allocation_order', e.target.value)} /></Field>
                             <Field label={t('llp_basis')}>
                                 <select className={inputCls} value={data.settings['llp.basis']} onChange={(e) => set('llp.basis', e.target.value)}>
                                     <option value="net_outstanding">{t('llp_basis_net')}</option>
@@ -164,6 +232,7 @@ export default function GeneralSettings({ profile, settings }) {
                             {num(t('tax_withholding_rate'), data.settings['profit.tax_withholding_rate'], (v) => set('profit.tax_withholding_rate', v))}
                             {num(t('auth_amount_threshold'), data.settings['accounts.auth_amount_threshold'], (v) => set('accounts.auth_amount_threshold', v))}
                         </div>
+                        {allocationOrderControl}
                         <fieldset>
                             <legend className="mb-1 text-sm font-medium">{t('enabled_frequencies')}</legend>
                             <div className="flex flex-wrap gap-4">

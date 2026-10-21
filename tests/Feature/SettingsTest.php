@@ -188,6 +188,32 @@ class SettingsTest extends TestCase
         $this->get('/')->assertInertia(fn (Assert $page) => $page->where('appName', 'TPDA e-Sheba Pro'));
     }
 
+    public function test_allocation_order_saves_as_array_in_posted_order(): void
+    {
+        $this->admin();
+        $profile = OrganizationProfile::active();
+
+        // The reorder control submits loan.allocation_order as a real array
+        // (never a comma-typed string); the stored setting must decode to
+        // exactly the posted permutation — LoanMoneyService consumes it
+        // as-is when splitting a received installment.
+        $this->post('/settings/general', [
+            'profile' => [
+                'name_en' => $profile->name_en, 'name_bn' => $profile->name_bn, 'org_type' => $profile->org_type,
+                'registration_no' => $profile->registration_no, 'mobile_app_name' => $profile->mobile_app_name,
+                'contact_person' => $profile->contact_person,
+            ],
+            'settings' => ['loan.allocation_order' => ['principal', 'penalty', 'profit']],
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->assertSame(['principal', 'penalty', 'profit'], app(SettingsService::class)->get('loan.allocation_order'));
+
+        // …and the settings page hands that exact order back to the form.
+        $response = $this->get('/settings/general')->assertOk();
+        $s = $response->viewData('page')['props']['settings'];
+        $this->assertSame(['principal', 'penalty', 'profit'], $s['loan.allocation_order']);
+    }
+
     public function test_logo_upload_stores_file_and_sets_logo_path(): void
     {
         $this->admin();
