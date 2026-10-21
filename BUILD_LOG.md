@@ -195,3 +195,12 @@ Status: **done**. Tests: 106 passed, 1 skipped (Chromium PDF) — full suite gre
 - Cancellation is latest-movement-only per account (cancelling an older movement would corrupt the running-balance chain; Step 27 adds full reversal entries). Cancelling flags the detail row (cancel_by/at), cancels the voucher via PostingService, and resyncs caches — transfer cancel requires the movement to be latest on BOTH accounts.
 - Pages (shared two-column form + ACCOUNT SNAPSHOT pattern): Deposit Receive (with product presets Savings/DPS/FDR via query, e.g. `?product=DPS`), Deposit Payment, Deposit Transfer (dual member lookup, balances readonly, transfers table with cancel by/on), Share Receive/Payment (mode toggle). History on receive/payment pages lists the account's latest 20 detail rows with cancel actions. Gated `deposits.receive` / `deposits.pay` / `deposits.transfer`.
 - Acceptance verified by tests: receive ৳1000 → ৳1000, pay ৳200 → ৳800 with balanced vouchers + balanced trial balance + GL control at 800; transfer moves ৳400 with the two-account sum unchanged; FDR receive lands on the 2030 control; share flows move `members.share_amount` exactly.
+
+## Step 12 — notes
+
+- Step 12 header section above was added before-commit; the "Deposit blocks & closing"
+  summary line lives in that section. Extra detail: withdrawal blocks reserve amounts
+  in DepositTransactionService::assertDebitAllowed (lien + block floor); deposit blocks
+  stop receives; closing voucher credits penalty income via the new
+  `deposit.close.penalty` mapping (4020). Suite after step: 111 passed / 1 skipped,
+  67 tables, 654 lang keys.
