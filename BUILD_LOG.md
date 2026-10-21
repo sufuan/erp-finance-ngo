@@ -198,9 +198,9 @@ Status: **done**. Tests: 106 passed, 1 skipped (Chromium PDF) — full suite gre
 
 ## Step 12 — notes
 
-- Step 12 header section above was added before-commit; the "Deposit blocks & closing"
-  summary line lives in that section. Extra detail: withdrawal blocks reserve amounts
-  in DepositTransactionService::assertDebitAllowed (lien + block floor); deposit blocks
-  stop receives; closing voucher credits penalty income via the new
-  `deposit.close.penalty` mapping (4020). Suite after step: 111 passed / 1 skipped,
-  67 tables, 654 lang keys.
+Status: **done**. Tests: 111 passed, 1 skipped — full suite green. 67 tables, 654 lang keys.
+
+- Tables: `deposit_blocks` (block/clear dates, amounts, reasons, deposit/withdrawal flags, audit) and `deposit_closings` (balance, profit_payment, closing_charge, payable, close/cancel audit).
+- Guards wired into `DepositTransactionService`: uncleared withdrawal blocks reserve their amount in `assertDebitAllowed` (floor = lien total + block total, error `amount_blocked`); uncleared deposit blocks stop receives (`deposits_blocked`). Clearing a block restores full movement.
+- `DepositClosingService`: payable = balance + profit_payment − closing_charge (setting `deposit.closing_charge`) − premature penalty (Step 10 preview). One Payment voucher: Dr product control (balance) + Dr profit expense (profit), Cr cash (payable), Cr fee income 4035 (charge, via `deposit.close.charge`), Cr penalty income 4020 (via the new `deposit.close.penalty` mapping added to GlMappingSeeder). Closing sets `closing_date` + `is_active=false`; cancel reopens the account and restores the balance from the sub-ledger. A zero-balance closing posts no voucher.
+- Pages: Transaction Block / Deposit Block Clear (one page, two modes) and Deposit Closing with a live preview (balance / profit / charge / penalty / payable). Gated `deposits.block` / `deposits.close`.
