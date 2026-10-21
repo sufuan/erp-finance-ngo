@@ -42,6 +42,11 @@ class DepositAccount extends Model
         return $this->belongsTo(Branch::class);
     }
 
+    public function transactions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(DepositTransaction::class, 'account_id');
+    }
+
     public function member(): BelongsTo
     {
         return $this->belongsTo(Member::class);

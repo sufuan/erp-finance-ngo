@@ -21,6 +21,7 @@ use App\Http\Controllers\Settings\GeneralSettingsController;
 use App\Http\Controllers\Settings\GeoController;
 use App\Http\Controllers\Settings\MemberMigrationController;
 use App\Http\Controllers\Settings\PermissionController;
+use App\Http\Controllers\Reports\DepositReportController;
 use App\Http\Controllers\Settings\RegisterController;
 use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\SamityController;
@@ -213,6 +214,11 @@ Route::middleware(['auth', 'password.changed', 'totp'])->prefix('deposits')->nam
     Route::post('/products', [DepositProductController::class, 'store'])->middleware('can:deposits.profit-setup')->name('products.store');
     Route::put('/products/{product}', [DepositProductController::class, 'update'])->middleware('can:deposits.profit-setup')->name('products.update');
     Route::delete('/products/{product}', [DepositProductController::class, 'destroy'])->middleware('can:deposits.profit-setup')->name('products.destroy');
+});
+
+Route::prefix('reports')->name('reports.')->middleware(['auth', 'password.changed', 'totp'])->group(function () {
+    Route::get('/deposits', [DepositReportController::class, 'index'])->middleware('can:reports.view')->name('deposits');
+    Route::get('/deposits/{key}/pdf', [DepositReportController::class, 'pdf'])->middleware('can:reports.print')->name('deposits.pdf');
 });
 
 // Private files: the controller itself requires an authenticated user.

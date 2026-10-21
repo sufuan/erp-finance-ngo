@@ -79,4 +79,33 @@ class PdfService
     {
         return $rowCount > self::LARGE_REPORT_ROWS;
     }
+
+    /**
+     * Render HTML to PDF: Chromium when the row count is small, mPDF for
+     * large reports (plan rule), and mPDF again as a safety net when
+     * Chromium is unavailable on the host.
+     */
+    public function renderHtmlWithFallback(string $html, int $rowCount = 0): string
+    {
+        if ($this->shouldUseFallback($rowCount)) {
+            return $this->renderLargeHtml($html);
+        }
+        try {
+            $path = tempnam(sys_get_temp_dir(), 'tpda-pdf-').'.pdf';
+            PdfFacade::html($html)
+                ->withBrowsershot(function ($browsershot) {
+                    $browsershot->noSandbox()->setOption('disable-dev-shm-usage', true);
+                    if ($chrome = env('BROWSERSHOT_CHROME_PATH')) {
+                        $browsershot->setChromePath($chrome);
+                    }
+                })
+                ->save($path);
+            $bytes = file_get_contents($path);
+            @unlink($path);
+
+            return $bytes;
+        } catch (\Throwable) {
+            return $this->renderLargeHtml($html);
+        }
+    }
 }
