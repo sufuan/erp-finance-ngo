@@ -14,6 +14,7 @@ use App\Http\Controllers\Settings\BranchController;
 use App\Http\Controllers\Settings\BusinessDayController;
 use App\Http\Controllers\Settings\GeneralSettingsController;
 use App\Http\Controllers\Settings\GeoController;
+use App\Http\Controllers\Settings\MemberMigrationController;
 use App\Http\Controllers\Settings\PermissionController;
 use App\Http\Controllers\Settings\RegisterController;
 use App\Http\Controllers\Settings\RoleController;
@@ -113,6 +114,18 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
             Route::delete('/holidays/{holiday}', [SamityController::class, 'destroyHoliday'])->name('holidays.destroy');
             Route::post('/notices', [SamityController::class, 'storeNotice'])->name('notices.store');
             Route::delete('/notices/{notice}', [SamityController::class, 'destroyNotice'])->name('notices.destroy');
+        });
+
+        // Member migrations (Step 9A).
+        Route::middleware('can:settings.view')->group(function () {
+            Route::get('/member-migrations', [MemberMigrationController::class, 'index'])->name('member-migrations.index');
+            Route::get('/member-migrations/{batch}', [MemberMigrationController::class, 'index'])->name('member-migrations.show');
+            Route::get('/member-migrations/{batch}/error-report', [MemberMigrationController::class, 'errorReport'])->name('member-migrations.error-report');
+        });
+        Route::middleware('can:settings.general')->group(function () {
+            Route::post('/member-migrations/dry-run/excel', [MemberMigrationController::class, 'dryRunExcel'])->name('member-migrations.dry-run.excel');
+            Route::post('/member-migrations/dry-run/grid', [MemberMigrationController::class, 'dryRunGrid'])->name('member-migrations.dry-run.grid');
+            Route::post('/member-migrations/{batch}/confirm', [MemberMigrationController::class, 'confirm'])->name('member-migrations.confirm');
         });
 
         // Employee & director registers (Step 6).

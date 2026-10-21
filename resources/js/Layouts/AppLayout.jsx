@@ -58,6 +58,7 @@ export default function AppLayout({ children, branches: branchesProp = undefined
         ...(can.employees ? [{ key: 'directors', href: '/settings/directors', label: t('directors') }] : []),
         ...(can.members ? [{ key: 'members', href: '/members', label: t('members') }] : []),
         ...(can.settings ? [{ key: 'samities', href: '/settings/samities', label: t('samities') }] : []),
+        ...(can.settings ? [{ key: 'member_migrations', href: '/settings/member-migrations', label: t('member_migrations') }] : []),
         ...(can.settings ? [{ key: 'holidays', href: '/settings/holidays', label: t('holidays') }] : []),
         ...(can.settings ? [{ key: 'notices', href: '/settings/notices', label: t('notices') }] : []),
     ];

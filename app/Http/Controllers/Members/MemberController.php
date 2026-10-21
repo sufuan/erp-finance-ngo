@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Members;
 use App\Http\Controllers\Controller;
 use App\Models\Member;
 use App\Models\MemberDocument;
-use App\Models\MemberUser;
 use App\Models\MemberVisit;
 use App\Models\Nominee;
 use App\Models\OrganizationProfile;
@@ -13,14 +12,12 @@ use App\Models\Samity;
 use App\Services\AuditService;
 use App\Services\BranchAccessService;
 use App\Services\IdentityCheckService;
-use App\Services\NumberingService;
+use App\Services\MemberAdmissionService;
 use App\Services\UploadService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -125,34 +122,22 @@ class MemberController extends Controller
         ]);
     }
 
-    public function store(Request $request, IdentityCheckService $identity, UploadService $uploads, AuditService $audit, NumberingService $numbering): RedirectResponse
+    public function store(Request $request, IdentityCheckService $identity, UploadService $uploads, AuditService $audit, MemberAdmissionService $admissions): RedirectResponse
     {
         $data = $this->validateMember($request, $identity);
         $samity = Samity::findOrFail($data['samity_id']);
         $this->assertBranchVisible($request, $samity->branch_id);
 
-        $member = DB::transaction(function () use ($request, $data, $samity, $uploads, $numbering) {
-            if ($request->hasFile('profile_photo_file')) {
-                $data['profile_photo'] = $uploads->store($request->file('profile_photo_file'), 'photo', 'members');
-            }
-            unset($data['profile_photo_file']);
-            $nomineeData = $this->extractNominee($data);
-            if ($request->hasFile('nominee_photo_file')) {
-                $nomineeData['photo'] = $uploads->store($request->file('nominee_photo_file'), 'photo', 'nominees');
-            }
-            $data['branch_id'] = $samity->branch_id;
-            $data['member_no'] = $numbering->nextDisplayId($samity->branch_id, 'member');
-            $data['created_by'] = $request->user()->id;
-            $data['updated_by'] = $request->user()->id;
-            $member = Member::create($data);
+        if ($request->hasFile('profile_photo_file')) {
+            $data['profile_photo'] = $uploads->store($request->file('profile_photo_file'), 'photo', 'members');
+        }
+        unset($data['profile_photo_file']);
+        if ($request->hasFile('nominee_photo_file')) {
+            $data['nominee_photo'] = $uploads->store($request->file('nominee_photo_file'), 'photo', 'nominees');
+        }
+        unset($data['nominee_photo_file']);
 
-            if (! empty($nomineeData['name'])) {
-                Nominee::create([...$nomineeData, 'member_id' => $member->id]);
-            }
-            $this->createPortalUser($member);
-
-            return $member;
-        });
+        $member = $admissions->admit($data, $samity, $request->user()->id);
 
         $audit->log($request->user()->id, 'member.created', 'members', $member->id, null, ['member_no' => $member->member_no, 'name' => $member->name]);
 
@@ -340,22 +325,6 @@ class MemberController extends Controller
     {
         $visible = app(BranchAccessService::class)->visibleBranches($request->user())->pluck('id')->all();
         abort_unless(in_array($branchId, $visible, true), 403);
-    }
-
-    private function createPortalUser(Member $member): MemberUser
-    {
-        $username = $member->mobile;
-        if (! $username || MemberUser::where('username', $username)->exists()) {
-            $username = 'M'.$member->member_no;
-        }
-
-        return MemberUser::create([
-            'member_id' => $member->id,
-            'username' => $username,
-            'password' => Hash::make(Str::random(12)),
-            'is_active' => false,
-            'must_change_password' => true,
-        ]);
     }
 
     private function extractNominee(array &$data): array
