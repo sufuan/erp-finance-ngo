@@ -11,7 +11,7 @@ class LoanSchedule extends Model
     protected $fillable = [
         'loan_account_id', 'installment_no', 'due_date',
         'principal_due', 'profit_due', 'total_due',
-        'paid_principal', 'paid_profit', 'paid_penalty', 'status',
+        'paid_principal', 'paid_profit', 'paid_penalty', 'status', 'superseded_by',
     ];
 
     protected function casts(): array

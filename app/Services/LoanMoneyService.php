@@ -64,23 +64,37 @@ class LoanMoneyService
         });
     }
 
-    /** Penalty currently due: setup charge per overdue unpaid row, less paid. */
+    /**
+     * Penalty currently due = per-row setup charge (overdue rows, net of
+     * paid) + Step 19 additional penalties − Step 19 charge waivers −
+     * penalty already collected beyond the setup caps.
+     */
     public function penaltyDue(LoanAccount $loan, ?string $asOf = null): string
     {
-        $charge = DuePenaltySetup::where('loan_account_id', $loan->id)->value('penal_charge');
-        if (! $charge) {
-            return '0.00';
-        }
         $asOf ??= $this->businessDays->currentDate($loan->branch_id);
+        $charge = BigDecimal::of((string) (DuePenaltySetup::where('loan_account_id', $loan->id)->value('penal_charge') ?? 0));
         $due = BigDecimal::zero();
-        foreach ($loan->schedules()->where('due_date', '<', $asOf)->where('status', '!=', 'Paid')->get() as $row) {
-            $rowDue = BigDecimal::of((string) $charge)->minus((string) $row->paid_penalty);
-            if ($rowDue->isPositive()) {
-                $due = $due->plus($rowDue);
+        $beyond = BigDecimal::zero();
+        foreach ($loan->schedules()->get() as $row) {
+            $paidPenalty = BigDecimal::of((string) $row->paid_penalty);
+            if ($paidPenalty->isGreaterThan($charge)) {
+                $beyond = $beyond->plus($paidPenalty->minus($charge));
+            }
+            if ($row->due_date->toDateString() < $asOf && $row->status !== 'Paid') {
+                $rowDue = $charge->minus($paidPenalty);
+                if ($rowDue->isPositive()) {
+                    $due = $due->plus($rowDue);
+                }
             }
         }
+        $extra = BigDecimal::of((string) \App\Models\LoanPenalty::where('loan_account_id', $loan->id)->whereNull('cancel_at')->sum('penalty_amount'));
+        $waived = BigDecimal::of((string) \App\Models\LoanWaiver::where('loan_account_id', $loan->id)->whereNull('cancel_at')->sum('charge_waive'));
+        $total = $due->plus($extra)->minus($waived)->minus($beyond);
+        if ($total->isNegative()) {
+            $total = BigDecimal::zero();
+        }
 
-        return (string) $due->toScale(2, RoundingMode::HalfUp);
+        return (string) $total->toScale(2, RoundingMode::HalfUp);
     }
 
     /** @return array{principal: string, profit: string, penalty: string, total: string} */
@@ -333,6 +347,10 @@ class LoanMoneyService
             }
             foreach ($order as $bucket) {
                 $bucketCap = collect($caps)->reduce(fn ($s, $c) => $s->plus($c[$bucket]), BigDecimal::zero());
+                if ($bucket === 'penalty') {
+                    // The Step 19 pool is collectable beyond per-row caps.
+                    $bucketCap = BigDecimal::of($this->penaltyDue($loan, $businessDate));
+                }
                 if ($targets[$bucket]->isGreaterThan($bucketCap)) {
                     throw ValidationException::withMessages(['amount' => __('split_exceeds_due')]);
                 }
@@ -349,6 +367,12 @@ class LoanMoneyService
                     $addSlice($row->id, $bucket, $slice);
                     $left = $left->minus($slice);
                 }
+                if ($bucket === 'penalty' && $left->isPositive()) {
+                    $anchorId = $rows->firstWhere('status', '!=', 'Paid')?->id ?? $rows->first()?->id;
+                    if ($anchorId !== null) {
+                        $addSlice($anchorId, 'penalty', $left);
+                    }
+                }
             }
         } else {
             // Auto mode, two phases. Phase 1: penalty is a receipt-level
@@ -359,27 +383,40 @@ class LoanMoneyService
             // installment completes before the next one starts.
             $remaining = $amount;
             if (in_array('penalty', $order, true)) {
-                $penaltyLeft = isset($input['penalty_charge']) ? BigDecimal::of((string) $input['penalty_charge']) : null;
+                // Total penalty collectable now (setup + Step 19 pools).
+                $penaltyLeft = BigDecimal::of($this->penaltyDue($loan, $businessDate));
+                if (isset($input['penalty_charge'])) {
+                    $officerCap = BigDecimal::of((string) $input['penalty_charge']);
+                    if ($officerCap->isLessThan($penaltyLeft)) {
+                        $penaltyLeft = $officerCap;
+                    }
+                }
+                if ($penaltyLeft->isGreaterThan($remaining)) {
+                    $penaltyLeft = $remaining;
+                }
+                $anchorId = null;
                 foreach ($rows as $row) {
-                    if ($remaining->isZero() || ($penaltyLeft !== null && ! $penaltyLeft->isPositive())) {
+                    if (! $penaltyLeft->isPositive()) {
                         break;
                     }
                     $cap = $caps[$row->id]['penalty'];
                     if (! $cap->isPositive()) {
                         continue;
                     }
-                    $limit = $remaining;
-                    if ($penaltyLeft !== null && $penaltyLeft->isLessThan($limit)) {
-                        $limit = $penaltyLeft;
-                    }
-                    $slice = $cap->isLessThan($limit) ? $cap : $limit;
-                    if (! $slice->isPositive()) {
-                        continue;
-                    }
+                    $slice = $cap->isLessThan($penaltyLeft) ? $cap : $penaltyLeft;
                     $addSlice($row->id, 'penalty', $slice);
                     $remaining = $remaining->minus($slice);
-                    if ($penaltyLeft !== null) {
-                        $penaltyLeft = $penaltyLeft->minus($slice);
+                    $penaltyLeft = $penaltyLeft->minus($slice);
+                    $anchorId = $row->id;
+                }
+                if ($penaltyLeft->isPositive()) {
+                    // Pool penalty (Step 19 penalties net of waivers) has
+                    // no per-row cap: anchor it on an unpaid row so the
+                    // paid_penalty trail stays exact.
+                    $anchorId ??= $rows->firstWhere('status', '!=', 'Paid')?->id ?? $rows->first()?->id;
+                    if ($anchorId !== null) {
+                        $addSlice($anchorId, 'penalty', $penaltyLeft);
+                        $remaining = $remaining->minus($penaltyLeft);
                     }
                 }
             }

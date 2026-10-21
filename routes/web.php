@@ -22,6 +22,8 @@ use App\Http\Controllers\Settings\GeoController;
 use App\Http\Controllers\Settings\MemberMigrationController;
 use App\Http\Controllers\Settings\PermissionController;
 use App\Http\Controllers\Loans\DuePenaltyController;
+use App\Http\Controllers\Loans\InsuranceClaimController;
+use App\Http\Controllers\Loans\LoanAdjustmentController;
 use App\Http\Controllers\Loans\LoanMasterController;
 use App\Http\Controllers\Loans\LoanMoneyController;
 use App\Http\Controllers\Loans\LoanOpeningController;
@@ -247,6 +249,22 @@ Route::middleware(['auth', 'password.changed', 'totp'])->prefix('loans')->name('
     Route::post('/installment-settings', [LoanMasterController::class, 'storeEmi'])->middleware('can:loans.products')->name('installment-settings.store');
     Route::put('/installment-settings/{template}', [LoanMasterController::class, 'updateEmi'])->middleware('can:loans.products')->name('installment-settings.update');
     Route::delete('/installment-settings/{template}', [LoanMasterController::class, 'destroyEmi'])->middleware('can:loans.products')->name('installment-settings.destroy');
+    // Loan adjustments (Step 19).
+    Route::get('/reschedule', [LoanAdjustmentController::class, 'rescheduleForm'])->middleware('can:loans.reschedule')->name('reschedule.form');
+    Route::post('/reschedule', [LoanAdjustmentController::class, 'reschedule'])->middleware('can:loans.reschedule')->name('reschedule.apply');
+    Route::get('/waiver', [LoanAdjustmentController::class, 'waiverForm'])->middleware('can:loans.waive')->name('waiver.form');
+    Route::post('/waiver', [LoanAdjustmentController::class, 'waive'])->middleware('can:loans.waive')->name('waiver.apply');
+    Route::post('/waiver/{waiver}/cancel', [LoanAdjustmentController::class, 'cancelWaiver'])->middleware('can:loans.waive')->name('waiver.cancel');
+    Route::get('/penalty', [LoanAdjustmentController::class, 'penaltyForm'])->middleware('can:loans.penalty')->name('penalty.form');
+    Route::post('/penalty', [LoanAdjustmentController::class, 'addPenalty'])->middleware('can:loans.penalty')->name('penalty.apply');
+    Route::post('/penalty/{penalty}/cancel', [LoanAdjustmentController::class, 'cancelPenalty'])->middleware('can:loans.penalty')->name('penalty.cancel');
+    Route::get('/writeoff', [LoanAdjustmentController::class, 'writeoffForm'])->middleware('can:loans.writeoff')->name('writeoff.form');
+    Route::post('/writeoff', [LoanAdjustmentController::class, 'writeoff'])->middleware('can:loans.writeoff')->name('writeoff.apply');
+    Route::post('/writeoff/collect', [LoanAdjustmentController::class, 'collectWriteoff'])->middleware('can:loans.writeoff')->name('writeoff.collect');
+    Route::get('/insurance-claims', [InsuranceClaimController::class, 'index'])->middleware('can:loans.view')->name('insurance-claims');
+    Route::post('/insurance-claims', [InsuranceClaimController::class, 'store'])->middleware('can:loans.propose')->name('insurance-claims.store');
+    Route::post('/insurance-claims/{claim}/decide', [InsuranceClaimController::class, 'decide'])->middleware('can:loans.approve')->name('insurance-claims.decide');
+    Route::post('/insurance-claims/{claim}/pay', [InsuranceClaimController::class, 'pay'])->middleware('can:loans.receive')->name('insurance-claims.pay');
 });
 
 Route::prefix('reports')->name('reports.')->middleware(['auth', 'password.changed', 'totp'])->group(function () {

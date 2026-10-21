@@ -220,4 +220,47 @@ class ScheduleEngine
 
         return $rows;
     }
+
+    /**
+     * Step 19 respread: re-spread EXISTING outstanding principal + profit
+     * totals over a new term (equal splits, last row absorbs rounding,
+     * working-day shifted dates). No new interest math — the totals are
+     * given (outstanding profit + any additional profit).
+     *
+     * @return array<int, array{installment_no: int, due_date: string, principal_due: string, profit_due: string, total_due: string}>
+     */
+    public function respreadRows(string $principalTotal, string $profitTotal, string $frequency, int $installments, string $fromDate, int $startNo = 1, ?int $branchId = null, ?int $samityId = null, ?string $samityDay = null): array
+    {
+        $principal = BigDecimal::of($principalTotal);
+        $profit = BigDecimal::of($profitTotal);
+        $first = Carbon::parse($fromDate);
+        if ($frequency === 'W' && $samityDay) {
+            for ($guard = 0; $guard < 7 && $first->format('l') !== $samityDay; $guard++) {
+                $first->addDay();
+            }
+        }
+        $perPrincipal = $principal->dividedBy($installments, 2, RoundingMode::HalfUp);
+        $perProfit = $profit->dividedBy($installments, 2, RoundingMode::HalfUp);
+        $principalLeft = $principal;
+        $profitLeft = $profit;
+        $rows = [];
+        $cursor = $first->copy();
+        for ($i = 0; $i < $installments; $i++) {
+            $isLast = $i === $installments - 1;
+            $p = $isLast ? $principalLeft : $perPrincipal;
+            $f = $isLast ? $profitLeft : $perProfit;
+            $principalLeft = $principalLeft->minus($p);
+            $profitLeft = $profitLeft->minus($f);
+            $rows[] = [
+                'installment_no' => $startNo + $i,
+                'due_date' => $this->shiftToWorkingDay($cursor, $branchId, $samityId)->toDateString(),
+                'principal_due' => (string) $p->toScale(2, RoundingMode::HalfUp),
+                'profit_due' => (string) $f->toScale(2, RoundingMode::HalfUp),
+                'total_due' => (string) $p->plus($f)->toScale(2, RoundingMode::HalfUp),
+            ];
+            $cursor = $this->stepDate($cursor, $frequency);
+        }
+
+        return $rows;
+    }
 }
