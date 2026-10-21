@@ -7,6 +7,8 @@ use App\Http\Controllers\Auth\TotpController;
 use App\Http\Controllers\BranchSwitchController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\Hrm\MasterController;
+use App\Http\Controllers\Deposits\DepositAccountController;
+use App\Http\Controllers\Deposits\DepositProductController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Members\MemberController;
 use App\Http\Controllers\Members\MemberLifecycleController;
@@ -165,6 +167,19 @@ Route::middleware(['auth', 'password.changed', 'totp'])->prefix('members')->name
     Route::post('/{member}/visits', [MemberController::class, 'storeVisit'])->middleware('can:members.visits')->name('visits.store');
     Route::post('/{member}/check-in', [MemberController::class, 'checkIn'])->middleware('can:members.visits')->name('check-in');
     Route::post('/{member}/location', [MemberController::class, 'updateLocation'])->middleware('can:members.visits')->name('location');
+});
+
+// --- Deposits (Step 10) ----------------------------------------------------
+Route::middleware(['auth', 'password.changed', 'totp'])->prefix('deposits')->name('deposits.')->group(function () {
+    Route::get('/', [DepositAccountController::class, 'index'])->middleware('can:deposits.view')->name('index');
+    Route::get('/opening', [DepositAccountController::class, 'create'])->middleware('can:deposits.open')->name('opening');
+    Route::post('/', [DepositAccountController::class, 'store'])->middleware('can:deposits.open')->name('store');
+    Route::get('/other', [DepositAccountController::class, 'otherCreate'])->middleware('can:deposits.open')->name('other');
+    Route::post('/other', [DepositAccountController::class, 'otherStore'])->middleware('can:deposits.open')->name('other.store');
+    Route::get('/products', [DepositProductController::class, 'index'])->middleware('can:deposits.profit-setup')->name('products');
+    Route::post('/products', [DepositProductController::class, 'store'])->middleware('can:deposits.profit-setup')->name('products.store');
+    Route::put('/products/{product}', [DepositProductController::class, 'update'])->middleware('can:deposits.profit-setup')->name('products.update');
+    Route::delete('/products/{product}', [DepositProductController::class, 'destroy'])->middleware('can:deposits.profit-setup')->name('products.destroy');
 });
 
 // Private files: the controller itself requires an authenticated user.

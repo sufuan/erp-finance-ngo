@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             EmployeeSeeder::class,
             SamitySeeder::class,
             MemberSeeder::class,
+            DepositProductSeeder::class,
         ]);
     }
 }

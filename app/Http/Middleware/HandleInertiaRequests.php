@@ -90,7 +90,8 @@ class HandleInertiaRequests extends Middleware
                     'hrm' => $request->user()->can('hrm.masters'),
                     'employees' => $request->user()->can('hrm.employees'),
                     'members' => $request->user()->can('members.view'),
-                ] : ['users' => false, 'roles' => false, 'permissions' => false, 'settings' => false, 'geo' => false, 'hrm' => false, 'employees' => false, 'members' => false],
+                    'deposits' => $request->user()->can('deposits.view'),
+                ] : ['users' => false, 'roles' => false, 'permissions' => false, 'settings' => false, 'geo' => false, 'hrm' => false, 'employees' => false, 'members' => false, 'deposits' => false],
             ],
             // Latest topbar notice (Step 7).
             'notice' => $this->latestNotice(),

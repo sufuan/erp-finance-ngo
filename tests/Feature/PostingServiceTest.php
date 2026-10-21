@@ -32,6 +32,9 @@ class PostingServiceTest extends TestCase
     private User $cashier;
     private User $manager;
 
+    /** @var array<int, int> fixture number => real deposit_accounts.id */
+    private array $depositAccounts = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -41,8 +44,32 @@ class PostingServiceTest extends TestCase
         $this->manager = User::factory()->create();
     }
 
+    /**
+     * Since Step 10 the voucher_lines.deposit_account_id FK is enforced, so
+     * the old bare fixture ids (9001…) now resolve to real deposit accounts
+     * created on the seeded member/product.
+     */
+    private function depositAccountId(int $fixture = 9001): int
+    {
+        if (! isset($this->depositAccounts[$fixture])) {
+            $member = \App\Models\Member::query()->firstOrFail();
+            $account = \App\Models\DepositAccount::create([
+                'account_number' => 'TEST-'.$fixture,
+                'branch_id' => $member->branch_id,
+                'member_id' => $member->id,
+                'deposit_product_id' => \App\Models\DepositProduct::where('code', 'SAVINGS')->value('id'),
+                'opening_date' => '2026-01-01',
+                'profit_rate' => 0,
+            ]);
+            $this->depositAccounts[$fixture] = $account->id;
+        }
+
+        return $this->depositAccounts[$fixture];
+    }
+
     private function savingsReceipt(string $amount = '500.00', int $accountId = 9001, array $extra = []): Voucher
     {
+        $accountId = $this->depositAccountId($accountId);
         return $this->posting->post(array_merge([
             'branch_id' => $this->branch->id,
             'voucher_type' => 'Receipt',
@@ -64,7 +91,7 @@ class PostingServiceTest extends TestCase
         $this->assertSame('500.00', (string) $voucher->total_amount);
         $this->assertSame(2, $voucher->lines()->count());
 
-        $deposit = AccountTransaction::where('account_type', 'deposit')->where('account_id', 9001)->first();
+        $deposit = AccountTransaction::where('account_type', 'deposit')->where('account_id', $this->depositAccountId(9001))->first();
         $this->assertSame('500.00', (string) $deposit->amount);
         $this->assertSame('500.00', (string) $deposit->balance_after);
 
@@ -83,7 +110,7 @@ class PostingServiceTest extends TestCase
     {
         $this->savingsReceipt('500.00');
         $this->savingsReceipt('250.50');
-        $rows = AccountTransaction::where('account_type', 'deposit')->where('account_id', 9001)->orderBy('id')->get();
+        $rows = AccountTransaction::where('account_type', 'deposit')->where('account_id', $this->depositAccountId(9001))->orderBy('id')->get();
         $this->assertSame('750.50', (string) $rows->last()->balance_after);
         $this->assertSame('750.50', (string) CashLedger::where('user_id', $this->cashier->id)->first()->current_balance);
     }
@@ -123,7 +150,7 @@ class PostingServiceTest extends TestCase
         $voucher = $this->savingsReceipt('100.00');
         $this->expectException(QueryException::class);
         AccountTransaction::create([
-            'branch_id' => $this->branch->id, 'account_type' => 'deposit', 'account_id' => 9001,
+            'branch_id' => $this->branch->id, 'account_type' => 'deposit', 'account_id' => $this->depositAccountId(9001),
             'tran_code' => 'RECEIVE', 'amount' => '100.00', 'balance_after' => '200.00',
             'tran_date' => now()->toDateString(), 'business_date' => now()->toDateString(),
             'voucher_id' => $voucher->id, 'entry_by' => $this->cashier->id, 'entry_at' => now(),
