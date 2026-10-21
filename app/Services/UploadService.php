@@ -21,6 +21,7 @@ class UploadService
 {
     public const TYPES = [
         'photo' => ['mimes' => ['image/jpeg', 'image/png'], 'ext' => ['jpg', 'jpeg', 'png'], 'max_kb' => 2048],
+        'logo' => ['mimes' => ['image/jpeg', 'image/png'], 'ext' => ['jpg', 'jpeg', 'png'], 'max_kb' => 2048],
         'document' => ['mimes' => ['application/pdf', 'image/jpeg', 'image/png'], 'ext' => ['pdf', 'jpg', 'jpeg', 'png'], 'max_kb' => 5120],
         'spreadsheet' => ['mimes' => [
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -48,7 +49,7 @@ class UploadService
 
         // Verify real content type from the bytes, not the client's claim.
         $mime = $file->getMimeType();
-        if ($type === 'photo') {
+        if (in_array($type, ['photo', 'logo'], true)) {
             return $this->storeReencodedImage($file, $folder);
         }
         if (! in_array($mime, $rules['mimes'], true)) {

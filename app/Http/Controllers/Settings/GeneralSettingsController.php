@@ -10,6 +10,7 @@ use App\Services\SettingsService;
 use App\Services\UploadService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -67,8 +68,12 @@ class GeneralSettingsController extends Controller
         $oldProfile = $profile->exists ? $profile->only(['name_en', 'name_bn', 'org_type', 'registration_no', 'mobile_app_name', 'contact_person', 'address', 'phone', 'email', 'logo_path']) : null;
         $profile->fill($validated['profile']);
         if ($request->hasFile('logo')) {
-            $stored = $this->uploads->store($request->file('logo'), 'logo', auth()->id());
-            $profile->logo_path = $stored['path'];
+            $previousLogo = $profile->logo_path;
+            // UploadService::store() returns the private-disk path string.
+            $profile->logo_path = $this->uploads->store($request->file('logo'), 'logo', 'logos');
+            if ($previousLogo && $previousLogo !== $profile->logo_path) {
+                Storage::disk('private')->delete($previousLogo);
+            }
         }
         $profile->save();
         $this->settings->bustOrganization();

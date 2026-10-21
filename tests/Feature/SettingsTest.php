@@ -7,7 +7,9 @@ use App\Models\OrganizationProfile;
 use App\Models\User;
 use App\Services\SettingsService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -184,5 +186,40 @@ class SettingsTest extends TestCase
 
         // The shared appName prop follows the setting immediately.
         $this->get('/')->assertInertia(fn (Assert $page) => $page->where('appName', 'TPDA e-Sheba Pro'));
+    }
+
+    public function test_logo_upload_stores_file_and_sets_logo_path(): void
+    {
+        $this->admin();
+        $profile = OrganizationProfile::active();
+
+        // A real 1x1 PNG: UploadService re-encodes images through GD, so
+        // an empty/faked file would be rejected as "not a valid image".
+        $tmp = tempnam(sys_get_temp_dir(), 'logo').'.png';
+        file_put_contents($tmp, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+        $logo = new UploadedFile($tmp, 'logo.png', 'image/png', null, true);
+
+        // Regression: this used to 500 — UploadService had no 'logo' type,
+        // and the controller misread the returned path string as an array.
+        $this->post('/settings/general', [
+            'profile' => [
+                'name_en' => $profile->name_en, 'name_bn' => $profile->name_bn, 'org_type' => $profile->org_type,
+                'registration_no' => $profile->registration_no, 'mobile_app_name' => $profile->mobile_app_name,
+                'contact_person' => $profile->contact_person,
+            ],
+            'logo' => $logo,
+            'settings' => ['app.name' => 'TPDA e-Sheba'],
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $profile->refresh();
+        $this->assertNotNull($profile->logo_path);
+        $this->assertStringStartsWith('logos/', $profile->logo_path);
+        $this->assertTrue(Storage::disk('private')->exists($profile->logo_path));
+
+        // The settings page renders /files/{logo_path} — it must serve.
+        $this->get('/files/'.$profile->logo_path)->assertOk();
+
+        Storage::disk('private')->delete($profile->logo_path);
+        @unlink($tmp);
     }
 }
