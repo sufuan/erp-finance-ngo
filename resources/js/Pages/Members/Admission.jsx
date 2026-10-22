@@ -31,9 +31,16 @@ export default function MemberAdmission({ options, businessDate, member }) {
     }
     const { data, setData, post, processing, errors } = useForm(initial);
 
+    // Edit submits via router.post (not useForm's post): track its flight
+    // via callbacks so the submit button still disables + spins (the
+    // useForm `processing` flag only covers the create path).
+    const [saving, setSaving] = useState(false);
     const submit = (e) => {
         e.preventDefault();
-        const opts = { preserveScroll: true, forceFormData: true };
+        const opts = {
+            preserveScroll: true, forceFormData: true,
+            onStart: () => setSaving(true), onFinish: () => setSaving(false),
+        };
         if (editing) router.post(`/members/${member.id}`, { ...data, _method: 'put' }, opts);
         else post('/members', opts);
     };
@@ -140,7 +147,7 @@ export default function MemberAdmission({ options, businessDate, member }) {
                             </div>
                         )}
                         <div className="mt-6">
-                            <PrimaryButton type="submit" disabled={processing}>{editing ? t('save') : t('create_member')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={processing || saving}>{editing ? t('save') : t('create_member')}</PrimaryButton>
                         </div>
                     </form>
                 </Card>

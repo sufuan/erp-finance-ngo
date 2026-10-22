@@ -20,7 +20,7 @@ export default function Login() {
                 <Field label={t('password')} error={errors.password}>
                     <input type="password" className={inputCls} value={data.password} onChange={(e) => setData('password', e.target.value)} autoComplete="current-password" required />
                 </Field>
-                <PrimaryButton type="submit" disabled={processing}>{t('login')}</PrimaryButton>
+                <PrimaryButton type="submit" loading={processing}>{t('login')}</PrimaryButton>
             </form>
         </AuthLayout>
     );

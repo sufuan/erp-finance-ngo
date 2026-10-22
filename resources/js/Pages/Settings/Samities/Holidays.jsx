@@ -61,7 +61,7 @@ export default function Holidays({ holidays, options, samities, activeBranchId, 
                         </>
                     )}
                     <div className="sm:col-span-2 lg:col-span-3">
-                        <PrimaryButton type="submit" disabled={processing}>{t('save')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={processing}>{t('save')}</PrimaryButton>
                     </div>
                 </form>
             </Card>

@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -6,13 +7,14 @@ import { t } from '../../lib/i18n';
 /** Deposit transfer (Step 11) — account to account, no cash leg. */
 export default function DepositTransfer({ fromMember, toMember, fromQuery, toQuery, fromAccounts, toAccounts, transfers, businessDate }) {
     const form = useForm({ from_account_id: '', to_account_id: '', amount: '', document_number: '', comments: '' });
+    const [searching, setSearching] = useState(false);
     const fromAccount = fromAccounts.find((a) => String(a.id) === String(form.data.from_account_id));
     const toAccount = toAccounts.find((a) => String(a.id) === String(form.data.to_account_id));
 
     const lookup = (param) => (e) => {
         e.preventDefault();
         const value = e.target.elements[param].value;
-        router.get('/deposits/transfer', { from_member: param === 'from_member' ? value : fromQuery, to_member: param === 'to_member' ? value : toQuery }, { preserveState: true });
+        router.get('/deposits/transfer', { from_member: param === 'from_member' ? value : fromQuery, to_member: param === 'to_member' ? value : toQuery }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
     const submit = (e) => { e.preventDefault(); form.post('/deposits/transfer', { preserveScroll: true }); };
     const cancelRow = (id) => router.post(`/deposits/transfers/${id}/cancel`, {}, { preserveScroll: true });
@@ -25,7 +27,7 @@ export default function DepositTransfer({ fromMember, toMember, fromQuery, toQue
                         <input name={param} className={inputCls} defaultValue={param === 'from_member' ? fromQuery : toQuery} />
                     </Field>
                 </div>
-                <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
             </form>
             {member && <div className="text-sm text-zinc-500">{member.member_no} — {member.name}</div>}
             <Field label={t('deposit_account')}>
@@ -67,7 +69,7 @@ export default function DepositTransfer({ fromMember, toMember, fromQuery, toQue
                         <input className={inputCls} value={form.data.comments} onChange={(e) => form.setData('comments', e.target.value)} required />
                     </Field>
                     <div className="sm:col-span-2">
-                        <PrimaryButton type="submit" disabled={form.processing}>{t('deposit_transfer')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={form.processing}>{t('deposit_transfer')}</PrimaryButton>
                     </div>
                 </form>
             </Card>

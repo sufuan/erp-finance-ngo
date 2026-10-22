@@ -7,6 +7,7 @@ import { t } from '../../lib/i18n';
 /** Manage Installment Settings (Step 15) — EMI option templates per product. */
 export default function InstallmentSettings({ templates, products, frequencies, canOverride, filters }) {
     const [editing, setEditing] = useState(null);
+    const [searching, setSearching] = useState(false);
     const form = useForm({ loan_product_id: products[0]?.id ?? '', frequency: frequencies[0]?.code ?? 'M', no_of_installments: '', profit_rate: '', comments: '', is_active: true });
     const pickProduct = (id) => {
         form.setData('loan_product_id', id);
@@ -20,7 +21,7 @@ export default function InstallmentSettings({ templates, products, frequencies, 
         else form.post('/loans/installment-settings', { preserveScroll: true });
     };
     const remove = (id) => router.delete(`/loans/installment-settings/${id}`, { preserveScroll: true });
-    const search = (e) => { e.preventDefault(); router.get('/loans/installment-settings', { search: e.target.elements.search.value }, { preserveState: true }); };
+    const search = (e) => { e.preventDefault(); router.get('/loans/installment-settings', { search: e.target.elements.search.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
 
     return (
         <AppLayout>
@@ -51,7 +52,7 @@ export default function InstallmentSettings({ templates, products, frequencies, 
                         {t('is_active')}
                     </label>
                     <div className="flex items-end gap-2">
-                        <PrimaryButton type="submit" disabled={form.processing}>{editing ? t('save') : t('add')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={form.processing}>{editing ? t('save') : t('add')}</PrimaryButton>
                         {editing && <button type="button" onClick={() => setEditing(null)} className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700">{t('cancel')}</button>}
                     </div>
                     {!canOverride && <p className="text-sm text-zinc-500 sm:col-span-2 lg:col-span-3">{t('rate_must_match_product')}</p>}
@@ -65,7 +66,7 @@ export default function InstallmentSettings({ templates, products, frequencies, 
                             <input name="search" className={inputCls} defaultValue={filters.search} />
                         </Field>
                     </div>
-                    <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                    <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                 </form>
             </Card>
 

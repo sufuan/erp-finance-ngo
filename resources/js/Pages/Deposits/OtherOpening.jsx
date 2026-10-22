@@ -29,7 +29,7 @@ export default function OtherOpening({ accounts, businessDate }) {
                         <textarea className={inputCls} rows={2} value={data.comments} onChange={(e) => setData('comments', e.target.value)} required />
                     </Field>
                     <div className="sm:col-span-2">
-                        <PrimaryButton type="submit" disabled={processing}>{t('save')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={processing}>{t('save')}</PrimaryButton>
                     </div>
                 </form>
             </Card>

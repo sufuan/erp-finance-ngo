@@ -1,5 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
-import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
+import { useState } from 'react';
+import { ButtonSpinner, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
@@ -9,7 +10,11 @@ export default function MemberClosing({ members, reasons, businessDate, closings
         member_id: '', closing_date: businessDate ?? '', closing_reason: 'Voluntary', share_disposition: 'Refunded',
     });
     const submit = (e) => { e.preventDefault(); post('/members/closing', { preserveScroll: true }); };
-    const search = () => router.get('/members/closing', {}, { preserveState: true });
+    const [searching, setSearching] = useState(false);
+    const search = () => router.get('/members/closing', {}, {
+        preserveState: true,
+        onStart: () => setSearching(true), onFinish: () => setSearching(false),
+    });
 
     return (
         <AppLayout>
@@ -37,8 +42,8 @@ export default function MemberClosing({ members, reasons, businessDate, closings
                         </select>
                     </Field>
                     <div className="flex gap-2 sm:col-span-2">
-                        <PrimaryButton type="submit" disabled={processing}>{t('submit')}</PrimaryButton>
-                        <button type="button" onClick={search} className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700">{t('search')}</button>
+                        <PrimaryButton type="submit" loading={processing}>{t('submit')}</PrimaryButton>
+                        <button type="button" onClick={search} disabled={searching} className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm disabled:opacity-50 dark:border-zinc-700">{searching && <ButtonSpinner />}{t('search')}</button>
                     </div>
                 </form>
             </Card>

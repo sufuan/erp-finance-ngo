@@ -13,6 +13,7 @@ const empty = {
 /** Deposit product master (Step 10) — everything is editable data. */
 export default function DepositProducts({ products }) {
     const [editing, setEditing] = useState(null);
+    const [saving, setSaving] = useState(false);
     const form = useForm(empty);
 
     const startEdit = (p) => {
@@ -33,7 +34,12 @@ export default function DepositProducts({ products }) {
         try { config = form.data.config ? JSON.parse(form.data.config) : null; } catch { form.setError('config', 'Invalid JSON'); return; }
         try { rules = form.data.withdrawal_rules ? JSON.parse(form.data.withdrawal_rules) : null; } catch { form.setError('withdrawal_rules', 'Invalid JSON'); return; }
         const payload = { ...form.data, config, withdrawal_rules: rules };
-        const opts = { preserveScroll: true, onSuccess: cancel };
+        // Both paths submit via router.* (not form.post), so the flight is
+        // tracked through callbacks — form.processing never fires here.
+        const opts = {
+            preserveScroll: true, onSuccess: cancel,
+            onStart: () => setSaving(true), onFinish: () => setSaving(false),
+        };
         if (editing === 'new') router.post('/deposits/products', payload, opts);
         else router.put(`/deposits/products/${editing}`, payload, opts);
     };
@@ -109,7 +115,7 @@ export default function DepositProducts({ products }) {
                             </Field>
                         </div>
                         <div className="flex gap-2 sm:col-span-2 lg:col-span-3">
-                            <PrimaryButton type="submit" disabled={form.processing}>{t('save')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={saving}>{t('save')}</PrimaryButton>
                             <button type="button" onClick={cancel} className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700">{t('cancel')}</button>
                         </div>
                     </form>

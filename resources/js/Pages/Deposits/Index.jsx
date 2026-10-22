@@ -10,8 +10,9 @@ export default function DepositIndex({ accounts, filters, products }) {
         deposit_product_id: filters.deposit_product_id ?? '', member_id: filters.member_id ?? '',
         from: filters.from ?? '', upto: filters.upto ?? '', phone: filters.phone ?? '', account: filters.account ?? '',
     });
+    const [searching, setSearching] = useState(false);
     const set = (k, v) => setF((prev) => ({ ...prev, [k]: v }));
-    const apply = (e) => { e.preventDefault(); router.get('/deposits', f, { preserveState: true }); };
+    const apply = (e) => { e.preventDefault(); router.get('/deposits', f, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const rows = accounts.data ?? [];
 
     return (
@@ -57,7 +58,7 @@ export default function DepositIndex({ accounts, filters, products }) {
                         <input type="date" className={inputCls} value={f.upto} onChange={(e) => set('upto', e.target.value)} />
                     </Field>
                     <div className="flex items-end">
-                        <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                     </div>
                 </form>
             </Card>

@@ -74,7 +74,7 @@ export default function MastersIndex({ entity, label, items, fields, entities })
                     {fields.map((f) => <div key={f.key}>{renderField(f)}</div>)}
                 </div>
                 <div className="mt-4 flex gap-2">
-                    <PrimaryButton type="submit" disabled={processing}>{t('save')}</PrimaryButton>
+                    <PrimaryButton type="submit" loading={processing}>{t('save')}</PrimaryButton>
                     {editingId && <button type="button" onClick={startCreate} className="min-h-[44px] rounded-lg px-4 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('cancel')}</button>}
                 </div>
             </form>

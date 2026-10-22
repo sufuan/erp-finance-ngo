@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -10,11 +11,12 @@ import { t } from '../../lib/i18n';
 export default function MoneyMove({ mode, member, memberQuery, accounts, snapshot, history, accountId, businessDate, preset }) {
     const isReceive = mode === 'receive';
     const form = useForm({ account_id: accountId ?? '', amount: '', document_number: '', comments: '' });
+    const [searching, setSearching] = useState(false);
 
     const lookup = (e) => {
         e.preventDefault();
         const needle = e.target.elements.member.value;
-        router.get(`/deposits/${mode}`, { member: needle, ...(preset ? { product: preset } : {}) }, { preserveState: true });
+        router.get(`/deposits/${mode}`, { member: needle, ...(preset ? { product: preset } : {}) }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
     const pickAccount = (id) => {
         form.setData('account_id', id);
@@ -34,7 +36,7 @@ export default function MoneyMove({ mode, member, memberQuery, accounts, snapsho
                             <input name="member" className={inputCls} defaultValue={memberQuery} />
                         </Field>
                     </div>
-                    <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                    <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                 </form>
                 {member && (
                     <div className="mt-3">
@@ -68,7 +70,7 @@ export default function MoneyMove({ mode, member, memberQuery, accounts, snapsho
                                 <textarea className={inputCls} rows={2} value={form.data.comments} onChange={(e) => form.setData('comments', e.target.value)} />
                             </Field>
                             <div className="flex items-end">
-                                <PrimaryButton type="submit" disabled={form.processing}>{t(isReceive ? 'deposit_receive' : 'deposit_payment')}</PrimaryButton>
+                                <PrimaryButton type="submit" loading={form.processing}>{t(isReceive ? 'deposit_receive' : 'deposit_payment')}</PrimaryButton>
                             </div>
                         </form>
                     </Card>

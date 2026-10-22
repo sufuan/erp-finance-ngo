@@ -29,7 +29,7 @@ export default function Notices({ notices, colors }) {
                         </div>
                     </div>
                     <div className="sm:col-span-2">
-                        <PrimaryButton type="submit" disabled={processing}>{t('save')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={processing}>{t('save')}</PrimaryButton>
                     </div>
                 </form>
             </Card>

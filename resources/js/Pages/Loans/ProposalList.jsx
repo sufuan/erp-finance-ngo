@@ -1,14 +1,16 @@
 import { Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
 /** Loan proposal list + approval queue (Step 16). */
 export default function ProposalList({ proposals, samities, officers, filters, canApprove }) {
+    const [searching, setSearching] = useState(false);
     const search = (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
-        router.get('/loans/proposals', Object.fromEntries(fd.entries()), { preserveState: true });
+        router.get('/loans/proposals', Object.fromEntries(fd.entries()), { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
     const decide = (id, action) => router.post(`/loans/proposals/${id}/${action}`, {}, { preserveScroll: true });
 
@@ -50,7 +52,7 @@ export default function ProposalList({ proposals, samities, officers, filters, c
                         <input type="date" name="to_date" className={inputCls} defaultValue={filters.to_date ?? ''} />
                     </Field>
                     <div className="flex items-end">
-                        <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                     </div>
                 </form>
             </Card>

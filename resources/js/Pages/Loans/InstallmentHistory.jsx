@@ -1,16 +1,18 @@
 import { router } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
 /** Installment details / receive history (Step 18) — wide audit table. */
 export default function InstallmentHistory({ member, memberQuery, loans, loanId, rows, filters }) {
-    const lookup = (e) => { e.preventDefault(); router.get('/loans/receive/history', { member: e.target.elements.member.value }, { preserveState: true }); };
+    const [searching, setSearching] = useState(false);
+    const lookup = (e) => { e.preventDefault(); router.get('/loans/receive/history', { member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const pickLoan = (id) => router.get('/loans/receive/history', { member: memberQuery, loan_id: id }, { preserveState: true, preserveScroll: true });
     const filterDates = (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
-        router.get('/loans/receive/history', { member: memberQuery, loan_id: loanId, from_date: fd.get('from_date'), to_date: fd.get('to_date') }, { preserveState: true });
+        router.get('/loans/receive/history', { member: memberQuery, loan_id: loanId, from_date: fd.get('from_date'), to_date: fd.get('to_date') }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
 
     return (
@@ -23,7 +25,7 @@ export default function InstallmentHistory({ member, memberQuery, loans, loanId,
                             <input name="member" className={inputCls} defaultValue={memberQuery} />
                         </Field>
                     </div>
-                    <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                    <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                 </form>
                 {member && (
                     <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -40,7 +42,7 @@ export default function InstallmentHistory({ member, memberQuery, loans, loanId,
                             <Field label={t('upto_date')} required>
                                 <input type="date" name="to_date" className={inputCls} defaultValue={filters.to_date ?? ''} />
                             </Field>
-                            <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                         </form>
                     </div>
                 )}

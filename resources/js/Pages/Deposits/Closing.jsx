@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -6,9 +7,10 @@ import { t } from '../../lib/i18n';
 /** Deposit closing (Step 12) — payable = balance + profit − charge − penalty. */
 export default function DepositClosing({ member, memberQuery, accounts, accountId, preview, closings, businessDate }) {
     const form = useForm({ account_id: accountId ?? '', closing_date: businessDate ?? '', reason: '', profit_payment: '' });
+    const [searching, setSearching] = useState(false);
     const lookup = (e) => {
         e.preventDefault();
-        router.get('/deposits/closing', { member: e.target.elements.member.value }, { preserveState: true });
+        router.get('/deposits/closing', { member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
     const pickAccount = (id) => {
         form.setData('account_id', id);
@@ -27,7 +29,7 @@ export default function DepositClosing({ member, memberQuery, accounts, accountI
                             <input name="member" className={inputCls} defaultValue={memberQuery} />
                         </Field>
                     </div>
-                    <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                    <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                 </form>
                 {member && (
                     <div className="mt-3">
@@ -66,7 +68,7 @@ export default function DepositClosing({ member, memberQuery, accounts, accountI
                             <input className={inputCls} value={form.data.reason} onChange={(e) => form.setData('reason', e.target.value)} />
                         </Field>
                         <div className="flex items-end">
-                            <PrimaryButton type="submit" disabled={form.processing}>{t('deposit_closing')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={form.processing}>{t('deposit_closing')}</PrimaryButton>
                         </div>
                     </form>
                 </Card>

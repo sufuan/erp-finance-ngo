@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -6,7 +7,8 @@ import { t } from '../../lib/i18n';
 /** Update deposit installment + transaction profile setup (Step 13). */
 export default function TransactionProfile({ member, memberQuery, accounts, accountId, profiles }) {
     const form = useForm({ account_id: accountId ?? '', installment_amount: '', from_date: '', to_date: '', comments: '' });
-    const lookup = (e) => { e.preventDefault(); router.get('/deposits/profit/profile', { member: e.target.elements.member.value }, { preserveState: true }); };
+    const [searching, setSearching] = useState(false);
+    const lookup = (e) => { e.preventDefault(); router.get('/deposits/profit/profile', { member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const submit = (e) => { e.preventDefault(); form.post('/deposits/profit/profile', { preserveScroll: true }); };
 
     return (
@@ -19,7 +21,7 @@ export default function TransactionProfile({ member, memberQuery, accounts, acco
                             <input name="member" className={inputCls} defaultValue={memberQuery} />
                         </Field>
                     </div>
-                    <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                    <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                 </form>
                 {member && (
                     <form onSubmit={submit} className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -42,7 +44,7 @@ export default function TransactionProfile({ member, memberQuery, accounts, acco
                             <input className={inputCls} value={form.data.comments} onChange={(e) => form.setData('comments', e.target.value)} />
                         </Field>
                         <div className="flex items-end">
-                            <PrimaryButton type="submit" disabled={form.processing}>{t('update_installment')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={form.processing}>{t('update_installment')}</PrimaryButton>
                         </div>
                     </form>
                 )}

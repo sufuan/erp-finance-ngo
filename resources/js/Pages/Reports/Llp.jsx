@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -7,9 +8,10 @@ import { t } from '../../lib/i18n';
 export default function Llp({ filters, ran, rows, totals, provision_balance, runs, products, samities, employees, frequencies }) {
     const runSearch = (e) => {
         e.preventDefault();
-        router.get('/reports/llp', { run: 1, ...Object.fromEntries(new FormData(e.target).entries()) }, { preserveState: true });
+        router.get('/reports/llp', { run: 1, ...Object.fromEntries(new FormData(e.target).entries()) }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
     const poster = useForm({ ...filters });
+    const [searching, setSearching] = useState(false);
     const postRun = () => poster.post('/reports/llp/post');
 
     return (
@@ -48,8 +50,8 @@ export default function Llp({ filters, ran, rows, totals, provision_balance, run
                         <input type="date" name="report_date" required className={inputCls} defaultValue={filters.report_date} />
                     </Field>
                     <div className="flex flex-wrap items-end gap-2">
-                        <PrimaryButton type="submit">{t('run_report')}</PrimaryButton>
-                        {ran && <PrimaryButton type="button" onClick={postRun} disabled={poster.processing}>{t('post_llp_run')}</PrimaryButton>}
+                        <PrimaryButton type="submit" loading={searching}>{t('run_report')}</PrimaryButton>
+                        {ran && <PrimaryButton type="button" onClick={postRun} loading={poster.processing}>{t('post_llp_run')}</PrimaryButton>}
                         <button type="button" onClick={() => window.print()} className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700">{t('print_report')}</button>
                     </div>
                 </form>

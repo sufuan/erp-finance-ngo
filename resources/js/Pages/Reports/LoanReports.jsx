@@ -7,6 +7,7 @@ import { t } from '../../lib/i18n';
 /** Loan reports (Step 20) — eleven registers on the shared engine. */
 export default function LoanReports({ reportKey, reports, activeFilters, filters, columns, rows, totalRow, ran, samities, employees, products, frequencies, loanTypes, loanStatuses }) {
     const [values, setValues] = useState(() => {
+    const [searching, setSearching] = useState(false);
         const initial = {};
         activeFilters.forEach((f) => { initial[f] = filters[f] ?? ''; });
         return initial;
@@ -15,7 +16,7 @@ export default function LoanReports({ reportKey, reports, activeFilters, filters
     const switchReport = (key) => router.get('/reports/loans', { report: key }, { preserveState: false });
     const run = (e) => {
         e.preventDefault();
-        router.get('/reports/loans', { report: reportKey, run: 1, ...values }, { preserveState: true });
+        router.get('/reports/loans', { report: reportKey, run: 1, ...values }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
     const pdfUrl = () => {
         const params = new URLSearchParams(Object.entries(values).filter(([, v]) => v !== ''));
@@ -135,7 +136,7 @@ export default function LoanReports({ reportKey, reports, activeFilters, filters
                         </Field>
                     )}
                     <div className="flex flex-wrap items-end gap-2">
-                        <PrimaryButton type="submit">{t('run_report')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={searching}>{t('run_report')}</PrimaryButton>
                         {ran && <a href={pdfUrl()} target="_blank" rel="noreferrer" className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700">{t('print_report')}</a>}
                     </div>
                 </form>

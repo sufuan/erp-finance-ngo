@@ -7,6 +7,7 @@ import { t } from '../../lib/i18n';
 /** Deposit account opening (Step 10) — member lookup + MEMBER PROFILE panel. */
 export default function DepositOpening({ products, member, memberQuery, businessDate }) {
     const [needle, setNeedle] = useState(memberQuery ?? '');
+    const [searching, setSearching] = useState(false);
     const [showNominee, setShowNominee] = useState(false);
     const { data, setData, post, processing, errors } = useForm({
         member_id: member?.id ?? '', deposit_product_id: '', amount: '', title: member?.name ?? '',
@@ -22,7 +23,7 @@ export default function DepositOpening({ products, member, memberQuery, business
         const p = products.find((x) => String(x.id) === String(id));
         setData((prev) => ({ ...prev, deposit_product_id: id, profit_rate: p ? p.default_profit_rate : prev.profit_rate }));
     };
-    const lookup = (e) => { e.preventDefault(); router.get('/deposits/opening', { member: needle }, { preserveState: true }); };
+    const lookup = (e) => { e.preventDefault(); router.get('/deposits/opening', { member: needle }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const submit = (e) => { e.preventDefault(); post('/deposits'); };
 
     const text = (key, label, type = 'text', required = false) => (
@@ -42,7 +43,7 @@ export default function DepositOpening({ products, member, memberQuery, business
                             <input className={inputCls} value={needle} onChange={(e) => setNeedle(e.target.value)} />
                         </Field>
                     </div>
-                    <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                    <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                 </form>
             </Card>
 
@@ -91,7 +92,7 @@ export default function DepositOpening({ products, member, memberQuery, business
                                 </>
                             )}
                             <div className="sm:col-span-2">
-                                <PrimaryButton type="submit" disabled={processing}>{t('open_deposit_account')}</PrimaryButton>
+                                <PrimaryButton type="submit" loading={processing}>{t('open_deposit_account')}</PrimaryButton>
                             </div>
                         </form>
                     </Card>

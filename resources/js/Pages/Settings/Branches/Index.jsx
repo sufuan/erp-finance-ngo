@@ -131,7 +131,7 @@ export default function Index({ branches, parents, types }) {
                             </Field>
                         </div>
                         <div className="flex items-end gap-2">
-                            <PrimaryButton type="submit" disabled={form.processing}>{t('save')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={form.processing}>{t('save')}</PrimaryButton>
                             {editing && (
                                 <button type="button" onClick={reset} className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700">
                                     {t('cancel')}

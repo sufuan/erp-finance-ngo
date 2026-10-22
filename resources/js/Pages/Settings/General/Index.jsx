@@ -292,7 +292,7 @@ export default function GeneralSettings({ profile, settings }) {
                 )}
 
                 <div className="mt-6 border-t border-zinc-200 pt-4 dark:border-zinc-800">
-                    <PrimaryButton type="submit" disabled={processing}>{t('save')}</PrimaryButton>
+                    <PrimaryButton type="submit" loading={processing}>{t('save')}</PrimaryButton>
                 </div>
             </form>
         </AppLayout>

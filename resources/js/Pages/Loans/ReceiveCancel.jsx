@@ -7,8 +7,9 @@ import { t } from '../../lib/i18n';
 /** Installment receive cancel (Step 18) — only the latest receipt can be cancelled. */
 export default function ReceiveCancel({ mode, member, memberQuery, loans, loanId, receives }) {
     const [cancelling, setCancelling] = useState(null);
+    const [searching, setSearching] = useState(false);
     const form = useForm({ reason: '' });
-    const lookup = (e) => { e.preventDefault(); router.get('/loans/receive/cancel', { mode, member: e.target.elements.member.value }, { preserveState: true }); };
+    const lookup = (e) => { e.preventDefault(); router.get('/loans/receive/cancel', { mode, member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const pickLoan = (id) => router.get('/loans/receive/cancel', { mode, member: memberQuery, loan_id: id }, { preserveState: true, preserveScroll: true });
     const switchMode = (m) => router.get('/loans/receive/cancel', { mode: m }, { preserveState: false });
     const submit = (e) => { e.preventDefault(); form.post(`/loans/receive/${cancelling}/cancel`, { preserveScroll: true, onSuccess: () => setCancelling(null) }); };
@@ -31,7 +32,7 @@ export default function ReceiveCancel({ mode, member, memberQuery, loans, loanId
                                 <input name="member" className={inputCls} defaultValue={memberQuery} />
                             </Field>
                         </div>
-                        <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                     </form>
                     {member && (
                         <div className="mt-3 max-w-md">
@@ -64,7 +65,7 @@ export default function ReceiveCancel({ mode, member, memberQuery, loans, loanId
                                 <input className={inputCls} value={form.data.reason} onChange={(e) => form.setData('reason', e.target.value)} required />
                             </Field>
                         </div>
-                        <PrimaryButton type="submit" disabled={form.processing}>{t('cancel')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={form.processing}>{t('cancel')}</PrimaryButton>
                     </form>
                 </Card>
             )}

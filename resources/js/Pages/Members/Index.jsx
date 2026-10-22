@@ -20,11 +20,12 @@ export default function MemberIndex({ members, filters, options }) {
         member_no: filters.member_no ?? '', nid: filters.nid ?? '', status: filters.status ?? 'All',
         gender: filters.gender ?? '', open_from: filters.open_from ?? '', open_to: filters.open_to ?? '',
     });
+    const [searching, setSearching] = useState(false);
     const [showAdvance, setShowAdvance] = useState(false);
     const [expanded, setExpanded] = useState(null);
     const rows = members.data ?? [];
 
-    const apply = (e) => { e.preventDefault(); router.get('/members', f, { preserveState: true }); };
+    const apply = (e) => { e.preventDefault(); router.get('/members', f, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const set = (k, v) => setF((prev) => ({ ...prev, [k]: v }));
 
     const withGeo = (fn) => {
@@ -108,7 +109,7 @@ export default function MemberIndex({ members, filters, options }) {
                         </>
                     )}
                     <div className="flex items-end gap-2">
-                        <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                         <button type="button" onClick={() => setShowAdvance(!showAdvance)} className="min-h-[44px] rounded-lg px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('advance_filter')}</button>
                     </div>
                 </form>

@@ -397,3 +397,15 @@ Fix: new `resources/js/lib/withI18n.jsx` wraps every resolved page component in 
 Persistence: the switch itself already persisted correctly (LocaleController writes session + users.locale + a 1-year cookie; SetLocale resolves user -> session -> cookie -> settings default) and the pre-existing tests proved that path. The real remaining gap was the LOGIN BOUNDARY: a guest who picked Bangla on the login page held that choice only in the session, and after login SetLocale's user-first priority silently overrode it with the user record's previous/default locale — the app "reverted" right after signing in. LoginController now adopts a valid session locale as the user's saved locale at login. New LocaleSwitchTest cases (5 total): saved user locale served on a fresh session with no session/cookie state; guest choice survives login (users.locale updated, next render serves Bangla translations).
 
 Switch feedback: both locale toggles (AppLayout header + AuthLayout) track their visit via onStart/onFinish — the target button shows a Loader2 spinner and the toggle is disabled until the new props land.
+
+## Global submit button loaders (2026-10-22, owner request)
+
+Every form submit in the app now disables its submit button and shows a spinner for the entire flight, so double submissions are impossible:
+
+- `Components/ui.jsx`: PrimaryButton gained a `loading` prop (button disables itself + Loader2 animate-spin) and a `ButtonSpinner` export for raw buttons. All 48 PrimaryButton submits that already tracked a flag were converted from `disabled={processing}` to `loading={processing}` (Inertia resets processing on validation-error returns too, so the button always re-enables).
+- Dead-flag fixes: three forms submit via raw router.post/put, so their useForm `processing` NEVER fired and the button could never disable — Registers (employee/director edit), Member Admission (edit), Deposit Products (create + edit). They now track the flight via visit onStart/onFinish into a local `saving` state wired to the same button. Same treatment for: member/balance migration grid dry-runs + confirm-import buttons, Business Day close button + auto-close toggle, and Member Closing's member-list reload button.
+- All 25 search / lookup / report-run forms (router.get with preserveState) wire a local `searching` state through onStart/onFinish to their Search / Run Report button (deposit + loan lookups, list filters, report runners, LLP).
+- WriteOff's two buttons keep their status guards (disabled when already WrittenOff / not yet WrittenOff) and add loading on their own form's processing flag.
+- Inertia's navigation progress bar was already configured in app.jsx; its color is now the brand blue #1668b0 (was emerald #16a34a), so non-form visits get the slim top bar in brand color too.
+
+Verification: grep audit shows zero PrimaryButton submits without a `loading=` prop and zero raw <button type="submit"> in the app; npm run build green; full suite 208 passed / 1 skipped / 0 failed (baseline 206 + the language fix's 2 new tests). No migration. Owner-side steps after pulling: `git pull` + `npm run build`.

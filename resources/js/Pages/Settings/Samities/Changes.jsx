@@ -59,7 +59,7 @@ export default function SamityChanges({ type, label, field, samities, history, o
                         <input className={inputCls} value={data.comments} onChange={(e) => setData('comments', e.target.value)} />
                     </Field>
                     <div className="sm:col-span-2 lg:col-span-3">
-                        <PrimaryButton type="submit" disabled={processing}>{t('save')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={processing}>{t('save')}</PrimaryButton>
                     </div>
                 </form>
             </Card>

@@ -18,7 +18,7 @@ export default function TotpChallenge() {
                 <Field label={t('two_factor_code')} error={errors.code}>
                     <input className={inputCls} inputMode="numeric" autoComplete="one-time-code" value={data.code} onChange={(e) => setData('code', e.target.value)} required />
                 </Field>
-                <PrimaryButton type="submit" disabled={processing}>{t('verify')}</PrimaryButton>
+                <PrimaryButton type="submit" loading={processing}>{t('verify')}</PrimaryButton>
             </form>
         </AuthLayout>
     );

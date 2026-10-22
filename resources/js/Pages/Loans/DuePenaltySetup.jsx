@@ -7,9 +7,10 @@ import { t } from '../../lib/i18n';
 /** Due Penalty Setup (Step 17) — per-loan penal charge. */
 export default function DuePenaltySetup({ loans, products, samities, filters }) {
     const [charges, setCharges] = useState(() => Object.fromEntries(loans.map((l) => [l.id, l.penal_charge])));
+    const [searching, setSearching] = useState(false);
     const search = (e) => {
         e.preventDefault();
-        router.get('/loans/due-penalty', Object.fromEntries(new FormData(e.target).entries()), { preserveState: true });
+        router.get('/loans/due-penalty', Object.fromEntries(new FormData(e.target).entries()), { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
     const update = (id) => router.post(`/loans/due-penalty/${id}`, { penal_charge: charges[id] }, { preserveScroll: true });
 
@@ -37,7 +38,7 @@ export default function DuePenaltySetup({ loans, products, samities, filters }) 
                         <input name="account" className={inputCls} defaultValue={filters.account ?? ''} />
                     </Field>
                     <div className="flex items-end">
-                        <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                     </div>
                 </form>
             </Card>

@@ -34,7 +34,7 @@ export default function WriteOff({ loan }) {
                         <Field label={t('comments')}>
                             <input className={inputCls} value={wo.data.comments} onChange={(e) => wo.setData('comments', e.target.value)} />
                         </Field>
-                        <PrimaryButton type="submit" disabled={wo.processing || loan.status === 'WrittenOff'}>{t('write_off')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={wo.processing} disabled={loan.status === 'WrittenOff'}>{t('write_off')}</PrimaryButton>
                     </form>
                 </Card>
                 <Card>
@@ -52,7 +52,7 @@ export default function WriteOff({ loan }) {
                         <Field label={t('charge_recovery')} error={rec.errors.charge_recovery}>
                             <input type="number" step="0.01" min="0" className={inputCls} value={rec.data.charge_recovery} onChange={(e) => rec.setData('charge_recovery', e.target.value)} />
                         </Field>
-                        <PrimaryButton type="submit" disabled={rec.processing || loan.status !== 'WrittenOff'}>{t('collect')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={rec.processing} disabled={loan.status !== 'WrittenOff'}>{t('collect')}</PrimaryButton>
                     </form>
                 </Card>
             </div>

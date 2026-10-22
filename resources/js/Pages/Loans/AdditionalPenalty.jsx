@@ -38,7 +38,7 @@ export default function AdditionalPenalty({ loan }) {
                             <input className={inputCls} value={data.comments} onChange={(e) => setData('comments', e.target.value)} />
                         </Field>
                         <div className="flex items-end">
-                            <PrimaryButton type="submit" disabled={processing}>{t('submit')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={processing}>{t('submit')}</PrimaryButton>
                         </div>
                     </form>
                 </Card>

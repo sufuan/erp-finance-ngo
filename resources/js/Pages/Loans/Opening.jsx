@@ -12,6 +12,7 @@ function xsrf() {
 /** Loan account opening (Step 17) — member / staff / product modes. */
 export default function LoanOpening({ mode, proposal, member, memberQuery, employee, employeeQuery, products, frequencies, feeTypes, canOverride, businessDate, productLoans }) {
     const [calc, setCalc] = useState(null);
+    const [searching, setSearching] = useState(false);
     const form = useForm({
         member_id: proposal?.member_id ?? member?.id ?? '',
         employee_id: employee?.id ?? '',
@@ -30,8 +31,8 @@ export default function LoanOpening({ mode, proposal, member, memberQuery, emplo
     });
     const product = products.find((p) => String(p.id) === String(form.data.loan_product_id));
     const allowedFreqs = frequencies.filter((f) => (product?.allowed_frequencies ?? []).includes(f.code));
-    const lookupMember = (e) => { e.preventDefault(); router.get('/loans/opening', { mode, member: e.target.elements.member.value }, { preserveState: true }); };
-    const lookupEmployee = (e) => { e.preventDefault(); router.get('/loans/opening', { mode, employee: e.target.elements.employee.value }, { preserveState: true }); };
+    const lookupMember = (e) => { e.preventDefault(); router.get('/loans/opening', { mode, member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
+    const lookupEmployee = (e) => { e.preventDefault(); router.get('/loans/opening', { mode, employee: e.target.elements.employee.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const runPreview = async () => {
         if (!form.data.loan_amount || !form.data.no_of_installments || !form.data.installment_from_date) return;
         const response = await fetch('/loans/proposals/preview', {
@@ -70,7 +71,7 @@ export default function LoanOpening({ mode, proposal, member, memberQuery, emplo
                                 <input name="member" className={inputCls} defaultValue={memberQuery} />
                             </Field>
                         </div>
-                        <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                     </form>
                 </Card>
             )}
@@ -82,7 +83,7 @@ export default function LoanOpening({ mode, proposal, member, memberQuery, emplo
                                 <input name="employee" className={inputCls} defaultValue={employeeQuery} />
                             </Field>
                         </div>
-                        <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                     </form>
                 </Card>
             )}
@@ -194,7 +195,7 @@ export default function LoanOpening({ mode, proposal, member, memberQuery, emplo
                             ))}
                             {form.errors.loan_proposal_id && <span className="text-sm text-red-600 dark:text-red-400 sm:col-span-2">{form.errors.loan_proposal_id}</span>}
                             <div className="sm:col-span-2">
-                                <PrimaryButton type="submit" disabled={form.processing}>{t('open_loan_account')}</PrimaryButton>
+                                <PrimaryButton type="submit" loading={form.processing}>{t('open_loan_account')}</PrimaryButton>
                             </div>
                         </form>
                     </Card>

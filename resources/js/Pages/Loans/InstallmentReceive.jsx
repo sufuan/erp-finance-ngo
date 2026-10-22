@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, Field, PrimaryButton, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -10,7 +11,8 @@ export default function InstallmentReceive({ mode, member, memberQuery, loans, l
         comments: '', penalty_charge: '', transfer_from_deposit: false, deposit_account_id: '',
         manual_investment: '', manual_profit: '', manual_penalty: '',
     });
-    const lookup = (e) => { e.preventDefault(); router.get('/loans/receive', { mode, member: e.target.elements.member.value }, { preserveState: true }); };
+    const [searching, setSearching] = useState(false);
+    const lookup = (e) => { e.preventDefault(); router.get('/loans/receive', { mode, member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const pickLoan = (id) => router.get('/loans/receive', { mode, member: memberQuery, loan_id: id }, { preserveState: true, preserveScroll: true });
     const switchMode = (m) => router.get('/loans/receive', { mode: m }, { preserveState: false });
     const submit = (e) => { e.preventDefault(); form.post('/loans/receive', { preserveScroll: true }); };
@@ -34,7 +36,7 @@ export default function InstallmentReceive({ mode, member, memberQuery, loans, l
                                 <input name="member" className={inputCls} defaultValue={memberQuery} />
                             </Field>
                         </div>
-                        <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                     </form>
                 </Card>
             )}
@@ -92,7 +94,7 @@ export default function InstallmentReceive({ mode, member, memberQuery, loans, l
                                 </Field>
                             )}
                             <div className="sm:col-span-2">
-                                <PrimaryButton type="submit" disabled={form.processing}>{t('receive_installment')}</PrimaryButton>
+                                <PrimaryButton type="submit" loading={form.processing}>{t('receive_installment')}</PrimaryButton>
                             </div>
                         </form>
                     </Card>

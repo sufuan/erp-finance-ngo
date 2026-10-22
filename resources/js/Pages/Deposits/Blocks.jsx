@@ -10,12 +10,13 @@ export default function DepositBlocks({ mode, member, memberQuery, accounts, acc
         account_id: accountId ?? '', block_effective_date: businessDate ?? '', block_amount: '',
         reason: '', deposit_block: false, withdrawal_block: true,
     });
+    const [searching, setSearching] = useState(false);
     const [clearing, setClearing] = useState(null);
     const clearForm = useForm({ clear_date: businessDate ?? '', clear_amount: '', clear_reason: '', deposit_block: false, withdrawal_block: false });
 
     const lookup = (e) => {
         e.preventDefault();
-        router.get(`/deposits/blocks${mode === 'clear' ? '/clear' : ''}`, { member: e.target.elements.member.value }, { preserveState: true });
+        router.get(`/deposits/blocks${mode === 'clear' ? '/clear' : ''}`, { member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
     const pickAccount = (id) => router.get(`/deposits/blocks${mode === 'clear' ? '/clear' : ''}`, { member: memberQuery, account_id: id }, { preserveState: true, preserveScroll: true });
     const submitAdd = (e) => { e.preventDefault(); addForm.post('/deposits/blocks', { preserveScroll: true }); };
@@ -37,7 +38,7 @@ export default function DepositBlocks({ mode, member, memberQuery, accounts, acc
                             <input name="member" className={inputCls} defaultValue={memberQuery} />
                         </Field>
                     </div>
-                    <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                    <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                 </form>
                 {member && (
                     <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -81,7 +82,7 @@ export default function DepositBlocks({ mode, member, memberQuery, accounts, acc
                         </div>
                         {addForm.errors.withdrawal_block && <span className="text-sm text-red-600 dark:text-red-400">{addForm.errors.withdrawal_block}</span>}
                         <div className="sm:col-span-2">
-                            <PrimaryButton type="submit" disabled={addForm.processing}>{t('add_block')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={addForm.processing}>{t('add_block')}</PrimaryButton>
                         </div>
                     </form>
                 </Card>
@@ -110,7 +111,7 @@ export default function DepositBlocks({ mode, member, memberQuery, accounts, acc
                             </label>
                         </div>
                         <div className="sm:col-span-2">
-                            <PrimaryButton type="submit" disabled={clearForm.processing}>{t('clear_block')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={clearForm.processing}>{t('clear_block')}</PrimaryButton>
                         </div>
                     </form>
                 </Card>

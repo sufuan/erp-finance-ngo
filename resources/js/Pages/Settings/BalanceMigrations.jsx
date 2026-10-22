@@ -28,11 +28,19 @@ export default function BalanceMigrations({ samities, columns, batches, preview 
     const submitExcel = (e) => { e.preventDefault(); excelForm.post('/settings/balance-migrations/dry-run/excel', { forceFormData: true }); };
     const createBlank = () => setGridRows(Array.from({ length: Math.max(1, Number(rowCount) || 1) }, blankRow));
     const setCell = (i, key, value) => setGridRows((rows) => rows.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
+    // Grid dry-run + confirm submit via router.post: track their flights
+    // locally so their buttons disable + spin like useForm submits do.
+    const [gridBusy, setGridBusy] = useState(false);
+    const [confirming, setConfirming] = useState(false);
     const submitGrid = (e) => {
         e.preventDefault();
-        router.post('/settings/balance-migrations/dry-run/grid', { ...gridMeta, rows: gridRows });
+        router.post('/settings/balance-migrations/dry-run/grid', { ...gridMeta, rows: gridRows }, {
+            onStart: () => setGridBusy(true), onFinish: () => setGridBusy(false),
+        });
     };
-    const confirmImport = () => router.post(`/settings/balance-migrations/${preview.id}/confirm`);
+    const confirmImport = () => router.post(`/settings/balance-migrations/${preview.id}/confirm`, {}, {
+        onStart: () => setConfirming(true), onFinish: () => setConfirming(false),
+    });
     const rawCell = (raw, key) => (raw?.[key] === undefined || raw?.[key] === '' ? '—' : String(raw[key]));
     const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
     const totals = preview ? preview.rows.reduce((acc, r) => ({
@@ -72,7 +80,7 @@ export default function BalanceMigrations({ samities, columns, batches, preview 
                             <input type="file" accept=".xlsx,.csv" className={inputCls} required
                                 onChange={(e) => excelForm.setData('file', e.target.files?.[0] ?? null)} />
                         </Field>
-                        <div><PrimaryButton type="submit" disabled={excelForm.processing}>{t('dry_run')}</PrimaryButton></div>
+                        <div><PrimaryButton type="submit" loading={excelForm.processing}>{t('dry_run')}</PrimaryButton></div>
                     </form>
                 </Card>
                 <Card>
@@ -120,7 +128,7 @@ export default function BalanceMigrations({ samities, columns, batches, preview 
                         </div>
                         <div className="mt-3 flex gap-2">
                             <button type="button" onClick={() => setGridRows((rows) => [...rows, blankRow()])} className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700">{t('add_new_row')}</button>
-                            <PrimaryButton type="submit">{t('dry_run')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={gridBusy}>{t('dry_run')}</PrimaryButton>
                         </div>
                     </form>
                 </Card>
@@ -130,7 +138,7 @@ export default function BalanceMigrations({ samities, columns, batches, preview 
                 <Card className="mt-4">
                     <div className="mb-3 flex flex-wrap items-center gap-3">
                         <h2 className="font-medium">{t('dry_run')} — {preview.total} {t('rows')} · {preview.ok_count} OK · {preview.error_count} {t('errors')}</h2>
-                        {preview.status === 'Preview' && <PrimaryButton type="button" onClick={confirmImport}>{t('submit_balance_migration')}</PrimaryButton>}
+                        {preview.status === 'Preview' && <PrimaryButton type="button" onClick={confirmImport} loading={confirming}>{t('submit_balance_migration')}</PrimaryButton>}
                         {preview.failures?.length > 0 && <a className="text-sm text-emerald-700 dark:text-emerald-400" href={`/settings/balance-migrations/${preview.id}/error-report`}>{t('error_report')}</a>}
                     </div>
                     <ResponsiveTable head={[t('sl'), t('member_no'), t('member_name'), t('loan_product'), t('loan_amount'), t('total_loan'), t('total_receive'), t('general_savings'), t('compulsory_savings'), t('status')]}>

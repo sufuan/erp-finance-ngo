@@ -1,11 +1,13 @@
 import { router } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
 /** Loan disbursement list (Step 18) — disbursement posts the voucher. */
 export default function DisbursementList({ loans, samities, filters }) {
-    const search = (e) => { e.preventDefault(); router.get('/loans/disbursement', Object.fromEntries(new FormData(e.target).entries()), { preserveState: true }); };
+    const [searching, setSearching] = useState(false);
+    const search = (e) => { e.preventDefault(); router.get('/loans/disbursement', Object.fromEntries(new FormData(e.target).entries()), { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const disburse = (id) => router.post(`/loans/disbursement/${id}`, {}, { preserveScroll: true });
 
     return (
@@ -29,7 +31,7 @@ export default function DisbursementList({ loans, samities, filters }) {
                         <input type="date" name="to_date" className={inputCls} defaultValue={filters.to_date ?? ''} />
                     </Field>
                     <div className="flex items-end">
-                        <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                     </div>
                 </form>
             </Card>

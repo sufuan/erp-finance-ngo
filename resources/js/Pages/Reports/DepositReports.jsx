@@ -7,6 +7,7 @@ import { t } from '../../lib/i18n';
 /** Deposit reports (Step 14) — one engine, twelve registers. */
 export default function DepositReports({ reportKey, reports, activeFilters, filters, columns, rows, totalRow, ran, samities, employees, products, accountStatuses }) {
     const [values, setValues] = useState(() => {
+    const [searching, setSearching] = useState(false);
         const initial = {};
         activeFilters.forEach((f) => { initial[f] = filters[f] ?? ''; });
         return initial;
@@ -15,7 +16,7 @@ export default function DepositReports({ reportKey, reports, activeFilters, filt
     const switchReport = (key) => router.get('/reports/deposits', { report: key }, { preserveState: false });
     const run = (e) => {
         e.preventDefault();
-        router.get('/reports/deposits', { report: reportKey, run: 1, ...values }, { preserveState: true });
+        router.get('/reports/deposits', { report: reportKey, run: 1, ...values }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
     const pdfUrl = () => {
         const params = new URLSearchParams(Object.entries(values).filter(([, v]) => v !== ''));
@@ -89,7 +90,7 @@ export default function DepositReports({ reportKey, reports, activeFilters, filt
                         </Field>
                     )}
                     <div className="flex items-end gap-2">
-                        <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                         {ran && (
                             <a href={pdfUrl()} target="_blank" rel="noreferrer" className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700">{t('print_report')}</a>
                         )}

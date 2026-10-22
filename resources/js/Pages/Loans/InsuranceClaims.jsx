@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -8,8 +9,9 @@ export default function InsuranceClaims({ claims, members, loans, filters }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         member_id: '', loan_account_id: '', claim_type: 'death', claim_date: '', amount: '', documents: [],
     });
+    const [searching, setSearching] = useState(false);
     const submit = (e) => { e.preventDefault(); post('/loans/insurance-claims', { onSuccess: () => reset() }); };
-    const search = (e) => { e.preventDefault(); router.get('/loans/insurance-claims', Object.fromEntries(new FormData(e.target).entries()), { preserveState: true }); };
+    const search = (e) => { e.preventDefault(); router.get('/loans/insurance-claims', Object.fromEntries(new FormData(e.target).entries()), { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const decide = (id, decision) => router.post(`/loans/insurance-claims/${id}/decide`, { decision }, { preserveScroll: true });
     const pay = (id) => router.post(`/loans/insurance-claims/${id}/pay`, {}, { preserveScroll: true });
 
@@ -44,7 +46,7 @@ export default function InsuranceClaims({ claims, members, loans, filters }) {
                         <Field label={t('claim_amount')} error={errors.amount}>
                             <input type="number" step="0.01" min="0" className={inputCls} value={data.amount} onChange={(e) => setData('amount', e.target.value)} />
                         </Field>
-                        <PrimaryButton type="submit" disabled={processing}>{t('file_claim')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={processing}>{t('file_claim')}</PrimaryButton>
                     </form>
                 </Card>
                 <Card className="lg:col-span-2">
@@ -56,7 +58,7 @@ export default function InsuranceClaims({ claims, members, loans, filters }) {
                             </select>
                         </Field>
                         <div className="flex items-end">
-                            <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                         </div>
                     </form>
                     <ResponsiveTable head={[t('member_name'), t('loan_number'), t('claim_type'), t('claim_date'), t('claim_amount'), t('status'), t('actions')]}>

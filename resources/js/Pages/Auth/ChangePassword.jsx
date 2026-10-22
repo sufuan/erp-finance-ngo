@@ -24,7 +24,7 @@ export default function ChangePassword() {
                 <Field label={t('confirm_password')} error={errors.password_confirmation}>
                     <input type="password" className={inputCls} value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} autoComplete="new-password" required />
                 </Field>
-                <PrimaryButton type="submit" disabled={processing}>{t('change_password')}</PrimaryButton>
+                <PrimaryButton type="submit" loading={processing}>{t('change_password')}</PrimaryButton>
             </form>
         </AuthLayout>
     );

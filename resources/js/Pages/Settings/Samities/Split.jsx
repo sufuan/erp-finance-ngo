@@ -82,7 +82,7 @@ export default function SamitySplit({ samities, members, options }) {
                     {errors.manager_approved && <span className="text-sm text-red-600 dark:text-red-400">{errors.manager_approved}</span>}
 
                     <div className="mt-4">
-                        <PrimaryButton type="submit" disabled={processing}>{t('split')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={processing}>{t('split')}</PrimaryButton>
                     </div>
                 </form>
             </Card>

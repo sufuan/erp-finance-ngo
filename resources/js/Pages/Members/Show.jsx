@@ -90,7 +90,7 @@ export default function MemberShow({ member, nominees, documents, visits, docTyp
                         <input type="file" className={inputCls} onChange={(e) => docForm.setData('document', e.target.files?.[0] ?? null)} required />
                     </Field>
                     <div className="flex items-end">
-                        <PrimaryButton type="submit" disabled={docForm.processing}>{t('save')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={docForm.processing}>{t('save')}</PrimaryButton>
                     </div>
                 </form>
                 <ResponsiveTable head={[t('doc_type'), t('date'), t('actions')]}>
@@ -121,7 +121,7 @@ export default function MemberShow({ member, nominees, documents, visits, docTyp
                         <input type="number" step="any" className={inputCls} value={visitForm.data.longitude} onChange={(e) => visitForm.setData('longitude', e.target.value)} />
                     </Field>
                     <div className="sm:col-span-2 lg:col-span-4">
-                        <PrimaryButton type="submit" disabled={visitForm.processing}>{t('add_visiting_info')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={visitForm.processing}>{t('add_visiting_info')}</PrimaryButton>
                     </div>
                 </form>
                 <ResponsiveTable head={[t('visit_date'), t('visit_info'), t('latitude'), t('longitude'), t('check_in')]}>

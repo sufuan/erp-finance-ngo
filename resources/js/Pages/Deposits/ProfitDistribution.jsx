@@ -63,7 +63,7 @@ export default function ProfitDistribution({ auto, samities, products, businessD
                         </select>
                     </Field>
                     <div className="flex items-end">
-                        <PrimaryButton type="submit" disabled={form.processing}>{t('calculate_profit')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={form.processing}>{t('calculate_profit')}</PrimaryButton>
                     </div>
                 </form>
             </Card>

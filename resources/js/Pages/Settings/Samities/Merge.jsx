@@ -34,7 +34,7 @@ export default function SamityMerge({ samities }) {
                     </label>
                     {errors.manager_approved && <span className="text-sm text-red-600 dark:text-red-400">{errors.manager_approved}</span>}
                     <div className="sm:col-span-2">
-                        <PrimaryButton type="submit" disabled={processing}>{t('merge')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={processing}>{t('merge')}</PrimaryButton>
                     </div>
                 </form>
             </Card>

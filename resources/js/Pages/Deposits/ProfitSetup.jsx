@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -6,7 +7,8 @@ import { t } from '../../lib/i18n';
 /** Account profit setup (Step 13). */
 export default function ProfitSetup({ member, memberQuery, accounts, accountId, setups, businessDate }) {
     const form = useForm({ account_id: accountId ?? '', effective_date: businessDate ?? '', profit_rate: '' });
-    const lookup = (e) => { e.preventDefault(); router.get('/deposits/profit/setup', { member: e.target.elements.member.value }, { preserveState: true }); };
+    const [searching, setSearching] = useState(false);
+    const lookup = (e) => { e.preventDefault(); router.get('/deposits/profit/setup', { member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const submit = (e) => { e.preventDefault(); form.post('/deposits/profit/setup', { preserveScroll: true }); };
     const cancelRow = (id) => router.post(`/deposits/profit/setup/${id}/cancel`, {}, { preserveScroll: true });
 
@@ -20,7 +22,7 @@ export default function ProfitSetup({ member, memberQuery, accounts, accountId, 
                             <input name="member" className={inputCls} defaultValue={memberQuery} />
                         </Field>
                     </div>
-                    <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                    <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                 </form>
                 {member && (
                     <form onSubmit={submit} className="mt-3 grid gap-4 sm:grid-cols-3">
@@ -37,7 +39,7 @@ export default function ProfitSetup({ member, memberQuery, accounts, accountId, 
                             <input type="number" step="0.01" min="0" className={inputCls} value={form.data.profit_rate} onChange={(e) => form.setData('profit_rate', e.target.value)} required />
                         </Field>
                         <div className="sm:col-span-3">
-                            <PrimaryButton type="submit" disabled={form.processing}>{t('set_profit_rate')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={form.processing}>{t('set_profit_rate')}</PrimaryButton>
                         </div>
                     </form>
                 )}

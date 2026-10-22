@@ -112,7 +112,7 @@ export default function LoanProducts({ products, frequencies, defaultRate, cap }
                             {t('is_active')}
                         </label>
                         <div className="flex items-end gap-2">
-                            <PrimaryButton type="submit" disabled={form.processing}>{t('save')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={form.processing}>{t('save')}</PrimaryButton>
                             <button type="button" onClick={() => setEditing(null)} className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700">{t('cancel')}</button>
                         </div>
                     </form>

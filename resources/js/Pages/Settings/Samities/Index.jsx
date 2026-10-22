@@ -96,7 +96,7 @@ export default function SamitiesIndex({ samities, options, businessDate, activeB
                         {mapUrl && <a href={mapUrl} target="_blank" rel="noreferrer" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('view_on_map')}</a>}
                     </div>
                     <div className="mt-4 flex gap-2">
-                        <PrimaryButton type="submit" disabled={processing}>{t('save')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={processing}>{t('save')}</PrimaryButton>
                         {editing && <button type="button" onClick={startCreate} className="min-h-[44px] rounded-lg px-4 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('cancel')}</button>}
                     </div>
                 </form>

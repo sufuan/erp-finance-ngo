@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, Field, PrimaryButton, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -6,9 +7,10 @@ import { t } from '../../lib/i18n';
 /** Share receive / payment (Step 11) — posts to members.share_amount. */
 export default function DepositShare({ member, memberQuery, snapshot, mode, businessDate }) {
     const form = useForm({ member_id: member?.id ?? '', mode, amount: '', document_number: '', comments: '' });
+    const [searching, setSearching] = useState(false);
     const lookup = (e) => {
         e.preventDefault();
-        router.get('/deposits/share', { member: e.target.elements.member.value, mode }, { preserveState: true });
+        router.get('/deposits/share', { member: e.target.elements.member.value, mode }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
     const switchMode = (m) => router.get('/deposits/share', { member: memberQuery, mode: m }, { preserveState: true });
     const submit = (e) => { e.preventDefault(); form.post('/deposits/share', { preserveScroll: true }); };
@@ -32,7 +34,7 @@ export default function DepositShare({ member, memberQuery, snapshot, mode, busi
                             <input name="member" className={inputCls} defaultValue={memberQuery} />
                         </Field>
                     </div>
-                    <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                    <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                 </form>
             </Card>
 
@@ -59,7 +61,7 @@ export default function DepositShare({ member, memberQuery, snapshot, mode, busi
                                 <input className={inputCls} value={form.data.comments} onChange={(e) => form.setData('comments', e.target.value)} />
                             </Field>
                             <div className="sm:col-span-2">
-                                <PrimaryButton type="submit" disabled={form.processing}>{t(mode === 'receive' ? 'share_receive' : 'share_payment')}</PrimaryButton>
+                                <PrimaryButton type="submit" loading={form.processing}>{t(mode === 'receive' ? 'share_receive' : 'share_payment')}</PrimaryButton>
                             </div>
                         </form>
                     </Card>

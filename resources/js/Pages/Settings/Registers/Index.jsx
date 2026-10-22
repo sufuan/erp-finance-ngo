@@ -11,6 +11,7 @@ import { t } from '../../../lib/i18n';
  */
 export default function RegistersIndex({ entity, label, items, fields, search }) {
     const [editing, setEditing] = useState(null);
+    const [searching, setSearching] = useState(false);
     const [query, setQuery] = useState(search ?? '');
     const empty = Object.fromEntries(fields.map((f) => [f.key, '']));
     // Status starts at Active (the register form's "—" option would
@@ -34,13 +35,21 @@ export default function RegistersIndex({ entity, label, items, fields, search })
         setData(next);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
+    // The edit path submits via router.post (not useForm's post), so its
+    // in-flight state is tracked through the visit callbacks — otherwise
+    // `processing` never fires for edits and the button stays clickable.
+    const [saving, setSaving] = useState(false);
     const submit = (e) => {
         e.preventDefault();
-        const opts = { preserveScroll: true, forceFormData: true, onSuccess: () => startCreate() };
+        const opts = {
+            preserveScroll: true, forceFormData: true,
+            onStart: () => setSaving(true), onFinish: () => setSaving(false),
+            onSuccess: () => startCreate(),
+        };
         if (editing) router.post(`${base}/${editing.id}`, { ...data, _method: 'put' }, opts);
         else post(base, opts);
     };
-    const doSearch = (e) => { e.preventDefault(); router.get(base, { search: query }, { preserveState: true }); };
+    const doSearch = (e) => { e.preventDefault(); router.get(base, { search: query }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
 
     const renderField = (f) => (
         <Field key={f.key} label={t(f.label)} required={f.required} error={errors[f.key]}>
@@ -82,7 +91,7 @@ export default function RegistersIndex({ entity, label, items, fields, search })
 
             <form onSubmit={doSearch} className="mb-4 flex gap-2">
                 <input className={inputCls} placeholder={t('search')} value={query} onChange={(e) => setQuery(e.target.value)} />
-                <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
             </form>
 
             <Card className="mb-6">
@@ -106,7 +115,7 @@ export default function RegistersIndex({ entity, label, items, fields, search })
                         <img src={editing.photo_url} alt="" className="mt-2 h-20 w-20 rounded-lg object-cover" />
                     )}
                     <div className="mt-4 flex gap-2">
-                        <PrimaryButton type="submit" disabled={processing}>{t('save')}</PrimaryButton>
+                        <PrimaryButton type="submit" loading={processing || saving}>{t('save')}</PrimaryButton>
                         {editing && (
                             <button type="button" onClick={startCreate} className="min-h-[44px] rounded-lg px-4 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('cancel')}</button>
                         )}

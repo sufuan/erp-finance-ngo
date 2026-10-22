@@ -52,7 +52,7 @@ export default function Reschedule({ loan, freq_options, fee_types }) {
                             </Field>
                         ))}
                         <div className="flex items-end">
-                            <PrimaryButton type="submit" disabled={processing}>{t('reschedule')}</PrimaryButton>
+                            <PrimaryButton type="submit" loading={processing}>{t('reschedule')}</PrimaryButton>
                         </div>
                     </form>
                 </Card>

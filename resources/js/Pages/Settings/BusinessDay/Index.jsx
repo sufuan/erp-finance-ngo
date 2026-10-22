@@ -1,17 +1,26 @@
 import { Head, router } from '@inertiajs/react';
+import { useState } from 'react';
 import AppLayout from '../../../Layouts/AppLayout';
 import { Card, PrimaryButton } from '../../../Components/ui';
 import { t } from '../../../lib/i18n';
 
 export default function Index({ branch, currentDate, nextDate, autoClose }) {
+    const [closing, setClosing] = useState(false);
+    const [togglingAuto, setTogglingAuto] = useState(false);
+
     const close = () => {
         if (window.confirm(t('day_close_confirm'))) {
-            router.post('/settings/business-day/close');
+            router.post('/settings/business-day/close', {}, {
+                onStart: () => setClosing(true), onFinish: () => setClosing(false),
+            });
         }
     };
 
     const toggleAutoClose = (e) => {
-        router.post('/settings/business-day/auto-close', { enabled: e.target.checked }, { preserveScroll: true });
+        router.post('/settings/business-day/auto-close', { enabled: e.target.checked }, {
+            preserveScroll: true,
+            onStart: () => setTogglingAuto(true), onFinish: () => setTogglingAuto(false),
+        });
     };
 
     return (
@@ -35,7 +44,7 @@ export default function Index({ branch, currentDate, nextDate, autoClose }) {
                     </div>
                 </dl>
                 <div className="mt-6">
-                    <PrimaryButton type="button" onClick={close}>{t('start_closing')}</PrimaryButton>
+                    <PrimaryButton type="button" onClick={close} loading={closing}>{t('start_closing')}</PrimaryButton>
                 </div>
                 <div className="mt-6 border-t border-zinc-200 pt-5 dark:border-zinc-700">
                     <label className="flex cursor-pointer items-center gap-3">
@@ -44,6 +53,7 @@ export default function Index({ branch, currentDate, nextDate, autoClose }) {
                                 type="checkbox"
                                 className="peer sr-only"
                                 checked={!!autoClose}
+                                disabled={togglingAuto}
                                 onChange={toggleAutoClose}
                             />
                             <span className="h-6 w-11 rounded-full bg-zinc-300 transition-colors peer-checked:bg-emerald-600 dark:bg-zinc-700 dark:peer-checked:bg-emerald-600" />

@@ -12,6 +12,7 @@ function xsrf() {
 /** Loan proposal (Step 16) — calc fields come from the ScheduleEngine preview. */
 export default function ProposalCreate({ member, memberQuery, products, frequencies, fdrAccounts, canOverride, businessDate }) {
     const [calc, setCalc] = useState(null);
+    const [searching, setSearching] = useState(false);
     const form = useForm({
         member_id: member?.id ?? '', loan_product_id: products[0]?.id ?? '',
         proposal_date: businessDate ?? '', loan_purpose: '', loan_amount: '',
@@ -19,7 +20,7 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
         profit_rate: products[0]?.profit_rate ?? '', installment_from_date: businessDate ?? '',
         guarantors: [],
     });
-    const lookup = (e) => { e.preventDefault(); router.get('/loans/proposals/create', { member: e.target.elements.member.value }, { preserveState: true }); };
+    const lookup = (e) => { e.preventDefault(); router.get('/loans/proposals/create', { member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const product = products.find((p) => String(p.id) === String(form.data.loan_product_id));
     const allowedFreqs = frequencies.filter((f) => (product?.allowed_frequencies ?? []).includes(f.code));
 
@@ -54,7 +55,7 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
                             <input name="member" className={inputCls} defaultValue={memberQuery} />
                         </Field>
                     </div>
-                    <PrimaryButton type="submit">{t('search')}</PrimaryButton>
+                    <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                 </form>
             </Card>
 
@@ -134,7 +135,7 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
                                 </div>
                             ))}
                             <div className="sm:col-span-2">
-                                <PrimaryButton type="submit" disabled={form.processing}>{t('submit_application')}</PrimaryButton>
+                                <PrimaryButton type="submit" loading={form.processing}>{t('submit_application')}</PrimaryButton>
                             </div>
                         </form>
                     </Card>
