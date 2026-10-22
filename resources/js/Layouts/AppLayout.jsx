@@ -1,7 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import {
-    Briefcase, Building2, CalendarDays, Globe2, Home, IdCard, Landmark, LogOut, Megaphone,
+    Briefcase, Building2, CalendarDays, Globe2, Home, IdCard, Landmark, Loader2, LogOut, Megaphone,
     Menu, Moon, PiggyBank, Scale, ScrollText, Settings, Sun, Users,
 } from 'lucide-react';
 import Toasts from '../Components/Toast';
@@ -25,10 +25,11 @@ export default function AppLayout({ children, branches: branchesProp = undefined
         () => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
     );
 
-    // Sync the i18n store DURING render, before children render, so labels
-    // always use the latest server locale. (Syncing in useEffect made the
-    // UI lag one language switch behind — the old language rendered first
-    // and nothing re-rendered after the store updated.)
+    // Backstop sync of the i18n store during render. The primary sync is
+    // lib/withI18n, which wraps every page in app.jsx and runs before the
+    // page body — syncing only here was too late for page content (the
+    // page body executes before this layout's body), which made content
+    // lag one language switch behind the sidebar.
     initI18n({
         locale: props.locale,
         translations: props.translations,
@@ -42,9 +43,14 @@ export default function AppLayout({ children, branches: branchesProp = undefined
         localStorage.setItem('tpda_theme', next ? 'dark' : 'light');
     };
 
+    const [switchingLocale, setSwitchingLocale] = useState(null);
     const switchLocale = (locale) => {
-        if (locale !== getLocale()) {
-            router.post(`/locale/${locale}`, {}, { preserveScroll: true });
+        if (locale !== getLocale() && !switchingLocale) {
+            router.post(`/locale/${locale}`, {}, {
+                preserveScroll: true,
+                onStart: () => setSwitchingLocale(locale),
+                onFinish: () => setSwitchingLocale(null),
+            });
         }
     };
 
@@ -221,20 +227,23 @@ export default function AppLayout({ children, branches: branchesProp = undefined
 
                         {/* Locale toggle: EN | বাংলা */}
                         <div className="flex overflow-hidden rounded-lg border border-white/40 text-sm">
-                            <button
-                                type="button"
-                                onClick={() => switchLocale('en')}
-                                className={`min-h-[40px] px-3 py-1.5 ${props.locale === 'en' ? 'bg-white font-semibold text-brand' : 'text-white hover:bg-white/10'}`}
-                            >
-                                EN
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => switchLocale('bn')}
-                                className={`min-h-[40px] px-3 py-1.5 ${props.locale === 'bn' ? 'bg-white font-semibold text-brand' : 'text-white hover:bg-white/10'}`}
-                            >
-                                বাংলা
-                            </button>
+                            {[
+                                ['en', 'EN'],
+                                ['bn', 'বাংলা'],
+                            ].map(([loc, label]) => (
+                                <button
+                                    key={loc}
+                                    type="button"
+                                    disabled={!!switchingLocale}
+                                    onClick={() => switchLocale(loc)}
+                                    className={`flex min-h-[40px] items-center gap-1.5 px-3 py-1.5 disabled:opacity-70 ${props.locale === loc ? 'bg-white font-semibold text-brand' : 'text-white hover:bg-white/10'}`}
+                                >
+                                    {switchingLocale === loc && (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                                    )}
+                                    {label}
+                                </button>
+                            ))}
                         </div>
 
                         {/* Night mode */}

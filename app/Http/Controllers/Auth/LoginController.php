@@ -79,6 +79,19 @@ class LoginController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
+        // A language picked as a guest lives in the session (the login-page
+        // switcher writes it there). It is the person's latest explicit
+        // choice, so adopt it as the user's saved locale — otherwise
+        // SetLocale's user-first priority silently overrides it with the
+        // record's previous/default value and the app "reverts" language
+        // right after login.
+        $sessionLocale = $request->session()->get('locale');
+        if (in_array($sessionLocale, ['en', 'bn'], true)
+            && \Illuminate\Support\Facades\Schema::hasColumn('users', 'locale')
+            && $user->locale !== $sessionLocale) {
+            $user->forceFill(['locale' => $sessionLocale])->save();
+        }
+
         return redirect()->intended(route('home'));
     }
 }

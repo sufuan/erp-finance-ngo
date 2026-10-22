@@ -52,6 +52,48 @@ class LocaleSwitchTest extends TestCase
         $this->get('/')->assertInertia(fn (Assert $page) => $page->where('locale', 'en'));
     }
 
+    public function test_saved_user_locale_is_served_on_a_fresh_session(): void
+    {
+        // No session locale, no cookie: the user record alone must carry
+        // the choice across a full page refresh / new browser session.
+        $user = User::factory()->create(['must_change_password' => false, 'locale' => 'bn']);
+
+        $this->actingAs($user)->get('/')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('locale', 'bn')
+                ->where('translations.welcome', 'স্বাগতম')
+            );
+    }
+
+    public function test_guest_language_choice_survives_login(): void
+    {
+        // Pick Bangla on the login page (writes session + cookie only),
+        // then log in as a user whose record still says English. The
+        // guest choice is the latest explicit one: login must adopt it
+        // instead of SetLocale's user-first priority stomping it with
+        // the record's default (the "reverts to English" report).
+        $user = User::factory()->create([
+            'must_change_password' => false,
+            'locale' => 'en',
+            'password' => \Illuminate\Support\Facades\Hash::make('Secret@123'),
+        ]);
+
+        $this->post('/locale/bn')->assertRedirect();
+
+        $this->post('/login', ['username' => $user->username, 'password' => 'Secret@123'])
+            ->assertRedirect(route('home'));
+
+        $this->assertSame('bn', $user->fresh()->locale);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('locale', 'bn')
+                ->where('translations.welcome', 'স্বাগতম')
+            );
+    }
+
     public function test_guest_sees_english_by_default_and_cookie_is_honoured(): void
     {
         $this->get('/login')
