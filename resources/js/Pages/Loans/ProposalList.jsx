@@ -1,6 +1,6 @@
 import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
-import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
+import {ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
@@ -12,7 +12,7 @@ export default function ProposalList({ proposals, samities, officers, filters, c
         const fd = new FormData(e.target);
         router.get('/loans/proposals', Object.fromEntries(fd.entries()), { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
-    const decide = (id, action) => router.post(`/loans/proposals/${id}/${action}`, {}, { preserveScroll: true });
+    const decide = (id, action, cb) => router.post(`/loans/proposals/${id}/${action}`, {}, { preserveScroll: true, ...cb });
 
     return (
         <AppLayout>
@@ -77,8 +77,8 @@ export default function ProposalList({ proposals, samities, officers, filters, c
                             <td className="px-3 py-2 whitespace-nowrap">
                                 {p.status === 'Submitted' && canApprove && (
                                     <>
-                                        <button type="button" onClick={() => decide(p.id, 'approve')} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('approve')}</button>
-                                        <button type="button" onClick={() => decide(p.id, 'reject')} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('reject')}</button>
+                                        <ActionButton fire={(cb) => decide(p.id, 'approve', cb)} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('approve')}</ActionButton>
+                                        <ActionButton fire={(cb) => decide(p.id, 'reject', cb)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('reject')}</ActionButton>
                                     </>
                                 )}
                                 {p.status === 'Approved' && (

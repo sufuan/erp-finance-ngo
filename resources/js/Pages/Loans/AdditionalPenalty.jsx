@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
+import {ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
@@ -10,7 +10,7 @@ export default function AdditionalPenalty({ loan }) {
         additional_profit: '0', penalty_amount: '0', comments: '',
     });
     const submit = (e) => { e.preventDefault(); post('/loans/penalty'); };
-    const cancel = (id) => router.post(`/loans/penalty/${id}/cancel`, {}, { preserveScroll: true });
+    const cancel = (id, cb) => router.post(`/loans/penalty/${id}/cancel`, {}, { preserveScroll: true, ...cb });
 
     return (
         <AppLayout>
@@ -53,7 +53,7 @@ export default function AdditionalPenalty({ loan }) {
                             <td className="px-3 py-2">{p.additional_profit}</td>
                             <td className="px-3 py-2">{p.cancelled ? t('cancel') : '—'}</td>
                             <td className="px-3 py-2">
-                                {!p.cancelled && <button type="button" onClick={() => cancel(p.id)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('cancel')}</button>}
+                                {!p.cancelled && <ActionButton fire={(cb) => cancel(p.id, cb)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('cancel')}</ActionButton>}
                             </td>
                         </tr>
                     ))}

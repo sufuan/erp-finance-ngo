@@ -1,6 +1,6 @@
 import { Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Field, PrimaryButton, inputCls } from '../../../Components/ui';
+import { ActionButton, Field, PrimaryButton, inputCls } from '../../../Components/ui';
 import AppLayout from '../../../Layouts/AppLayout';
 import { t } from '../../../lib/i18n';
 
@@ -100,7 +100,7 @@ export default function MastersIndex({ entity, label, items, fields, entities })
                                 <td className="px-4 py-3">
                                     <div className="flex gap-2">
                                         <button type="button" onClick={() => startEdit(item)} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('edit')}</button>
-                                        <button type="button" onClick={() => router.delete(`/hrm/${entity}/${item.id}`, { preserveScroll: true })} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('delete')}</button>
+                                        <ActionButton fire={(cb) => router.delete(`/hrm/${entity}/${item.id}`, { preserveScroll: true, ...cb })} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('delete')}</ActionButton>
                                     </div>
                                 </td>
                             </tr>

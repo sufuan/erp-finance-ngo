@@ -1,6 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../../Components/ui';
+import { ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../../Components/ui';
 import AppLayout from '../../../Layouts/AppLayout';
 import { t } from '../../../lib/i18n';
 
@@ -75,7 +75,7 @@ export default function Holidays({ holidays, options, samities, activeBranchId, 
                             <td className="px-3 py-2">{h.samity?.name ?? '—'}</td>
                             <td className="px-3 py-2">{h.details}</td>
                             <td className="px-3 py-2">
-                                <button type="button" onClick={() => router.delete(`/settings/holidays/${h.id}`, { preserveScroll: true })} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('delete')}</button>
+                                <ActionButton fire={(cb) => router.delete(`/settings/holidays/${h.id}`, { preserveScroll: true, ...cb })} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('delete')}</ActionButton>
                             </td>
                         </tr>
                     ))}

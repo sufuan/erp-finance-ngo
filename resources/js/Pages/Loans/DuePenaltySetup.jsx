@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
-import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
+import {ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
@@ -12,7 +12,7 @@ export default function DuePenaltySetup({ loans, products, samities, filters }) 
         e.preventDefault();
         router.get('/loans/due-penalty', Object.fromEntries(new FormData(e.target).entries()), { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
-    const update = (id) => router.post(`/loans/due-penalty/${id}`, { penal_charge: charges[id] }, { preserveScroll: true });
+    const update = (id, cb) => router.post(`/loans/due-penalty/${id}`, { penal_charge: charges[id] }, { preserveScroll: true, ...cb });
 
     return (
         <AppLayout>
@@ -59,7 +59,7 @@ export default function DuePenaltySetup({ loans, products, samities, filters }) 
                                     value={charges[l.id] ?? ''} onChange={(e) => setCharges((prev) => ({ ...prev, [l.id]: e.target.value }))} />
                             </td>
                             <td className="px-3 py-2">
-                                <button type="button" onClick={() => update(l.id)} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('update_penal_charge')}</button>
+                                <ActionButton fire={(cb) => update(l.id, cb)} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('update_penal_charge')}</ActionButton>
                             </td>
                         </tr>
                     ))}

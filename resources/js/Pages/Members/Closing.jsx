@@ -1,6 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { ButtonSpinner, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
+import { ActionButton, ButtonSpinner, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
@@ -60,7 +60,7 @@ export default function MemberClosing({ members, reasons, businessDate, closings
                             <td className="px-3 py-2">{c.cancelled_by_name ?? '—'}</td>
                             <td className="px-3 py-2">
                                 {!c.cancelled_at && (
-                                    <button type="button" onClick={() => router.post(`/members/closing/${c.id}/cancel`, {}, { preserveScroll: true })} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('cancel')}</button>
+                                    <ActionButton fire={(cb) => router.post(`/members/closing/${c.id}/cancel`, {}, { preserveScroll: true, ...cb })} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('cancel')}</ActionButton>
                                 )}
                             </td>
                         </tr>

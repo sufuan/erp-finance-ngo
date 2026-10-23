@@ -1,6 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
+import {ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
@@ -20,7 +20,7 @@ export default function InstallmentSettings({ templates, products, frequencies, 
         if (editing) form.put(`/loans/installment-settings/${editing}`, { preserveScroll: true, onSuccess: () => setEditing(null) });
         else form.post('/loans/installment-settings', { preserveScroll: true });
     };
-    const remove = (id) => router.delete(`/loans/installment-settings/${id}`, { preserveScroll: true });
+    const remove = (id, cb) => router.delete(`/loans/installment-settings/${id}`, { preserveScroll: true, ...cb });
     const search = (e) => { e.preventDefault(); router.get('/loans/installment-settings', { search: e.target.elements.search.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
 
     return (
@@ -82,7 +82,7 @@ export default function InstallmentSettings({ templates, products, frequencies, 
                             <td className="px-3 py-2">{tpl.is_active ? t('active') : t('inactive')}</td>
                             <td className="px-3 py-2 whitespace-nowrap">
                                 <button type="button" onClick={() => startEdit(tpl)} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('edit')}</button>
-                                <button type="button" onClick={() => remove(tpl.id)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('delete')}</button>
+                                <ActionButton fire={(cb) => remove(tpl.id, cb)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('delete')}</ActionButton>
                             </td>
                         </tr>
                     ))}

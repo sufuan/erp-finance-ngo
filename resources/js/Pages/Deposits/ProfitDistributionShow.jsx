@@ -1,11 +1,16 @@
 import { router } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, PrimaryButton, ResponsiveTable } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
 /** Distribution details + post-to-account (Step 13). */
 export default function ProfitDistributionShow({ distribution, lines }) {
-    const post = () => router.post(`/deposits/profit/distributions/${distribution.id}/post`, {}, { preserveScroll: true });
+    const [posting, setPosting] = useState(false);
+    const post = () => router.post(`/deposits/profit/distributions/${distribution.id}/post`, {}, {
+        preserveScroll: true,
+        onStart: () => setPosting(true), onFinish: () => setPosting(false),
+    });
 
     return (
         <AppLayout>
@@ -13,7 +18,7 @@ export default function ProfitDistributionShow({ distribution, lines }) {
                 <h1 className="text-xl font-semibold">{t('profit_details')} #{distribution.id}</h1>
                 <div className="flex gap-2">
                     <button type="button" onClick={() => window.print()} className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('print')}</button>
-                    {distribution.status !== 'Posted' && <PrimaryButton type="button" onClick={post}>{t('post_to_account')}</PrimaryButton>}
+                    {distribution.status !== 'Posted' && <PrimaryButton type="button" onClick={post} loading={posting}>{t('post_to_account')}</PrimaryButton>}
                 </div>
             </div>
             <Card className="mb-4">

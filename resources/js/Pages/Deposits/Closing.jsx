@@ -1,6 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
+import {ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
@@ -17,7 +17,7 @@ export default function DepositClosing({ member, memberQuery, accounts, accountI
         router.get('/deposits/closing', { member: memberQuery, account_id: id }, { preserveState: true, preserveScroll: true });
     };
     const submit = (e) => { e.preventDefault(); form.post('/deposits/closing', { preserveScroll: true }); };
-    const cancelRow = (id) => router.post(`/deposits/closing/${id}/cancel`, {}, { preserveScroll: true });
+    const cancelRow = (id, cb) => router.post(`/deposits/closing/${id}/cancel`, {}, { preserveScroll: true, ...cb });
 
     return (
         <AppLayout>
@@ -91,7 +91,7 @@ export default function DepositClosing({ member, memberQuery, accounts, accountI
                             <td className="px-3 py-2">{c.cancelled_by ?? '—'}</td>
                             <td className="px-3 py-2">
                                 {!c.cancelled_at && (
-                                    <button type="button" onClick={() => cancelRow(c.id)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('cancel')}</button>
+                                    <ActionButton fire={(cb) => cancelRow(c.id, cb)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('cancel')}</ActionButton>
                                 )}
                             </td>
                         </tr>

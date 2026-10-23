@@ -1,6 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
+import {ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
@@ -22,7 +22,7 @@ export default function LoanProducts({ products, frequencies, defaultRate, cap }
         if (editing === 'new') form.post('/loans/products', { preserveScroll: true, onSuccess: () => setEditing(null) });
         else form.put(`/loans/products/${editing}`, { preserveScroll: true, onSuccess: () => setEditing(null) });
     };
-    const remove = (id) => router.delete(`/loans/products/${id}`, { preserveScroll: true });
+    const remove = (id, cb) => router.delete(`/loans/products/${id}`, { preserveScroll: true, ...cb });
     const toggleFreq = (code) => {
         const current = form.data.allowed_frequencies ?? [];
         form.setData('allowed_frequencies', current.includes(code) ? current.filter((c) => c !== code) : [...current, code]);
@@ -134,7 +134,7 @@ export default function LoanProducts({ products, frequencies, defaultRate, cap }
                             <td className="px-3 py-2">{p.is_active ? t('active') : t('inactive')}</td>
                             <td className="px-3 py-2 whitespace-nowrap">
                                 <button type="button" onClick={() => startEdit(p)} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('edit')}</button>
-                                <button type="button" onClick={() => remove(p.id)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('delete')}</button>
+                                <ActionButton fire={(cb) => remove(p.id, cb)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('delete')}</ActionButton>
                             </td>
                         </tr>
                     ))}

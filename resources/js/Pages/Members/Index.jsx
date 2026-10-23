@@ -1,6 +1,6 @@
 import { Link, router } from '@inertiajs/react';
 import { Fragment, useState } from 'react';
-import { Card, Field, PrimaryButton, inputCls } from '../../Components/ui';
+import { ActionButton, Card, Field, PrimaryButton, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
@@ -36,8 +36,8 @@ export default function MemberIndex({ members, filters, options }) {
             { timeout: 5000 },
         );
     };
-    const checkIn = (id) => withGeo((geo) => router.post(`/members/${id}/check-in`, geo, { preserveScroll: true }));
-    const updateLocation = (id) => withGeo((geo) => router.post(`/members/${id}/location`, geo, { preserveScroll: true }));
+    const checkIn = (id, cb) => withGeo((geo) => router.post(`/members/${id}/check-in`, geo, { preserveScroll: true, ...cb }));
+    const updateLocation = (id, cb) => withGeo((geo) => router.post(`/members/${id}/location`, geo, { preserveScroll: true, ...cb }));
 
     const cell = (m, key) => {
         if (key === 'photo_url') return m.photo_url ? <img src={m.photo_url} alt="" className="h-10 w-10 rounded-full object-cover" /> : '—';
@@ -53,8 +53,8 @@ export default function MemberIndex({ members, filters, options }) {
             <Link href={`/members/${m.id}`} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('documents')}</Link>
             <Link href={`/members/${m.id}/admission-form`} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('admission_form')}</Link>
             <Link href={`/members/${m.id}`} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('add_visiting_info')}</Link>
-            <button type="button" onClick={() => checkIn(m.id)} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('check_in')}</button>
-            <button type="button" onClick={() => updateLocation(m.id)} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('update_location')}</button>
+            <ActionButton fire={(cb) => checkIn(m.id, cb)} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('check_in')}</ActionButton>
+            <ActionButton fire={(cb) => updateLocation(m.id, cb)} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('update_location')}</ActionButton>
         </div>
     );
 

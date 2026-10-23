@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export const inputCls =
@@ -51,6 +52,46 @@ export function PrimaryButton({ children, loading = false, disabled = false, ...
 /** Small inline spinner for non-PrimaryButton submit controls. */
 export function ButtonSpinner({ className = 'h-4 w-4' }) {
     return <Loader2 className={`${className} shrink-0 animate-spin`} aria-hidden="true" />;
+}
+
+/**
+ * Inline action button (row-level delete / cancel / approve / post /
+ * toggle) that fires an Inertia write visit. It owns its pending state:
+ * while the visit is in flight the button shows a spinner and is
+ * disabled, so a double-click can never fire the action twice (a
+ * double-fired toggle would silently flip state back; a double-fired
+ * delete/cancel would error). `fire` receives the visit callbacks to
+ * spread into the router call:
+ *
+ *   <ActionButton fire={(cb) => router.post(url, {}, { preserveScroll: true, ...cb })}>…
+ */
+export function ActionButton({ fire, className = '', children, ...props }) {
+    const [pending, setPending] = useState(false);
+    // Ref mirror of `pending`: state updates batch, so two clicks in the
+    // same tick could both read pending=false — the ref closes that hole.
+    const pendingRef = useRef(false);
+    const release = () => { pendingRef.current = false; setPending(false); };
+    return (
+        <button
+            type="button"
+            {...props}
+            disabled={pending}
+            className={`inline-flex items-center gap-1.5 disabled:opacity-50 ${className}`}
+            onClick={() => {
+                if (pendingRef.current) return;
+                pendingRef.current = true;
+                setPending(true);
+                try {
+                    fire({ onFinish: release });
+                } catch {
+                    release();
+                }
+            }}
+        >
+            {pending && <ButtonSpinner className="h-3.5 w-3.5" />}
+            {children}
+        </button>
+    );
 }
 
 export function Card({ children, className = '' }) {

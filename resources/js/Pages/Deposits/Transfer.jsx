@@ -1,6 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
+import {ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
@@ -17,7 +17,7 @@ export default function DepositTransfer({ fromMember, toMember, fromQuery, toQue
         router.get('/deposits/transfer', { from_member: param === 'from_member' ? value : fromQuery, to_member: param === 'to_member' ? value : toQuery }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) });
     };
     const submit = (e) => { e.preventDefault(); form.post('/deposits/transfer', { preserveScroll: true }); };
-    const cancelRow = (id) => router.post(`/deposits/transfers/${id}/cancel`, {}, { preserveScroll: true });
+    const cancelRow = (id, cb) => router.post(`/deposits/transfers/${id}/cancel`, {}, { preserveScroll: true, ...cb });
 
     const memberPicker = (param, member, accounts, key, label) => (
         <div className="grid gap-3">
@@ -86,7 +86,7 @@ export default function DepositTransfer({ fromMember, toMember, fromQuery, toQue
                             <td className="px-3 py-2">{tr.comments ?? '—'}</td>
                             <td className="px-3 py-2">{tr.cancel_at ? `${tr.cancel_by ?? ''} · ${String(tr.cancel_at).slice(0, 10)}` : '—'}</td>
                             <td className="px-3 py-2">
-                                {!tr.cancel_at && <button type="button" onClick={() => cancelRow(tr.id)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('cancel')}</button>}
+                                {!tr.cancel_at && <ActionButton fire={(cb) => cancelRow(tr.id, cb)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('cancel')}</ActionButton>}
                             </td>
                         </tr>
                     ))}

@@ -1,6 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
+import {ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
@@ -12,8 +12,8 @@ export default function InsuranceClaims({ claims, members, loans, filters }) {
     const [searching, setSearching] = useState(false);
     const submit = (e) => { e.preventDefault(); post('/loans/insurance-claims', { onSuccess: () => reset() }); };
     const search = (e) => { e.preventDefault(); router.get('/loans/insurance-claims', Object.fromEntries(new FormData(e.target).entries()), { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
-    const decide = (id, decision) => router.post(`/loans/insurance-claims/${id}/decide`, { decision }, { preserveScroll: true });
-    const pay = (id) => router.post(`/loans/insurance-claims/${id}/pay`, {}, { preserveScroll: true });
+    const decide = (id, decision, cb) => router.post(`/loans/insurance-claims/${id}/decide`, { decision }, { preserveScroll: true, ...cb });
+    const pay = (id, cb) => router.post(`/loans/insurance-claims/${id}/pay`, {}, { preserveScroll: true, ...cb });
 
     return (
         <AppLayout>
@@ -73,10 +73,10 @@ export default function InsuranceClaims({ claims, members, loans, filters }) {
                                 <td className="px-3 py-2">
                                     <div className="flex flex-wrap gap-1">
                                         {c.status === 'Filed' && <>
-                                            <button type="button" onClick={() => decide(c.id, 'approve')} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('approve')}</button>
-                                            <button type="button" onClick={() => decide(c.id, 'reject')} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('reject')}</button>
+                                            <ActionButton fire={(cb) => decide(c.id, 'approve', cb)} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('approve')}</ActionButton>
+                                            <ActionButton fire={(cb) => decide(c.id, 'reject', cb)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('reject')}</ActionButton>
                                         </>}
-                                        {c.status === 'Approved' && <button type="button" onClick={() => pay(c.id)} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('pay')}</button>}
+                                        {c.status === 'Approved' && <ActionButton fire={(cb) => pay(c.id, cb)} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('pay')}</ActionButton>}
                                     </div>
                                 </td>
                             </tr>

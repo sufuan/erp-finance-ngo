@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
-import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
+import {ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
@@ -8,7 +8,7 @@ import { t } from '../../lib/i18n';
 export default function DisbursementList({ loans, samities, filters }) {
     const [searching, setSearching] = useState(false);
     const search = (e) => { e.preventDefault(); router.get('/loans/disbursement', Object.fromEntries(new FormData(e.target).entries()), { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
-    const disburse = (id) => router.post(`/loans/disbursement/${id}`, {}, { preserveScroll: true });
+    const disburse = (id, cb) => router.post(`/loans/disbursement/${id}`, {}, { preserveScroll: true, ...cb });
 
     return (
         <AppLayout>
@@ -47,7 +47,7 @@ export default function DisbursementList({ loans, samities, filters }) {
                             <td className="px-3 py-2">{l.installment_from_date}</td>
                             <td className="px-3 py-2">{l.no_of_installments}</td>
                             <td className="px-3 py-2">
-                                <button type="button" onClick={() => disburse(l.id)} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('disburse')}</button>
+                                <ActionButton fire={(cb) => disburse(l.id, cb)} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('disburse')}</ActionButton>
                             </td>
                         </tr>
                     ))}

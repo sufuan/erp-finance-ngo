@@ -54,8 +54,14 @@ export default function AppLayout({ children, branches: branchesProp = undefined
         }
     };
 
+    const [switchingBranch, setSwitchingBranch] = useState(false);
     const switchBranch = (branchId) => {
-        router.post('/branch/switch', { branch_id: branchId }, { preserveScroll: true });
+        if (switchingBranch) return;
+        router.post('/branch/switch', { branch_id: branchId }, {
+            preserveScroll: true,
+            onStart: () => setSwitchingBranch(true),
+            onFinish: () => setSwitchingBranch(false),
+        });
     };
 
     const can = props.auth?.can ?? {};
@@ -212,8 +218,9 @@ export default function AppLayout({ children, branches: branchesProp = undefined
                         )}
                         {branches && branches.length > 0 && (
                             <select
-                                className="min-h-[40px] max-w-[180px] rounded-lg border border-white/30 bg-white/10 px-2 py-1.5 text-sm text-white [&>option]:text-ink"
+                                className="min-h-[40px] max-w-[180px] rounded-lg border border-white/30 bg-white/10 px-2 py-1.5 text-sm text-white disabled:opacity-60 [&>option]:text-ink"
                                 value={activeBranchId ?? ''}
+                                disabled={switchingBranch}
                                 onChange={(e) => switchBranch(e.target.value)}
                                 aria-label={t('select_branch')}
                             >

@@ -1,6 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
-import { Field, PrimaryButton, inputCls } from '../../../Components/ui';
+import { ActionButton, Field, PrimaryButton, inputCls } from '../../../Components/ui';
 import AppLayout from '../../../Layouts/AppLayout';
 import { t } from '../../../lib/i18n';
 
@@ -47,7 +47,7 @@ export default function RolesIndex({ roles, permissionGroups }) {
                             <div className="flex gap-1">
                                 <button type="button" onClick={() => startEdit(r)} className="rounded-lg px-2 py-1 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('edit')}</button>
                                 {!r.is_system && (
-                                    <button type="button" onClick={() => router.delete(`/settings/roles/${r.id}`, { preserveScroll: true })} className="rounded-lg px-2 py-1 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('delete')}</button>
+                                    <ActionButton fire={(cb) => router.delete(`/settings/roles/${r.id}`, { preserveScroll: true, ...cb })} className="rounded-lg px-2 py-1 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('delete')}</ActionButton>
                                 )}
                             </div>
                         </div>

@@ -1,6 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
+import {ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
@@ -10,7 +10,7 @@ export default function ProfitSetup({ member, memberQuery, accounts, accountId, 
     const [searching, setSearching] = useState(false);
     const lookup = (e) => { e.preventDefault(); router.get('/deposits/profit/setup', { member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const submit = (e) => { e.preventDefault(); form.post('/deposits/profit/setup', { preserveScroll: true }); };
-    const cancelRow = (id) => router.post(`/deposits/profit/setup/${id}/cancel`, {}, { preserveScroll: true });
+    const cancelRow = (id, cb) => router.post(`/deposits/profit/setup/${id}/cancel`, {}, { preserveScroll: true, ...cb });
 
     return (
         <AppLayout>
@@ -56,7 +56,7 @@ export default function ProfitSetup({ member, memberQuery, accounts, accountId, 
                             <td className="px-3 py-2">{s.setup_by ?? '—'} · {s.setup_at ? String(s.setup_at).slice(0, 10) : ''}</td>
                             <td className="px-3 py-2">{s.cancelled_by ?? '—'}</td>
                             <td className="px-3 py-2">
-                                {!s.cancelled_at && <button type="button" onClick={() => cancelRow(s.id)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('cancel')}</button>}
+                                {!s.cancelled_at && <ActionButton fire={(cb) => cancelRow(s.id, cb)} className="rounded-lg px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('cancel')}</ActionButton>}
                             </td>
                         </tr>
                     ))}

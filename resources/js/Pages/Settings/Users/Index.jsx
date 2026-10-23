@@ -1,6 +1,6 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import { Field, PrimaryButton, inputCls } from '../../../Components/ui';
+import { ActionButton, Field, PrimaryButton, inputCls } from '../../../Components/ui';
 import AppLayout from '../../../Layouts/AppLayout';
 import { t } from '../../../lib/i18n';
 
@@ -127,8 +127,8 @@ export default function UsersIndex({ users, roles, branches }) {
                                 <td className="px-4 py-3">
                                     <div className="flex flex-wrap gap-2">
                                         <button type="button" onClick={() => startEdit(u)} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('edit')}</button>
-                                        <button type="button" onClick={() => router.post(`/settings/users/${u.id}/reset-password`, {}, { preserveScroll: true })} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('reset_password')}</button>
-                                        <button type="button" onClick={() => router.post(`/settings/users/${u.id}/toggle-active`, {}, { preserveScroll: true })} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{u.is_active ? t('deactivate') : t('activate')}</button>
+                                        <ActionButton fire={(cb) => router.post(`/settings/users/${u.id}/reset-password`, {}, { preserveScroll: true, ...cb })} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('reset_password')}</ActionButton>
+                                        <ActionButton fire={(cb) => router.post(`/settings/users/${u.id}/toggle-active`, {}, { preserveScroll: true, ...cb })} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{u.is_active ? t('deactivate') : t('activate')}</ActionButton>
                                         <Link href={`/settings/users/${u.id}/login-history`} className="rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800">{t('login_history')}</Link>
                                     </div>
                                 </td>
