@@ -1,130 +1,75 @@
-import { Link, router, useForm } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
+import { Download, FileSpreadsheet, Sheet } from 'lucide-react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
+import ExcelImport from '../../Components/ExcelImport';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
-const blankRow = () => ({
-    member_id: '', name: '', samity: '', gender: 'Female', father_name: '', mobile: '',
-    present_address: '', admission_date: '', national_id: '', primary_product: '',
-});
 const GRID_COLS = [
     ['member_id', 'member_no'], ['name', 'full_name'], ['samity', 'samity'], ['gender', 'gender'],
     ['father_name', 'fathers_husbands_name'], ['mobile', 'mobile'], ['present_address', 'present_address'],
     ['admission_date', 'open_date'], ['national_id', 'national_id'], ['primary_product', 'primary_product'],
 ];
 
-/** Member migration (Step 9A): Excel or blank-grid dry run → preview → queued import. */
-export default function MemberMigrations({ samities, batches, preview }) {
-    const excelForm = useForm({ file: null, samity_id: '' });
-    const [rowCount, setRowCount] = useState(5);
-    const [gridRows, setGridRows] = useState([]);
-    const gridForm = useForm({ samity_id: '', rows: [] });
+const EXCEL_ENDPOINTS = {
+    preview: '/settings/member-migrations/preview',
+    validate: '/settings/member-migrations/validate-rows',
+    confirm: '/settings/member-migrations/confirm-import',
+};
 
-    const submitExcel = (e) => { e.preventDefault(); excelForm.post('/settings/member-migrations/dry-run/excel', { forceFormData: true }); };
-    const createBlank = () => setGridRows(Array.from({ length: Math.max(1, Number(rowCount) || 1) }, blankRow));
-    const setCell = (i, key, value) => setGridRows((rows) => rows.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
-    // Grid dry-run + confirm submit via router.post: track their flights
-    // locally so their buttons disable + spin like useForm submits do.
-    const [gridBusy, setGridBusy] = useState(false);
+/**
+ * Member Migrations — runs on the reusable Excel engine (2026-10-22):
+ * template download, member export, and the editable red/green preview.
+ * Below it, the Step 9A staged-batch preview (for history batches made
+ * by the old flow) and the migration history stay as they were.
+ */
+export default function MemberMigrations({ samities, batches, preview, excelColumns }) {
+    const [samityId, setSamityId] = useState('');
     const [confirming, setConfirming] = useState(false);
-    const submitGrid = (e) => {
-        e.preventDefault();
-        router.post('/settings/member-migrations/dry-run/grid', { samity_id: gridForm.data.samity_id, rows: gridRows }, {
-            onStart: () => setGridBusy(true), onFinish: () => setGridBusy(false),
-        });
-    };
-    const confirmImport = () => router.post(`/settings/member-migrations/${preview.id}/confirm`, {}, {
+    const confirmLegacy = () => router.post(`/settings/member-migrations/${preview.id}/confirm`, {}, {
         onStart: () => setConfirming(true), onFinish: () => setConfirming(false),
     });
 
     const rawCell = (raw, key) => (raw?.[key] === undefined || raw?.[key] === '' ? '—' : String(raw[key]));
+    const actionBtn = 'inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800';
 
     return (
         <AppLayout>
-            <h1 className="mb-4 text-xl font-semibold">{t('member_migrations')}</h1>
+            <div className="mb-4 flex flex-wrap items-start gap-3">
+                <div className="min-w-[240px] flex-1">
+                    <h1 className="text-xl font-semibold">{t('member_migrations')}</h1>
+                    <p className="mt-1 max-w-2xl text-sm text-zinc-500">{t('excel_engine_intro')}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <a href="/settings/member-migrations/template" className={actionBtn}>
+                        <Download className="h-4 w-4" /> {t('download_template')}
+                    </a>
+                    <a href="/settings/member-migrations/export" className={actionBtn}>
+                        <Sheet className="h-4 w-4" /> {t('export_excel')}
+                    </a>
+                </div>
+            </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-                <Card>
-                    <h2 className="mb-3 font-medium">{t('excel_import')}</h2>
-                    <form onSubmit={submitExcel} className="grid gap-4">
-                        <Field label={t('samity')} error={excelForm.errors.samity_id}>
-                            <select className={inputCls} value={excelForm.data.samity_id} onChange={(e) => excelForm.setData('samity_id', e.target.value)}>
-                                <option value="">—</option>
-                                {samities.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-                            </select>
-                        </Field>
-                        <Field label={t('choose_excel_file')} required error={excelForm.errors.file}>
-                            <input type="file" accept=".xlsx,.csv" className={inputCls} required
-                                onChange={(e) => excelForm.setData('file', e.target.files?.[0] ?? null)} />
-                        </Field>
-                        <div>
-                            <PrimaryButton type="submit" loading={excelForm.processing}>{t('dry_run')}</PrimaryButton>
-                        </div>
-                    </form>
-                </Card>
-
-                <Card>
-                    <h2 className="mb-3 font-medium">{t('blank_rows_grid')}</h2>
-                    <div className="flex flex-wrap items-end gap-3">
-                        <Field label={t('number_of_members')}>
-                            <input type="number" min="1" max="500" className={inputCls} value={rowCount} onChange={(e) => setRowCount(e.target.value)} />
-                        </Field>
-                        <button type="button" onClick={createBlank} className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700">{t('create_blank_rows')}</button>
-                    </div>
-                    <Field label={t('samity')}>
-                        <select className={inputCls} value={gridForm.data.samity_id} onChange={(e) => gridForm.setData('samity_id', e.target.value)}>
+            <Card>
+                <h2 className="mb-3 inline-flex items-center gap-2 font-medium">
+                    <FileSpreadsheet className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /> {t('excel_import')}
+                </h2>
+                <div className="mb-4 max-w-md">
+                    <Field label={t('excel_default_samity')}>
+                        <select className={inputCls} value={samityId} onChange={(e) => setSamityId(e.target.value)}>
                             <option value="">—</option>
                             {samities.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                         </select>
                     </Field>
-                </Card>
-            </div>
-
-            {gridRows.length > 0 && (
-                <Card className="mt-4">
-                    <form onSubmit={submitGrid}>
-                        <div className="overflow-x-auto">
-                            <table className="w-full min-w-[1100px] text-left text-sm">
-                                <thead>
-                                    <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                                        <th className="px-2 py-2">{t('sl')}</th>
-                                        {GRID_COLS.map(([key, label]) => <th key={key} className="px-2 py-2">{t(label)}{['name', 'samity', 'gender', 'father_name', 'mobile', 'present_address', 'admission_date'].includes(key) ? ' *' : ''}</th>)}
-                                        <th className="px-2 py-2">{t('actions')}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {gridRows.map((row, i) => (
-                                        <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800">
-                                            <td className="px-2 py-1">{i + 1}</td>
-                                            {GRID_COLS.map(([key]) => (
-                                                <td key={key} className="px-2 py-1">
-                                                    {key === 'gender' ? (
-                                                        <select className={inputCls} value={row[key]} onChange={(e) => setCell(i, key, e.target.value)}>
-                                                            <option value="Female">{t('female')}</option>
-                                                            <option value="Male">{t('male')}</option>
-                                                            <option value="Other">{t('other')}</option>
-                                                        </select>
-                                                    ) : (
-                                                        <input type={key === 'admission_date' ? 'date' : 'text'} className={inputCls} value={row[key]} onChange={(e) => setCell(i, key, e.target.value)} />
-                                                    )}
-                                                </td>
-                                            ))}
-                                            <td className="px-2 py-1">
-                                                <button type="button" onClick={() => setGridRows((rows) => rows.filter((_, idx) => idx !== i))} className="min-h-[44px] rounded-lg px-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">{t('delete')}</button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="mt-3 flex gap-2">
-                            <button type="button" onClick={() => setGridRows((rows) => [...rows, blankRow()])} className="min-h-[44px] rounded-lg border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700">{t('add_new_row')}</button>
-                            <PrimaryButton type="submit" loading={gridBusy}>{t('dry_run')}</PrimaryButton>
-                        </div>
-                    </form>
-                </Card>
-            )}
+                </div>
+                <ExcelImport
+                    columns={excelColumns ?? []}
+                    endpoints={EXCEL_ENDPOINTS}
+                    context={{ samity_id: samityId === '' ? null : Number(samityId) }}
+                    onImported={() => router.reload({ only: ['batches'] })}
+                />
+            </Card>
 
             {preview && (
                 <Card className="mt-4">
@@ -134,7 +79,7 @@ export default function MemberMigrations({ samities, batches, preview }) {
                             {t('total_rows')}: {preview.total} · {t('ok')}: {preview.ok_count} · {t('errors')}: {preview.error_count}
                         </span>
                         {preview.status === 'Preview' && (
-                            <PrimaryButton onClick={confirmImport} loading={confirming} className="ml-auto">{t('confirm_import')}</PrimaryButton>
+                            <PrimaryButton onClick={confirmLegacy} loading={confirming} className="ml-auto">{t('confirm_import')}</PrimaryButton>
                         )}
                     </div>
                     <ResponsiveTable head={[t('sl'), ...GRID_COLS.map(([, label]) => t(label)), t('status')]}>
