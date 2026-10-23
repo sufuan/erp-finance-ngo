@@ -87,46 +87,87 @@ class XlsxService
     /** @param array<int, array<int, mixed>> $rows */
     public function write(string $path, array $rows): void
     {
-        $zip = new ZipArchive;
-        $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-        $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        $this->writeSheets($path, ['Sheet1' => $rows]);
+    }
+
+    /**
+     * Multi-sheet writer (Excel import/export engine): ordered map of
+     * sheet name => rows. read() still reads the FIRST sheet, so callers
+     * put the data sheet first and extras (Instructions) after.
+     *
+     * @param array<string, array<int, array<int, mixed>>> $sheets
+     */
+    public function writeSheets(string $path, array $sheets): void
+    {
+        $sheets = array_combine(
+            array_map(fn ($name) => $this->sheetName((string) $name), array_keys($sheets)),
+            array_values($sheets),
+        );
+        $count = count($sheets);
+
+        $types = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
             .'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
             .'<Default Extension="xml" ContentType="application/xml"/>'
-            .'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-            .'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-            .'</Types>');
+            .'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>';
+        $workbookSheets = '';
+        $rels = '';
+        for ($i = 1; $i <= $count; $i++) {
+            $types .= '<Override PartName="/xl/worksheets/sheet'.$i.'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+            $rels .= '<Relationship Id="rId'.$i.'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'.$i.'.xml"/>';
+        }
+        $types .= '</Types>';
+        $i = 0;
+        foreach (array_keys($sheets) as $name) {
+            $i++;
+            $workbookSheets .= '<sheet name="'.htmlspecialchars($name, ENT_XML1 | ENT_QUOTES, 'UTF-8').'" sheetId="'.$i.'" r:id="rId'.$i.'"/>';
+        }
+
+        $zip = new ZipArchive;
+        $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        $zip->addFromString('[Content_Types].xml', $types);
         $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
             .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
             .'</Relationships>');
         $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            .'<sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>');
+            .'<sheets>'.$workbookSheets.'</sheets></workbook>');
         $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
-            .'</Relationships>');
+            .$rels.'</Relationships>');
 
-        $sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
-        foreach (array_values($rows) as $r => $cols) {
-            $sheet .= '<row r="'.($r + 1).'">';
-            foreach ($cols as $c => $value) {
-                $ref = $this->columnName((int) $c).($r + 1);
-                if (is_int($value) || is_float($value)) {
-                    $sheet .= '<c r="'.$ref.'"><v>'.$value.'</v></c>';
-                } else {
-                    $sheet .= '<c r="'.$ref.'" t="inlineStr"><is><t>'
-                        .htmlspecialchars((string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8')
-                        .'</t></is></c>';
+        $i = 0;
+        foreach ($sheets as $rows) {
+            $i++;
+            $sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+            foreach (array_values($rows) as $r => $cols) {
+                $sheet .= '<row r="'.($r + 1).'">';
+                foreach ($cols as $c => $value) {
+                    $ref = $this->columnName((int) $c).($r + 1);
+                    if (is_int($value) || is_float($value)) {
+                        $sheet .= '<c r="'.$ref.'"><v>'.$value.'</v></c>';
+                    } else {
+                        $sheet .= '<c r="'.$ref.'" t="inlineStr"><is><t>'
+                            .htmlspecialchars((string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8')
+                            .'</t></is></c>';
+                    }
                 }
+                $sheet .= '</row>';
             }
-            $sheet .= '</row>';
+            $sheet .= '</sheetData></worksheet>';
+            $zip->addFromString('xl/worksheets/sheet'.$i.'.xml', $sheet);
         }
-        $sheet .= '</sheetData></worksheet>';
-        $zip->addFromString('xl/worksheets/sheet1.xml', $sheet);
         $zip->close();
+    }
+
+    /** Excel sheet names: max 31 chars, none of []:*?/\. */
+    private function sheetName(string $name): string
+    {
+        $name = trim(str_replace(['[', ']', ':', '*', '?', '/', '\\'], ' ', $name));
+
+        return $name === '' ? 'Sheet' : mb_substr($name, 0, 31);
     }
 
     /** Excel serial day number → Y-m-d (valid for serials past the 1900 leap bug). */

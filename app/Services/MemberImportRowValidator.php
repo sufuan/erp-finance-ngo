@@ -25,17 +25,32 @@ class MemberImportRowValidator
      */
     public function validate(array $row, ?Samity $defaultSamity, array &$seenMobiles, array &$seenNids): array
     {
+        $result = $this->validateCells($row, $defaultSamity, $seenMobiles, $seenNids);
+
+        return ['data' => $result['data'], 'errors' => array_values($result['cell_errors'])];
+    }
+
+    /**
+     * Same rules as validate(), but each error is attributed to the cell
+     * (column key) that caused it — the Excel import/export engine's
+     * editable preview renders these per cell. The flat list validate()
+     * returns is exactly this map's values, in the same order.
+     *
+     * @return array{data: ?array, cell_errors: array<string, string>}
+     */
+    public function validateCells(array $row, ?Samity $defaultSamity, array &$seenMobiles, array &$seenNids): array
+    {
         $errors = [];
         $get = fn (string $key) => isset($row[$key]) ? trim((string) $row[$key]) : '';
 
         $name = $get('name');
         if ($name === '') {
-            $errors[] = __('required_field').': '.__('full_name');
+            $errors['name'] = __('required_field').': '.__('full_name');
         }
 
         $samity = $this->resolveSamity($get('samity'), $defaultSamity);
         if (! $samity) {
-            $errors[] = __('samity_not_found');
+            $errors['samity'] = __('samity_not_found');
         }
 
         $gender = match (strtolower($get('gender'))) {
@@ -45,45 +60,45 @@ class MemberImportRowValidator
             default => null,
         };
         if ($gender === null) {
-            $errors[] = __('required_field').': '.__('gender');
+            $errors['gender'] = __('required_field').': '.__('gender');
         }
 
         $fatherName = $get('father_name');
         if ($fatherName === '') {
-            $errors[] = __('required_field').': '.__('fathers_husbands_name');
+            $errors['father_name'] = __('required_field').': '.__('fathers_husbands_name');
         }
 
         $mobile = preg_replace('/\D/', '', $get('mobile'));
         if ($mobile === '') {
-            $errors[] = __('required_field').': '.__('mobile');
+            $errors['mobile'] = __('required_field').': '.__('mobile');
         } elseif (! preg_match('/^01[3-9]\d{8}$/', $mobile)) {
-            $errors[] = __('invalid_mobile_format');
+            $errors['mobile'] = __('invalid_mobile_format');
         } elseif (isset($seenMobiles[$mobile])) {
-            $errors[] = __('duplicate_in_file').': '.__('mobile');
+            $errors['mobile'] = __('duplicate_in_file').': '.__('mobile');
         } elseif ($this->identity->mobileTaken($mobile)) {
-            $errors[] = __('duplicate_mobile');
+            $errors['mobile'] = __('duplicate_mobile');
         } else {
             $seenMobiles[$mobile] = true;
         }
 
         $address = $get('present_address');
         if ($address === '') {
-            $errors[] = __('required_field').': '.__('present_address');
+            $errors['present_address'] = __('required_field').': '.__('present_address');
         }
 
         $openDate = $this->parseDate($get('admission_date'));
         if ($openDate === null) {
-            $errors[] = __('invalid_date').': '.__('open_date');
+            $errors['admission_date'] = __('invalid_date').': '.__('open_date');
         }
 
         $nid = preg_replace('/\D/', '', $get('national_id'));
         if ($nid !== '') {
             if (! preg_match('/^\d{10}$|^\d{13}$|^\d{17}$/', $nid)) {
-                $errors[] = __('invalid_nid_format');
+                $errors['national_id'] = __('invalid_nid_format');
             } elseif (isset($seenNids[$nid])) {
-                $errors[] = __('duplicate_in_file').': '.__('national_id');
+                $errors['national_id'] = __('duplicate_in_file').': '.__('national_id');
             } elseif ($this->identity->nidTaken($nid)) {
-                $errors[] = __('duplicate_nid');
+                $errors['national_id'] = __('duplicate_nid');
             } else {
                 $seenNids[$nid] = true;
             }
@@ -91,11 +106,11 @@ class MemberImportRowValidator
 
         $memberNo = $get('member_id');
         if ($memberNo !== '' && Member::withoutGlobalScopes()->where('member_no', $memberNo)->exists()) {
-            $errors[] = __('duplicate_member_no');
+            $errors['member_id'] = __('duplicate_member_no');
         }
 
         if ($errors !== []) {
-            return ['data' => null, 'errors' => $errors];
+            return ['data' => null, 'cell_errors' => $errors];
         }
 
         return ['data' => [
@@ -110,7 +125,7 @@ class MemberImportRowValidator
             'open_date' => $openDate,
             'national_id' => $nid !== '' ? $nid : null,
             'share_amount' => 0,
-        ], 'errors' => []];
+        ], 'cell_errors' => []];
     }
 
     private function resolveSamity(string $value, ?Samity $default): ?Samity

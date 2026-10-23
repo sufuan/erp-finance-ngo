@@ -7,8 +7,11 @@ use App\Jobs\ImportMembersJob;
 use App\Models\MemberImportBatch;
 use App\Models\Samity;
 use App\Services\AuditService;
+use App\Services\Excel\Datasets\MemberDataset;
+use App\Services\Excel\ExcelImportEngine;
 use App\Services\MemberImportRowValidator;
 use App\Services\XlsxService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,6 +22,12 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * Step 9A — Settings → Member Migrations. Dry-run preview first (nothing
  * saved), then a queued chunked import with per-row transactions, then a
  * downloadable error report for the rows that failed.
+ *
+ * Excel engine (2026-10-22) — the page's primary flow now runs on the
+ * reusable ExcelImportEngine + MemberDataset: template download, export,
+ * and JSON preview → in-place edit → re-validate → all-or-nothing
+ * confirm. The Step 9A staged-batch endpoints above stay for history
+ * batches created by the old flow.
  */
 class MemberMigrationController extends Controller
 {
@@ -60,7 +69,96 @@ class MemberMigrationController extends Controller
                 ->map(fn (Samity $s) => ['id' => $s->id, 'label' => $s->samity_code.' — '.$s->name])->all(),
             'batches' => $batches,
             'preview' => $preview,
+            'excelColumns' => app(ExcelImportEngine::class)->uiColumns(app(MemberDataset::class)),
         ]);
+    }
+
+    /** Excel engine: download the import template (headers + example + instructions). */
+    public function template(ExcelImportEngine $engine, MemberDataset $dataset, XlsxService $xlsx): BinaryFileResponse
+    {
+        $path = tempnam(sys_get_temp_dir(), 'member-import-template-').'.xlsx';
+        $xlsx->writeSheets($path, $engine->templateSheets($dataset));
+
+        return response()->download($path, 'member-import-template.xlsx')->deleteFileAfterSend();
+    }
+
+    /** Excel engine: export the branch-visible members as .xlsx. */
+    public function export(Request $request, ExcelImportEngine $engine, MemberDataset $dataset, XlsxService $xlsx): BinaryFileResponse
+    {
+        $path = tempnam(sys_get_temp_dir(), 'members-export-').'.xlsx';
+        $xlsx->writeSheets($path, $engine->exportSheets($dataset, $request->user()));
+
+        return response()->download($path, 'members-export.xlsx')->deleteFileAfterSend();
+    }
+
+    /** Excel engine: upload → parse → validate → per-cell errors as JSON. Nothing saved. */
+    public function previewJson(Request $request, ExcelImportEngine $engine, MemberDataset $dataset): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,csv', 'max:10240'],
+            'samity_id' => ['nullable', 'integer', 'exists:samities,id'],
+        ]);
+
+        $parsed = $engine->parseUpload($request->file('file'), $dataset);
+        if (! $parsed['matched']) {
+            return response()->json(['message' => __('excel_headers_not_recognized')], 422);
+        }
+
+        $result = $engine->validate($dataset, $parsed['rows'], $this->excelContext($request), $request->user());
+
+        return response()->json(['total' => count($result['rows'])] + $result);
+    }
+
+    /** Excel engine: re-validate (possibly edited) preview rows as JSON. Nothing saved. */
+    public function validateRowsJson(Request $request, ExcelImportEngine $engine, MemberDataset $dataset): JsonResponse
+    {
+        $rows = $this->validatedRowPayload($request, $engine, $dataset);
+        $result = $engine->validate($dataset, $rows, $this->excelContext($request), $request->user());
+
+        return response()->json(['total' => count($result['rows'])] + $result);
+    }
+
+    /**
+     * Excel engine: confirm an import. The server re-validates the final
+     * rows; any error → 422 with the per-cell map and NOTHING written;
+     * zero errors → all rows admitted in one transaction + batch record.
+     */
+    public function confirmImportJson(Request $request, ExcelImportEngine $engine, MemberDataset $dataset, AuditService $audit): JsonResponse
+    {
+        $request->validate(['source' => ['nullable', 'in:excel,grid']]);
+        $rows = $this->validatedRowPayload($request, $engine, $dataset);
+
+        try {
+            $result = $engine->import($dataset, $rows, $this->excelContext($request), $request->input('source', 'excel'), $request->user());
+        } catch (\Throwable $e) {
+            return response()->json(['message' => __('import_failed').': '.$e->getMessage()], 422);
+        }
+
+        if (! $result['ok']) {
+            return response()->json(['ok' => false] + $result['validation'], 422);
+        }
+
+        $audit->log($request->user()->id, 'member_import.confirmed', 'member_import_batches', $result['batch_id'], null,
+            ['total_rows' => $result['imported'], 'via' => 'excel_engine']);
+
+        return response()->json(['ok' => true, 'imported' => $result['imported'], 'batch_id' => $result['batch_id']]);
+    }
+
+    /** Shared rows-payload validation + normalization for validate/confirm. */
+    private function validatedRowPayload(Request $request, ExcelImportEngine $engine, MemberDataset $dataset): array
+    {
+        $request->validate([
+            'samity_id' => ['nullable', 'integer', 'exists:samities,id'],
+            'rows' => ['required', 'array', 'min:1', 'max:5000'],
+            'rows.*' => ['array'],
+        ]);
+
+        return $engine->normalizeRows($dataset, $request->input('rows', []));
+    }
+
+    private function excelContext(Request $request): array
+    {
+        return ['samity_id' => $request->filled('samity_id') ? $request->integer('samity_id') : null];
     }
 
     public function dryRunExcel(Request $request, MemberImportRowValidator $validator, XlsxService $xlsx): RedirectResponse

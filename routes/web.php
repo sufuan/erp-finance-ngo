@@ -143,6 +143,8 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
         // Member migrations (Step 9A).
         Route::middleware('can:settings.view')->group(function () {
             Route::get('/member-migrations', [MemberMigrationController::class, 'index'])->name('member-migrations.index');
+            Route::get('/member-migrations/template', [MemberMigrationController::class, 'template'])->name('member-migrations.template');
+            Route::get('/member-migrations/export', [MemberMigrationController::class, 'export'])->name('member-migrations.export');
             Route::get('/member-migrations/{batch}', [MemberMigrationController::class, 'index'])->name('member-migrations.show');
             Route::get('/member-migrations/{batch}/error-report', [MemberMigrationController::class, 'errorReport'])->name('member-migrations.error-report');
         });
@@ -150,6 +152,10 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
             Route::post('/member-migrations/dry-run/excel', [MemberMigrationController::class, 'dryRunExcel'])->name('member-migrations.dry-run.excel');
             Route::post('/member-migrations/dry-run/grid', [MemberMigrationController::class, 'dryRunGrid'])->name('member-migrations.dry-run.grid');
             Route::post('/member-migrations/{batch}/confirm', [MemberMigrationController::class, 'confirm'])->name('member-migrations.confirm');
+            // Excel engine (JSON): preview → re-validate → all-or-nothing confirm.
+            Route::post('/member-migrations/preview', [MemberMigrationController::class, 'previewJson'])->name('member-migrations.preview');
+            Route::post('/member-migrations/validate-rows', [MemberMigrationController::class, 'validateRowsJson'])->name('member-migrations.validate-rows');
+            Route::post('/member-migrations/confirm-import', [MemberMigrationController::class, 'confirmImportJson'])->name('member-migrations.confirm-import');
         });
 
         // Balance migrations (Step 20A).

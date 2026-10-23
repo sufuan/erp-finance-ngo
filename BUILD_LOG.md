@@ -423,3 +423,28 @@ Frontend: new shared `Components/SamitySchedulePicker.jsx` — a Weekly/Monthly 
 Consumers checked: `ScheduleEngine::rows()/respreadRows()` already accept `?string $samityDay` and only use it to align weekly (W) loan schedules, so a null day for monthly samities is already handled — no change needed there.
 
 Tests: 9 new SamityTest cases (weekly/monthly/last-day creation, all three mismatch rejections, update switching both ways with column clearing, day-change switching weekly -> monthly -> last-day -> weekly with token assertions, index + change-form props carrying the monthly values). CRUD sweep's samity lifecycle test moved to the new payloads. Full suite: 217 passed / 1 skipped / 0 failed (baseline 208). Translation parity green (7 new keys in en + bn). `npm run build` green. Owner-side steps after pulling: `git pull` + `php artisan migrate` + `npm run build`.
+
+## Excel import/export engine + Member Migrations redesign (2026-10-22, owner green flag)
+
+Owner spec: imports were unusable without a template; the import preview must be a live spreadsheet — upload → per-cell errors in RED → fix cells in place → bar turns GREEN at zero errors → only then Import writes (all-or-nothing). Built as ONE reusable engine, first implemented in Member Migrations; the Member Migrations page UI was fully redesigned around it (owner called the old page "super nasty").
+
+**Engine contract** (`app/Services/Excel/`): a dataset implements `ImportDataset` — `columns()` (key, FIXED Excel header, i18n label key, required, example, instructions hint key, header aliases, UI input type), `validateRows(rows, context, actor)` returning per-row `{cells, errors (per-cell map), data}`, `saveRow(data, actor)` into the existing domain service, `exportRows(actor)`, and `recordBatch(...)` for the dataset's own history table. `ExcelImportEngine` does everything else: template generation (data sheet with headers + example row, plus an Instructions sheet), export generation, upload parsing (normalized-header matching incl. aliases), row normalization, validation shaping, and the confirm transaction. **Template, parser and validator all read the same column definitions, so they can never drift.**
+
+To plug in a future dataset (Balance Migrations next, employees later): write one dataset class (~the member one is 130 lines), add four routes + the shared `ExcelImport` component with its column config. No engine changes.
+
+**Members dataset** (`App/Services/Excel/Datasets/MemberDataset.php`): validation is the Step 9A `MemberImportRowValidator` — refactored to build a per-cell error map internally (`validateCells()`); the legacy `validate()` now flattens that same map, so the old dry-run/job flow's error strings are byte-identical to before. Saving goes through `MemberAdmissionService::admit()` (member number, share posting, portal login) — never a fork. Export lists the branch-visible members (default SamityScope) with the import columns + member_no.
+
+**Endpoints** (MemberMigrationController; legacy Step 9A endpoints untouched for history batches):
+- GET `/settings/member-migrations/template` (can:settings.view) — template .xlsx.
+- GET `/settings/member-migrations/export` (can:settings.view) — current members .xlsx.
+- POST `/settings/member-migrations/preview` (can:settings.general) — upload → JSON rows with per-cell errors. Nothing saved.
+- POST `/settings/member-migrations/validate-rows` (can:settings.general) — edited rows → full re-validation as JSON (DB duplicates included). Nothing saved.
+- POST `/settings/member-migrations/confirm-import` (can:settings.general) — server re-validates; any error → 422 + error map + NOTHING written; zero errors → all rows admitted in ONE transaction and a `MemberImportBatch` (status Completed) recorded for the history list.
+
+**XlsxService**: gained `writeSheets(path, [name => rows])` (multi-sheet); `write()` delegates to it, byte-format unchanged (inline strings/numbers, no new dependency — the project stays dependency-free for spreadsheets by design).
+
+**Frontend**: new shared `Components/ExcelImport.jsx` — drag/drop + click upload zone, spreadsheet-like editable grid (red cells with the error written under the cell, select editor for Gender), debounced server re-validation on edit (Confirm stays disabled while stale/validating), status bar that is red with the error count and turns green ("All rows valid — ready to import") only at a server-confirmed zero, Add/Remove row for hand entry, global submit loaders on the buttons. MemberMigrations.jsx re-dressed: intro + Download Template / Export actions on top, default-samity picker feeding the engine context (context changes re-validate automatically), the legacy staged preview kept for old batches, history table unchanged in content.
+
+Note: the new confirm is deliberately all-or-nothing, unlike the Step 9A queued job (per-row, partial import + error report) which still serves the legacy flow. Rows hand-typed in the grid are validated with the same rules; a fully blank row returns required-cell errors rather than vanishing.
+
+Tests: new `ExcelImportEngineTest` (7 cases — template headers/example/Instructions sheet, export contains an imported member, preview flags bad-mobile / in-file duplicate NID / DB duplicate NID / unknown samity on the exact cells and saves nothing, validate-rows after fixing a cell → zero errors, confirm-with-error → 422 + zero writes + no batch, confirm-all-valid → members + portal users + Completed batch, permission gating incl. view-only user). Legacy MemberMigrationTest untouched and green.
