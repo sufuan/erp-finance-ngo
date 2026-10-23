@@ -70,17 +70,24 @@ export default function ExcelImport({ columns, endpoints, context = {}, onImport
     const runValidation = async (nextRows) => {
         const seq = ++validateSeq.current;
         setBusy('validating');
-        const { status, json } = await postJson(endpoints.validate, {
-            ...context,
-            rows: nextRows.map((r) => r.cells),
-        });
+        let outcome;
+        try {
+            outcome = await postJson(endpoints.validate, {
+                ...context,
+                rows: nextRows.map((r) => r.cells),
+            });
+        } catch {
+            outcome = null; // network failure — handled like a server error below
+        }
         if (seq !== validateSeq.current) return; // a newer edit superseded this round
         setBusy('');
-        if (status === 200 && json) {
-            applyResult(json);
+        if (outcome && outcome.status === 200 && outcome.json) {
+            applyResult(outcome.json);
         } else {
-            setMessage(json?.message ?? t('import_failed'));
-            setStale(false);
+            // Validation did NOT run: keep the rows marked stale so Confirm
+            // stays blocked instead of trusting the previous round's errors.
+            setMessage(outcome?.json?.message ?? t('import_failed'));
+            setStale(true);
         }
     };
 
@@ -91,22 +98,27 @@ export default function ExcelImport({ columns, endpoints, context = {}, onImport
     };
 
     const uploadFile = async (file) => {
-        if (!file) return;
+        if (!file || busy === 'parsing') return;
         setMessage('');
         setDoneCount(null);
         setBusy('parsing');
         const form = new FormData();
         form.append('file', file);
         Object.entries(context).forEach(([k, v]) => { if (v !== null && v !== undefined && v !== '') form.append(k, v); });
-        const response = await fetch(endpoints.preview, {
-            method: 'POST',
-            headers: { 'X-XSRF-TOKEN': xsrf(), Accept: 'application/json' },
-            body: form,
-        });
+        let response = null;
         let json = null;
-        try { json = await response.json(); } catch { /* ignore */ }
+        try {
+            response = await fetch(endpoints.preview, {
+                method: 'POST',
+                headers: { 'X-XSRF-TOKEN': xsrf(), Accept: 'application/json' },
+                body: form,
+            });
+            try { json = await response.json(); } catch { /* ignore */ }
+        } catch {
+            response = null; // network failure — falls into the error message below
+        }
         setBusy('');
-        if (response.status === 200 && json) {
+        if (response && response.status === 200 && json) {
             setSource('excel');
             setFileName(file.name);
             applyResult(json);
@@ -146,12 +158,18 @@ export default function ExcelImport({ columns, endpoints, context = {}, onImport
     const confirmImport = async () => {
         setMessage('');
         setBusy('importing');
-        const { status, json } = await postJson(endpoints.confirm, {
-            ...context,
-            source,
-            rows: rows.map((r) => r.cells),
-        });
+        let outcome;
+        try {
+            outcome = await postJson(endpoints.confirm, {
+                ...context,
+                source,
+                rows: rows.map((r) => r.cells),
+            });
+        } catch {
+            outcome = null; // network failure — busy must still reset below
+        }
         setBusy('');
+        const { status, json } = outcome ?? {};
         if (status === 200 && json?.ok) {
             setDoneCount(json.imported);
             setRows([]);

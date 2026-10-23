@@ -48,7 +48,7 @@ class MemberDataset implements ImportDataset
                 'aliases' => ['samity', 'samityname', 'samitycode']],
             ['key' => 'gender', 'header' => 'Gender', 'label' => 'gender', 'required' => true,
                 'example' => 'Female', 'hint' => 'excel_hint_gender', 'input' => 'select',
-                'options' => ['Male', 'Female', 'Other'],
+                'options' => ['Male', 'Female', 'Third Gender'],
                 'aliases' => ['gender', 'sex']],
             ['key' => 'father_name', 'header' => "Father's/Husband's Name", 'label' => 'fathers_husbands_name', 'required' => true,
                 'example' => 'Abdul Karim', 'hint' => null, 'input' => 'text',
@@ -96,8 +96,13 @@ class MemberDataset implements ImportDataset
 
     public function exportRows(User $actor): array
     {
-        // Default scopes apply: the export lists the members visible in
-        // the actor's branch context (SamityScope), like the member list.
+        // Full export across ALL branches: this is the migrations/backup
+        // tool (Settings → Member Migrations, settings.view gated), so a
+        // download must never silently omit another branch's members just
+        // because a different branch is active in the header switcher.
+        // (Retest 2026-10-23: an earlier docblock here claimed member-list
+        // branch scoping that the code never had; the tested, intended
+        // behavior is the full export.)
         return Member::with('samity:id,samity_code')
             ->orderBy('id')
             ->get()

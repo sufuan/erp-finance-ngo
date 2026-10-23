@@ -53,10 +53,15 @@ class MemberImportRowValidator
             $errors['samity'] = __('samity_not_found');
         }
 
+        // Canonical member genders are the members.gender enum values
+        // (Male / Female / Third Gender — same list as the admission
+        // form). "Other" is accepted as an input alias for Third Gender;
+        // storing the literal 'Other' would violate the enum and crash
+        // the confirm insert after a fully-green validation.
         $gender = match (strtolower($get('gender'))) {
             'male', 'm' => 'Male',
             'female', 'f' => 'Female',
-            'other', 'others' => 'Other',
+            'other', 'others', 'third gender', 'thirdgender' => 'Third Gender',
             default => null,
         };
         if ($gender === null) {
@@ -141,9 +146,14 @@ class MemberImportRowValidator
             }
         }
 
+        // A non-empty value that matches nothing is an ERROR (the caller
+        // flags samity_not_found) — never silently fall back to the
+        // default samity, or a typo would import the member into the
+        // wrong samity with a fully-green preview. The default applies
+        // only to an empty cell (handled above).
         return $query->where('samity_code', $value)
             ->orWhereRaw('LOWER(name) = ?', [strtolower($value)])
-            ->first() ?? $default;
+            ->first();
     }
 
     private function parseDate(string $value): ?string
