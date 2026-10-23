@@ -448,3 +448,45 @@ To plug in a future dataset (Balance Migrations next, employees later): write on
 Note: the new confirm is deliberately all-or-nothing, unlike the Step 9A queued job (per-row, partial import + error report) which still serves the legacy flow. Rows hand-typed in the grid are validated with the same rules; a fully blank row returns required-cell errors rather than vanishing.
 
 Tests: new `ExcelImportEngineTest` (7 cases — template headers/example/Instructions sheet, export contains an imported member, preview flags bad-mobile / in-file duplicate NID / DB duplicate NID / unknown samity on the exact cells and saves nothing, validate-rows after fixing a cell → zero errors, confirm-with-error → 422 + zero writes + no batch, confirm-all-valid → members + portal users + Completed batch, permission gating incl. view-only user). Legacy MemberMigrationTest untouched and green.
+
+---
+
+## Final retest — global loader audit + full-app bug hunt (2026-10-23)
+
+Owner-ordered retest of the global submit-button loaders and the whole app after the Samity picker, Excel engine and Member Migrations redesign landed. Baseline 224 passed / 1 skipped → **231 passed / 1 skipped / 0 failed** (7 new Excel tests), plus a new permanent DOM harness (`npm run test:dom`, jsdom + esbuild, `@inertiajs/react` stubbed to the documented client contract): **45 checks, 0 failed**.
+
+### Loader audit (Part A) — every submit path in resources/js
+
+Static enumeration of all form/submit paths (useForm submits, router.post/put/delete/get, plain forms, modal confirms, file uploads, toggles) cross-checked against the DOM harness, which mounts the REAL components, holds visits in flight, and asserts disabled + spinner during flight and restoration on success AND on validation-error finish.
+
+| Pattern | Result |
+|---|---|
+| useForm + PrimaryButton (`loading={processing}`) — every create/edit form | PASS — harness: Login submit disables+spins, restores on error return (error shown) and on success |
+| Raw router.post + local state (Business Day close, Registers/Admission edits, Members Closing search, Balance Migrations, Deposits Products) | PASS — harness: BusinessDay close + Members Closing search restore via onFinish on both success and error finishes |
+| ExcelImport grid buttons (upload / validate / confirm via fetch) | FIXED — see bug 2; harness proves busy clears and Confirm stays blocked after network failures |
+| Inline row actions (approve/reject, disburse, cancels, deletes, check-in…) | FIXED — see bug 1; harness: single fire under double-click (incl. same-tick), restores on finish |
+| Locale toggle / branch switch (AppLayout) | PASS — switchingLocale disables + spins; branch select disabled in flight |
+| router.get searches, pagination, select-change navigation | OK by design — idempotent GETs; pages that mutate nothing keep no pending state (Members Closing search, which re-queries, does track it) |
+| Logout buttons | OK by design — page unloads; no pending state |
+
+Permanent coverage: `tests/dom/` (run.mjs + entry.jsx + inertia-stub.jsx) runs the pattern proofs and page-mount checks in CI-less environments via `npm run test:dom`; devDeps jsdom + esbuild added for it.
+
+### Bugs found + fixed
+
+1. **Row-action buttons could double-fire.** ~25 inline buttons (Users toggle-active/reset-password, proposal approve/reject, disbursement post, deposit/loan cancels, deletes, member check-in/location) fired raw `router.post/delete` with no pending state — a double-click submitted twice (toggle-active flipped state twice). Root fix: shared `ActionButton` component (Components/ui.jsx) owns the pending state — spinner + disabled for the whole flight, released via onFinish on every completion path; hardened with a ref guard so even same-tick double clicks fire once. Swept into all row-action call sites; AppLayout branch switch gained the same in-flight disable; Deposits ProfitDistributionShow post button now tracks posting.
+2. **ExcelImport could stick in a busy state forever + unblock Confirm wrongly.** `runValidation`/`uploadFile`/`confirmImport` awaited fetch without try/catch: a network rejection left `busy` stuck at validating/parsing/importing (spinner forever), and a failed validation round cleared the stale flag, which could re-enable Confirm on the previous round's results. All three now catch, always reset busy, keep the grid stale on failure, and surface the failure message.
+3. **Excel import of gender "Other" crashed at confirm.** The validator normalized Other → literal `'Other'`, which is not in the `members.gender` enum (Male/Female/Third Gender) — a fully-green preview died at the insert. Validator now maps other/others/third gender → `Third Gender`; the dataset's gender select offers the enum values.
+4. **A typo'd samity name silently imported into the default samity.** `resolveSamity()` fell back to the page's default for ANY unmatched value; now the default applies only to an empty cell and an unmatched name errors `samity_not_found` on the cell.
+
+Also corrected: `MemberDataset::exportRows` docblock claimed branch-scoped export the code never had — the tested, intended behavior is a full all-branches export (migrations/backup tool); comment now says so, behavior unchanged, pinned by a new test.
+
+### Edge cases checked (Part B)
+
+- **withI18n**: component identity stable (WeakMap), no double-render loops; harness re-proves EN→BN single-pass agreement for Home, MemberMigrations, SamityChanges (content + layout switch together, no lag). No bug found. (Harness also re-confirmed the wrapper is load-bearing: an unwrapped page body renders raw keys on first paint — app.jsx wraps every page.)
+- **SamitySchedulePicker**: token rules verified in harness — day-only → weekly, date-only → monthly, legacy both-set rows → date wins, date 0 → last day; Samities Index edit prefill for a legacy both-set row selects Monthly + date 15; split/day-change paths ride the same token logic (SamityTest green). No bug found.
+- **Excel engine**: new PHP tests — empty (headers-only) file → clean empty preview; unrecognized headers → 422; non-spreadsheet upload → 422; unknown extra columns ignored mid-file; template round-trips through the parser (example row parses back); 200-row re-validation completes clean (whole engine test file ~8s); edit-to-valid flow already covered and green; export with an unrelated branch active still covers all branches. Bugs 3 + 4 above found here.
+- **Allocation-order drag control + settings guards**: General Settings mounted in the harness under poisoned stored values (double-encoded JSON string, comma-string allocation order) — page renders, Loan tab shows the drag rows via the normalize guard; SettingsTest poison regression green. No bug found.
+- **Page mounts** (harness, under the real layouts): Home, Login, BusinessDay, Members Closing, MemberMigrations, Samities Index/Changes, General Settings — all mount EN and BN. No bug found.
+- **Full suite**: 231 passed / 1 skipped (Chromium PDF smoke — VM network) / 0 failed; `npm run build` green.
+
+Commits: `fix: action buttons could double fire`, `fix: excel import stuck states and gender enum`, `test: retest coverage`, this log entry.
