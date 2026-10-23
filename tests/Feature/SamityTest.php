@@ -40,6 +40,7 @@ class SamityTest extends TestCase
             'name' => 'New Test Samity',
             'open_date' => '2024-02-01',
             'center_type' => 'All Gender',
+            'meeting_frequency' => 'weekly',
             'samity_day' => 'Monday',
             'latitude' => '24.3065',
             'longitude' => '89.5733',
@@ -88,11 +89,155 @@ class SamityTest extends TestCase
         $this->manager();
         $samity = Samity::where('name', 'Talgachi Samity')->first();
         $this->post('/settings/samities/changes/day', [
-            'samity_id' => $samity->id, 'new_value' => 'Tuesday',
+            'samity_id' => $samity->id, 'meeting_frequency' => 'weekly', 'samity_day' => 'Tuesday',
             'change_date' => '2026-10-21', 'effective_from' => '2026-10-27',
         ])->assertSessionHas('success');
         $this->assertSame('Tuesday', $samity->fresh()->samity_day);
         $this->assertSame('Wednesday', SamityDayChange::first()->previous_value);
+    }
+
+    public function test_create_weekly_samity_stores_day_and_null_date(): void
+    {
+        $this->manager();
+        $this->post('/settings/samities', $this->payload())->assertSessionHas('success');
+        $samity = Samity::where('name', 'New Test Samity')->firstOrFail();
+        $this->assertSame('Monday', $samity->samity_day);
+        $this->assertNull($samity->date_of_month);
+    }
+
+    public function test_create_monthly_samity_stores_date_and_null_day(): void
+    {
+        $this->manager();
+        $this->post('/settings/samities', $this->payload([
+            'meeting_frequency' => 'monthly', 'samity_day' => '', 'date_of_month' => 15,
+        ]))->assertSessionHas('success');
+        $samity = Samity::where('name', 'New Test Samity')->firstOrFail();
+        $this->assertNull($samity->samity_day);
+        $this->assertSame(15, (int) $samity->date_of_month);
+    }
+
+    public function test_create_monthly_last_day_samity_stores_zero(): void
+    {
+        $this->manager();
+        $this->post('/settings/samities', $this->payload([
+            'meeting_frequency' => 'monthly', 'samity_day' => '', 'date_of_month' => 0,
+        ]))->assertSessionHas('success');
+        $samity = Samity::where('name', 'New Test Samity')->firstOrFail();
+        $this->assertNull($samity->samity_day);
+        $this->assertSame(0, (int) $samity->date_of_month);
+    }
+
+    public function test_weekly_payload_carrying_a_monthly_date_is_rejected(): void
+    {
+        $this->manager();
+        $this->post('/settings/samities', $this->payload(['date_of_month' => 10]))
+            ->assertSessionHasErrors(['date_of_month']);
+        $this->assertNull(Samity::where('name', 'New Test Samity')->first());
+    }
+
+    public function test_monthly_payload_without_a_date_is_rejected(): void
+    {
+        $this->manager();
+        $this->post('/settings/samities', $this->payload([
+            'meeting_frequency' => 'monthly', 'samity_day' => '', 'date_of_month' => '',
+        ]))->assertSessionHasErrors(['date_of_month']);
+        $this->assertNull(Samity::where('name', 'New Test Samity')->first());
+    }
+
+    public function test_monthly_payload_carrying_a_day_is_rejected(): void
+    {
+        $this->manager();
+        $this->post('/settings/samities', $this->payload([
+            'meeting_frequency' => 'monthly', 'samity_day' => 'Monday', 'date_of_month' => 15,
+        ]))->assertSessionHasErrors(['samity_day']);
+        $this->assertNull(Samity::where('name', 'New Test Samity')->first());
+    }
+
+    public function test_update_samity_to_monthly_clears_the_day(): void
+    {
+        $this->manager();
+        $this->post('/settings/samities', $this->payload())->assertSessionHas('success');
+        $samity = Samity::where('name', 'New Test Samity')->firstOrFail();
+
+        $this->put("/settings/samities/{$samity->id}", $this->payload([
+            'meeting_frequency' => 'monthly', 'samity_day' => '', 'date_of_month' => 20,
+        ]))->assertSessionHas('success');
+        $samity->refresh();
+        $this->assertNull($samity->samity_day);
+        $this->assertSame(20, (int) $samity->date_of_month);
+
+        // And back to weekly clears the date again.
+        $this->put("/settings/samities/{$samity->id}", $this->payload())->assertSessionHas('success');
+        $samity->refresh();
+        $this->assertSame('Monday', $samity->samity_day);
+        $this->assertNull($samity->date_of_month);
+    }
+
+    public function test_day_change_switches_weekly_to_monthly_and_records_tokens(): void
+    {
+        $this->manager();
+        $samity = Samity::where('name', 'Talgachi Samity')->firstOrFail();
+        $this->assertSame('Wednesday', $samity->samity_day);
+
+        $this->post('/settings/samities/changes/day', [
+            'samity_id' => $samity->id, 'meeting_frequency' => 'monthly', 'samity_day' => '', 'date_of_month' => 15,
+            'change_date' => '2026-10-21', 'effective_from' => '2026-11-15',
+        ])->assertSessionHas('success');
+        $samity->refresh();
+        $this->assertNull($samity->samity_day);
+        $this->assertSame(15, (int) $samity->date_of_month);
+        $change = SamityDayChange::where('samity_id', $samity->id)->latest('id')->firstOrFail();
+        $this->assertSame('Wednesday', $change->previous_value);
+        $this->assertSame('monthly:15', $change->new_value);
+
+        // Monthly last day, then back to weekly — tokens stay coherent.
+        $this->post('/settings/samities/changes/day', [
+            'samity_id' => $samity->id, 'meeting_frequency' => 'monthly', 'samity_day' => '', 'date_of_month' => 0,
+            'change_date' => '2026-10-22', 'effective_from' => '2026-11-30',
+        ])->assertSessionHas('success');
+        $change = SamityDayChange::where('samity_id', $samity->id)->latest('id')->firstOrFail();
+        $this->assertSame('monthly:15', $change->previous_value);
+        $this->assertSame('monthly:last', $change->new_value);
+        $this->assertSame(0, (int) $samity->refresh()->date_of_month);
+
+        $this->post('/settings/samities/changes/day', [
+            'samity_id' => $samity->id, 'meeting_frequency' => 'weekly', 'samity_day' => 'Friday',
+            'change_date' => '2026-10-23', 'effective_from' => '2026-12-04',
+        ])->assertSessionHas('success');
+        $samity->refresh();
+        $this->assertSame('Friday', $samity->samity_day);
+        $this->assertNull($samity->date_of_month);
+        $change = SamityDayChange::where('samity_id', $samity->id)->latest('id')->firstOrFail();
+        $this->assertSame('monthly:last', $change->previous_value);
+        $this->assertSame('Friday', $change->new_value);
+    }
+
+    public function test_samity_pages_carry_monthly_schedule_values(): void
+    {
+        $this->manager();
+        $branch = Branch::where('code', '102')->firstOrFail();
+        $this->post('/settings/samities', $this->payload([
+            'name' => 'Monthly Props Samity',
+            'meeting_frequency' => 'monthly', 'samity_day' => '', 'date_of_month' => 15,
+        ]))->assertSessionHas('success');
+        $samity = Samity::where('name', 'Monthly Props Samity')->firstOrFail();
+
+        // Index props (branch pinned to the samity's branch).
+        $response = $this->withSession(['active_branch_id' => $branch->id])->get('/settings/samities');
+        $response->assertOk();
+        $row = collect($response->viewData('page')['props']['samities'])->firstWhere('id', $samity->id);
+        $this->assertNotNull($row);
+        $this->assertNull($row['samity_day']);
+        $this->assertSame(15, (int) $row['date_of_month']);
+
+        // Day-change form props expose the schedule token for display/prefill.
+        $response = $this->get('/settings/samities/changes/day');
+        $response->assertOk();
+        $row = collect($response->viewData('page')['props']['samities'])->firstWhere('id', $samity->id);
+        $this->assertNotNull($row);
+        $this->assertSame('monthly:15', $row['current']);
+        $this->assertNull($row['current_day']);
+        $this->assertSame(15, (int) $row['current_date']);
     }
 
     public function test_holiday_range_creates_one_row_per_day_and_skips_existing(): void

@@ -1,5 +1,6 @@
 import { Link, useForm } from '@inertiajs/react';
 import { useState } from 'react';
+import SamitySchedulePicker, { scheduleLabel, scheduleTokenOf } from '../../../Components/SamitySchedulePicker';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../../Components/ui';
 import AppLayout from '../../../Layouts/AppLayout';
 import { t } from '../../../lib/i18n';
@@ -7,8 +8,10 @@ import { t } from '../../../lib/i18n';
 const emptyForm = {
     branch_id: '', name: '', referred_by: '', address: '', open_date: '', working_area_id: '',
     field_officer_id: '', samity_phone: '', center_type: 'All Gender', start_time: '',
-    samity_day: 'Wednesday', date_of_month: '', manager_id: '', latitude: '', longitude: '',
+    meeting_frequency: 'weekly', samity_day: 'Wednesday', date_of_month: '', manager_id: '', latitude: '', longitude: '',
 };
+
+const isMonthly = (s) => s?.date_of_month !== null && s?.date_of_month !== undefined && s?.date_of_month !== '';
 
 export default function SamitiesIndex({ samities, options, businessDate, activeBranchId }) {
     const [editing, setEditing] = useState(null);
@@ -26,6 +29,10 @@ export default function SamitiesIndex({ samities, options, businessDate, activeB
             if (k === 'start_time' && typeof v === 'string') v = v.slice(0, 5);
             next[k] = v;
         });
+        // A stored monthly date opens the picker in Monthly mode (0 = last
+        // day); anything else is a weekly samity on its stored day.
+        next.meeting_frequency = isMonthly(s) ? 'monthly' : 'weekly';
+        if (next.meeting_frequency === 'weekly' && !next.samity_day) next.samity_day = 'Wednesday';
         setData(next);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -34,6 +41,14 @@ export default function SamitiesIndex({ samities, options, businessDate, activeB
         if (editing) put(`/settings/samities/${editing.id}`, { preserveScroll: true, onSuccess: startCreate });
         else post('/settings/samities', { preserveScroll: true, onSuccess: startCreate });
     };
+    // Switching frequency clears the inactive field, so the payload never
+    // mixes a weekly day with a monthly date (the server rejects that too).
+    const changeFrequency = (f) => setData((d) => ({
+        ...d,
+        meeting_frequency: f,
+        samity_day: f === 'monthly' ? '' : (d.samity_day || 'Wednesday'),
+        date_of_month: f === 'weekly' ? '' : d.date_of_month,
+    }));
     const useMyLocation = () => {
         if (!navigator.geolocation) return;
         navigator.geolocation.getCurrentPosition((pos) => {
@@ -82,11 +97,17 @@ export default function SamitiesIndex({ samities, options, businessDate, activeB
                         {text('samity_phone', 'samity_phone')}
                         {select('center_type', options.centerTypes, 'center_type', true)}
                         {text('start_time', 'start_time', 'time')}
-                        {select('samity_day', options.days, 'samity_day', true)}
-                        {text('date_of_month', 'date_of_month', 'number')}
                         {select('manager_id', options.employees, 'manager')}
                         {text('latitude', 'latitude', 'number')}
                         {text('longitude', 'longitude', 'number')}
+                    </div>
+                    <div className="mt-4">
+                        <SamitySchedulePicker
+                            frequency={data.meeting_frequency} day={data.samity_day} dateOfMonth={data.date_of_month}
+                            days={options.days} errors={errors}
+                            onFrequency={changeFrequency}
+                            onDay={(d) => setData('samity_day', d)}
+                            onDate={(v) => setData('date_of_month', v)} />
                     </div>
                     <Field label={t('address')} error={errors.address}>
                         <textarea className={inputCls} rows={2} value={data.address} onChange={(e) => setData('address', e.target.value)} />
@@ -109,7 +130,7 @@ export default function SamitiesIndex({ samities, options, businessDate, activeB
                             <td className="px-3 py-2">{s.samity_code}</td>
                             <td className="px-3 py-2">{s.name}</td>
                             <td className="px-3 py-2">{s.branch ? `${s.branch.code}` : '—'}</td>
-                            <td className="px-3 py-2">{t(`day_${String(s.samity_day).toLowerCase()}`)}</td>
+                            <td className="px-3 py-2">{scheduleLabel(scheduleTokenOf(s))}</td>
                             <td className="px-3 py-2">{s.field_officer?.name ?? '—'}</td>
                             <td className="px-3 py-2">{s.member_count}</td>
                             <td className="px-3 py-2">{s.status}</td>

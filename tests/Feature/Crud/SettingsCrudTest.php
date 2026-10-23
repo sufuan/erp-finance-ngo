@@ -302,7 +302,8 @@ class SettingsCrudTest extends CrudTestCase
 
         $this->post('/settings/samities', [
             'branch_id' => $branch->id, 'name' => 'CRUD Samity',
-            'open_date' => '2026-10-21', 'center_type' => 'Female', 'samity_day' => 'Wednesday',
+            'open_date' => '2026-10-21', 'center_type' => 'Female',
+            'meeting_frequency' => 'weekly', 'samity_day' => 'Wednesday',
             'working_area_id' => $area?->id,
             'field_officer_id' => $officers[0]->id, 'manager_id' => $officers[0]->id,
             'samity_phone' => '01733333333', 'start_time' => '09:30',
@@ -315,19 +316,23 @@ class SettingsCrudTest extends CrudTestCase
 
         $this->put("/settings/samities/{$samity->id}", [
             'branch_id' => $branch->id, 'name' => 'CRUD Samity Renamed',
-            'open_date' => '2026-10-21', 'center_type' => 'Female', 'samity_day' => 'Wednesday',
+            'open_date' => '2026-10-21', 'center_type' => 'Female',
+            'meeting_frequency' => 'weekly', 'samity_day' => 'Wednesday',
             'field_officer_id' => $officers[0]->id, 'manager_id' => $officers[0]->id,
         ])->assertRedirect()->assertSessionHas('success');
         $this->assertSame('CRUD Samity Renamed', $samity->refresh()->name);
 
-        // Day change (form posts change_date + effective_from + new_value).
+        // Day change (form posts the schedule: frequency + day or date).
         $this->post('/settings/samities/changes/day', [
-            'samity_id' => $samity->id, 'new_value' => 'Friday',
+            'samity_id' => $samity->id, 'meeting_frequency' => 'weekly', 'samity_day' => 'Friday',
             'change_date' => '2026-10-21', 'effective_from' => '2026-10-22',
             'comments' => 'CRUD day change',
         ])->assertRedirect()->assertSessionHas('success');
         $this->assertSame('Friday', $samity->refresh()->samity_day);
-        $this->assertSame(1, SamityDayChange::where('samity_id', $samity->id)->count());
+        $this->assertNull($samity->date_of_month);
+        $change = SamityDayChange::where('samity_id', $samity->id)->firstOrFail();
+        $this->assertSame('Wednesday', $change->previous_value);
+        $this->assertSame('Friday', $change->new_value);
 
         // Officer change.
         $this->post('/settings/samities/changes/officer', [

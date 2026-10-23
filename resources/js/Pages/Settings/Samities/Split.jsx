@@ -1,5 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import { useState } from 'react';
+import SamitySchedulePicker from '../../../Components/SamitySchedulePicker';
 import { Card, Field, PrimaryButton, inputCls } from '../../../Components/ui';
 import AppLayout from '../../../Layouts/AppLayout';
 import { t } from '../../../lib/i18n';
@@ -12,19 +13,29 @@ export default function SamitySplit({ samities, members, options }) {
         source_samity_id: '', member_ids: [], manager_approved: false,
         branch_id: '', name: '', referred_by: '', address: '', open_date: '', working_area_id: '',
         field_officer_id: '', samity_phone: '', center_type: 'All Gender', start_time: '',
-        samity_day: 'Wednesday', date_of_month: '', manager_id: '', latitude: '', longitude: '',
+        meeting_frequency: 'weekly', samity_day: 'Wednesday', date_of_month: '', manager_id: '', latitude: '', longitude: '',
     });
 
     const pickSource = (id) => {
         setSourceId(id);
         const s = samities.find((x) => String(x.id) === String(id))?.source;
+        const monthly = s?.date_of_month !== null && s?.date_of_month !== undefined && s?.date_of_month !== '';
         setData((d) => ({
             ...d, source_samity_id: id, member_ids: [],
             branch_id: s?.branch_id ?? '', working_area_id: s?.working_area_id ?? '',
             field_officer_id: s?.field_officer_id ?? '', manager_id: s?.manager_id ?? '',
-            samity_day: s?.samity_day ?? 'Wednesday', center_type: s?.center_type ?? 'All Gender', address: s?.address ?? '',
+            meeting_frequency: monthly ? 'monthly' : 'weekly',
+            samity_day: monthly ? '' : (s?.samity_day ?? 'Wednesday'),
+            date_of_month: monthly ? String(s.date_of_month) : '',
+            center_type: s?.center_type ?? 'All Gender', address: s?.address ?? '',
         }));
     };
+    const changeFrequency = (f) => setData((d) => ({
+        ...d,
+        meeting_frequency: f,
+        samity_day: f === 'monthly' ? '' : (d.samity_day || 'Wednesday'),
+        date_of_month: f === 'weekly' ? '' : d.date_of_month,
+    }));
     const toggleMember = (id, checked) => {
         setData('member_ids', checked ? [...data.member_ids, id] : data.member_ids.filter((m) => m !== id));
     };
@@ -59,8 +70,15 @@ export default function SamitySplit({ samities, members, options }) {
                             <input type="date" className={inputCls} value={data.open_date} onChange={(e) => setData('open_date', e.target.value)} required />
                         </Field>
                         {select('field_officer_id', options.employees, 'field_officer')}
-                        {select('samity_day', options.days, 'samity_day', true)}
                         {select('center_type', options.centerTypes, 'center_type', true)}
+                    </div>
+                    <div className="mt-4">
+                        <SamitySchedulePicker
+                            frequency={data.meeting_frequency} day={data.samity_day} dateOfMonth={data.date_of_month}
+                            days={options.days} errors={errors}
+                            onFrequency={changeFrequency}
+                            onDay={(d) => setData('samity_day', d)}
+                            onDate={(v) => setData('date_of_month', v)} />
                     </div>
 
                     <h2 className="mb-2 mt-6 font-medium">{t('select_members')}</h2>

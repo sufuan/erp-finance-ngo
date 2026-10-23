@@ -1,23 +1,44 @@
 import { router, useForm } from '@inertiajs/react';
+import SamitySchedulePicker, { scheduleLabel } from '../../../Components/SamitySchedulePicker';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../../Components/ui';
 import AppLayout from '../../../Layouts/AppLayout';
 import { t } from '../../../lib/i18n';
 
+const scheduleOf = (s) => {
+    const monthly = s?.current_date !== null && s?.current_date !== undefined && s?.current_date !== '';
+
+    return {
+        meeting_frequency: monthly ? 'monthly' : 'weekly',
+        samity_day: monthly ? '' : (s?.current_day ?? 'Wednesday'),
+        date_of_month: monthly ? String(s.current_date) : '',
+    };
+};
+
 /** Samity day / officer / manager change (Step 7) — one page, 3 types. */
 export default function SamityChanges({ type, label, field, samities, history, options, businessDate, selectedSamityId }) {
+    const initial = samities.find((s) => String(s.id) === String(selectedSamityId ?? ''));
     const { data, setData, post, processing, errors } = useForm({
         samity_id: selectedSamityId ?? '', new_value: '',
+        ...(field === 'samity_day' ? scheduleOf(initial) : { meeting_frequency: 'weekly', samity_day: 'Wednesday', date_of_month: '' }),
         change_date: businessDate ?? '', effective_from: businessDate ?? '', comments: '',
     });
     const selected = samities.find((s) => String(s.id) === String(data.samity_id));
+    const isDay = field === 'samity_day';
 
     const pickSamity = (id) => {
-        setData('samity_id', id);
+        const s = samities.find((x) => String(x.id) === String(id));
+        setData((d) => ({ ...d, samity_id: id, ...(isDay ? scheduleOf(s) : {}) }));
         router.get(`/settings/samities/changes/${type}`, { samity_id: id }, { preserveState: true, preserveScroll: true });
     };
     const submit = (e) => { e.preventDefault(); post(`/settings/samities/changes/${type}`, { preserveScroll: true }); };
+    const changeFrequency = (f) => setData((d) => ({
+        ...d,
+        meeting_frequency: f,
+        samity_day: f === 'monthly' ? '' : (d.samity_day || 'Wednesday'),
+        date_of_month: f === 'weekly' ? '' : d.date_of_month,
+    }));
 
-    const valueOptions = field === 'samity_day' ? options.days : options.employees;
+    const valueOptions = options.employees;
 
     return (
         <AppLayout>
@@ -41,14 +62,26 @@ export default function SamityChanges({ type, label, field, samities, history, o
                         </select>
                     </Field>
                     <Field label={t('current_value')}>
-                        <input className={inputCls} value={selected ? (field === 'samity_day' ? t(`day_${String(selected.current).toLowerCase()}`) : selected.current_label ?? '—') : ''} readOnly />
+                        <input className={inputCls} value={selected ? (isDay ? scheduleLabel(selected.current) : selected.current_label ?? '—') : ''} readOnly />
                     </Field>
-                    <Field label={t('new_value')} required error={errors.new_value}>
-                        <select className={inputCls} value={data.new_value} onChange={(e) => setData('new_value', e.target.value)} required>
-                            <option value="">—</option>
-                            {valueOptions.map((o) => <option key={o.id} value={o.id}>{o.label_key ? t(o.label_key) : o.name}</option>)}
-                        </select>
-                    </Field>
+                    {!isDay && (
+                        <Field label={t('new_value')} required error={errors.new_value}>
+                            <select className={inputCls} value={data.new_value} onChange={(e) => setData('new_value', e.target.value)} required>
+                                <option value="">—</option>
+                                {valueOptions.map((o) => <option key={o.id} value={o.id}>{o.label_key ? t(o.label_key) : o.name}</option>)}
+                            </select>
+                        </Field>
+                    )}
+                    {isDay && (
+                        <div className="sm:col-span-2 lg:col-span-3">
+                            <SamitySchedulePicker
+                                frequency={data.meeting_frequency} day={data.samity_day} dateOfMonth={data.date_of_month}
+                                days={options.days} errors={errors}
+                                onFrequency={changeFrequency}
+                                onDay={(d) => setData('samity_day', d)}
+                                onDate={(v) => setData('date_of_month', v)} />
+                        </div>
+                    )}
                     <Field label={t('date')} required error={errors.change_date}>
                         <input type="date" className={inputCls} value={data.change_date} onChange={(e) => setData('change_date', e.target.value)} required />
                     </Field>
@@ -70,8 +103,8 @@ export default function SamityChanges({ type, label, field, samities, history, o
                     {history.map((h) => (
                         <tr key={h.id} className="border-b border-zinc-100 dark:border-zinc-800">
                             <td className="px-3 py-2">{h.samity ? `${h.samity.samity_code} — ${h.samity.name}` : '—'}</td>
-                            <td className="px-3 py-2">{field === 'samity_day' && h.previous_label ? t(`day_${String(h.previous_label).toLowerCase()}`) : h.previous_label ?? '—'}</td>
-                            <td className="px-3 py-2">{field === 'samity_day' && h.new_label ? t(`day_${String(h.new_label).toLowerCase()}`) : h.new_label ?? '—'}</td>
+                            <td className="px-3 py-2">{isDay ? scheduleLabel(h.previous_label) : h.previous_label ?? '—'}</td>
+                            <td className="px-3 py-2">{isDay ? scheduleLabel(h.new_label) : h.new_label ?? '—'}</td>
                             <td className="px-3 py-2">{String(h.effective_from).slice(0, 10)}</td>
                             <td className="px-3 py-2">{h.comments ?? '—'}</td>
                         </tr>

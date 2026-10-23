@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\Holiday;
 use App\Models\Notice;
 use App\Models\Samity;
+use App\Models\SamityDayChange;
 use App\Models\WorkingArea;
 use App\Services\AuditService;
 use App\Services\BranchAccessService;
@@ -86,9 +87,60 @@ class SamityController extends Controller
         ]);
     }
 
+    /**
+     * Meeting schedule: a samity meets EITHER weekly (samity_day set,
+     * date_of_month null) OR monthly (date_of_month 1–31, or 0 = last day
+     * of the month; samity_day null). The payload's meeting_frequency
+     * drives which field is required; carrying the other field's value
+     * is a mismatch and is rejected rather than silently dropped.
+     */
+    private function meetingScheduleRules(): array
+    {
+        return [
+            'meeting_frequency' => ['required', 'in:weekly,monthly'],
+            'samity_day' => ['nullable', 'required_if:meeting_frequency,weekly', 'in:'.implode(',', self::DAYS)],
+            'date_of_month' => ['nullable', 'required_if:meeting_frequency,monthly', 'integer', 'min:0', 'max:31'],
+        ];
+    }
+
+    /** Reject the inactive field carrying a value; null it out; drop the frequency flag. */
+    private function normalizeSchedule(array $data): array
+    {
+        if ($data['meeting_frequency'] === 'weekly') {
+            if (isset($data['date_of_month']) && $data['date_of_month'] !== null && $data['date_of_month'] !== '') {
+                throw ValidationException::withMessages(['date_of_month' => __('meeting_schedule_conflict')]);
+            }
+            $data['date_of_month'] = null;
+        } else {
+            if (! empty($data['samity_day'])) {
+                throw ValidationException::withMessages(['samity_day' => __('meeting_schedule_conflict')]);
+            }
+            $data['samity_day'] = null;
+            $data['date_of_month'] = (int) $data['date_of_month'];
+        }
+        unset($data['meeting_frequency']);
+
+        return $data;
+    }
+
+    /** Display token for a schedule: day name, "monthly:15", or "monthly:last". */
+    private function scheduleToken(?string $day, mixed $dateOfMonth): ?string
+    {
+        if ($dateOfMonth !== null && $dateOfMonth !== '') {
+            return (int) $dateOfMonth === 0 ? 'monthly:last' : 'monthly:'.(int) $dateOfMonth;
+        }
+
+        return $day;
+    }
+
+    private function samityScheduleToken(Samity $samity): ?string
+    {
+        return $this->scheduleToken($samity->samity_day, $samity->date_of_month);
+    }
+
     private function validateSamity(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'branch_id' => ['required', 'integer', 'exists:branches,id'],
             'name' => ['required', 'string', 'max:255'],
             'referred_by' => ['nullable', 'string', 'max:255'],
@@ -99,12 +151,13 @@ class SamityController extends Controller
             'samity_phone' => ['nullable', 'string', 'max:20'],
             'center_type' => ['required', 'in:All Gender,Male,Female'],
             'start_time' => ['nullable', 'date_format:H:i'],
-            'samity_day' => ['required', 'in:'.implode(',', self::DAYS)],
-            'date_of_month' => ['nullable', 'integer', 'min:1', 'max:31'],
+            ...$this->meetingScheduleRules(),
             'manager_id' => ['nullable', 'integer', 'exists:employees,id'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ]);
+
+        return $this->normalizeSchedule($data);
     }
 
     public function store(Request $request, NumberingService $numbering, AuditService $audit): RedirectResponse
@@ -153,8 +206,12 @@ class SamityController extends Controller
 
         $samities = Samity::orderBy('samity_code')->get()->map(fn (Samity $s) => [
             'id' => $s->id, 'samity_code' => $s->samity_code, 'name' => $s->name,
-            'current' => $cfg['field'] === 'samity_day' ? $s->samity_day : $s->{$cfg['field']},
-            'current_label' => $this->changeValueLabel($cfg, $s->{$cfg['field']}),
+            'current' => $cfg['field'] === 'samity_day' ? $this->samityScheduleToken($s) : $s->{$cfg['field']},
+            'current_label' => $cfg['field'] === 'samity_day'
+                ? $this->samityScheduleToken($s)
+                : $this->changeValueLabel($cfg, $s->{$cfg['field']}),
+            'current_day' => $s->samity_day,
+            'current_date' => $s->date_of_month,
         ]);
 
         $history = $model::with('samity')->orderByDesc('id')->limit(100)->get()->map(fn ($row) => [
@@ -191,16 +248,54 @@ class SamityController extends Controller
     public function applyChange(Request $request, string $type, AuditService $audit, SamityAccessService $access): RedirectResponse
     {
         $cfg = $this->changeConfig($type);
+
+        // Day changes carry the whole meeting schedule (frequency + day or
+        // monthly date), so a change can also switch weekly <-> monthly.
+        // The history row stores schedule tokens ("Wednesday", "monthly:15",
+        // "monthly:last") as previous/new values, and BOTH schedule columns
+        // are updated together so the inactive one is always null.
+        if ($type === 'day') {
+            $data = $request->validate([
+                'samity_id' => ['required', 'integer', 'exists:samities,id'],
+                ...$this->meetingScheduleRules(),
+                'change_date' => ['required', 'date'],
+                'effective_from' => ['required', 'date'],
+                'comments' => ['nullable', 'string'],
+            ]);
+            $data = $this->normalizeSchedule($data);
+            $access->assertAccess($request->user(), (int) $data['samity_id']);
+
+            $samity = Samity::findOrFail($data['samity_id']);
+            $previousToken = $this->samityScheduleToken($samity);
+            $newToken = $this->scheduleToken($data['samity_day'], $data['date_of_month']);
+            SamityDayChange::create([
+                'samity_id' => $samity->id,
+                'change_date' => $data['change_date'],
+                'effective_from' => $data['effective_from'],
+                'previous_value' => $previousToken,
+                'new_value' => $newToken,
+                'comments' => $data['comments'] ?? null,
+                'created_by' => $request->user()->id,
+            ]);
+            $samity->update([
+                'samity_day' => $data['samity_day'],
+                'date_of_month' => $data['date_of_month'],
+                'updated_by' => $request->user()->id,
+            ]);
+            $audit->log($request->user()->id, 'samity.day_changed', 'samities', $samity->id,
+                ['schedule' => $previousToken], ['schedule' => $newToken]);
+
+            return back()->with('success', __('saved'));
+        }
+
         $data = $request->validate([
             'samity_id' => ['required', 'integer', 'exists:samities,id'],
-            'new_value' => ['required', $cfg['field'] === 'samity_day' ? 'in:'.implode(',', self::DAYS) : 'integer'],
+            'new_value' => ['required', 'integer'],
             'change_date' => ['required', 'date'],
             'effective_from' => ['required', 'date'],
             'comments' => ['nullable', 'string'],
         ]);
-        if ($cfg['field'] !== 'samity_day') {
-            $request->validate(['new_value' => ['exists:employees,id']]);
-        }
+        $request->validate(['new_value' => ['exists:employees,id']]);
         $access->assertAccess($request->user(), (int) $data['samity_id']);
 
         $samity = Samity::findOrFail($data['samity_id']);
