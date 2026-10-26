@@ -64,6 +64,7 @@ export default function GeneralSettings({ profile, settings }) {
             'gps.interval_seconds': s['gps.interval_seconds'] ?? 60,
             'gps.retention_days': s['gps.retention_days'] ?? 90,
             'app.max_offline_days': s['app.max_offline_days'] ?? 7,
+            'security.totp_enabled': !!s['security.totp_enabled'],
         },
     });
 
@@ -96,6 +97,7 @@ export default function GeneralSettings({ profile, settings }) {
         ['deposit', t('deposit')],
         ['sms', t('sms_and_notifications')],
         ['gps', t('gps_and_tracking')],
+        ['security', t('security')],
     ];
 
     const num = (label, value, onChange, error) => (
@@ -288,6 +290,13 @@ export default function GeneralSettings({ profile, settings }) {
                         {num(t('gps_interval_seconds'), data.settings['gps.interval_seconds'], (v) => set('gps.interval_seconds', v))}
                         {num(t('gps_retention_days'), data.settings['gps.retention_days'], (v) => set('gps.retention_days', v))}
                         {num(t('max_offline_days'), data.settings['app.max_offline_days'], (v) => set('app.max_offline_days', v))}
+                    </div>
+                )}
+
+                {tab === 'security' && (
+                    <div className="space-y-3">
+                        {check(t('totp_master_switch'), data.settings['security.totp_enabled'], (v) => set('security.totp_enabled', v))}
+                        <p className="max-w-xl text-sm text-zinc-500">{t('totp_master_switch_hint')}</p>
                     </div>
                 )}
 

@@ -13,7 +13,8 @@ use Inertia\Response;
 /**
  * TOTP enrollment (first login for mandatory roles) and per-login
  * challenge. The secret is only persisted after a successful code —
- * enrollment in progress lives in the session.
+ * enrollment in progress lives in the session. Every action redirects
+ * home while the TOTP master switch (security.totp_enabled) is off.
  */
 class TotpController extends Controller
 {
@@ -21,6 +22,10 @@ class TotpController extends Controller
 
     public function setup(Request $request): Response|RedirectResponse
     {
+        if (! $this->totp->enabled()) {
+            return redirect()->route('home');
+        }
+
         $user = $request->user();
         if ($user->hasTotpEnabled()) {
             return redirect()->route('totp.challenge');
@@ -43,6 +48,10 @@ class TotpController extends Controller
 
     public function confirmSetup(Request $request): RedirectResponse
     {
+        if (! $this->totp->enabled()) {
+            return redirect()->route('home');
+        }
+
         $request->validate(['code' => ['required', 'string']]);
         $secret = $request->session()->get('totp_setup_secret');
         $user = $request->user();
@@ -60,6 +69,9 @@ class TotpController extends Controller
 
     public function challenge(Request $request): Response|RedirectResponse
     {
+        if (! $this->totp->enabled()) {
+            return redirect()->route('home');
+        }
         if (! $request->user()->hasTotpEnabled()) {
             return redirect()->route('totp.setup');
         }
@@ -72,6 +84,10 @@ class TotpController extends Controller
 
     public function verifyChallenge(Request $request): RedirectResponse
     {
+        if (! $this->totp->enabled()) {
+            return redirect()->route('home');
+        }
+
         $request->validate(['code' => ['required', 'string']]);
         $user = $request->user();
 

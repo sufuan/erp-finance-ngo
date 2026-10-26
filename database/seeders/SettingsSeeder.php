@@ -59,5 +59,14 @@ class SettingsSeeder extends Seeder
                 ['group' => $group, 'type' => $type, 'value' => Setting::encodeValue($value, $type), 'description' => $description]
             );
         }
+
+        // Master TOTP switch: seeded OFF once only. Unlike the rows above
+        // (updateOrCreate — a re-seed resets them to their defaults), this
+        // one uses firstOrCreate so a re-seed never flips a switch the
+        // admin has already set in General Settings.
+        Setting::firstOrCreate(
+            ['key' => 'security.totp_enabled'],
+            ['group' => 'security', 'type' => 'boolean', 'value' => Setting::encodeValue(false, 'boolean'), 'description' => 'Master switch for two-factor authentication (TOTP)']
+        );
     }
 }

@@ -90,8 +90,8 @@ class SettingsTest extends TestCase
     {
         $this->admin();
 
-        // Every key the six tabs (organization, application, loan, deposit,
-        // sms, gps) read must be present in the props with the right shape —
+        // Every key the seven tabs (organization, application, loan, deposit,
+        // sms, gps, security) read must be present in the props with the right shape —
         // a missing or string-shaped list setting is what white-screened
         // this page in the browser.
         $settingKeys = [
@@ -103,6 +103,7 @@ class SettingsTest extends TestCase
             'deposit.default_profit_rates', 'deposit.closing_charge',
             'sms.sender_id', 'sms.gateway', 'sms.enabled',
             'gps.enabled', 'gps.interval_seconds', 'gps.retention_days', 'app.max_offline_days',
+            'security.totp_enabled',
         ];
 
         $response = $this->get('/settings/general')->assertOk()

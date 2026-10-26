@@ -11,18 +11,30 @@ use PragmaRX\Google2FA\Google2FA;
 
 /**
  * TOTP two-factor authentication (plan Step 2). Mandatory for Super
- * Admin, Branch Manager and Accountant; optional for everyone else.
+ * Admin, Branch Manager and Accountant — but only while the master
+ * switch (Settings → General Settings → Security, key
+ * security.totp_enabled, default OFF) is on. When the switch is off
+ * nobody is forced to enroll or pass a challenge.
  */
 class TotpService
 {
     /** Roles that MUST enroll in TOTP (plan Step 2). */
     public const MANDATORY_ROLES = ['super-admin', 'branch-manager', 'accountant'];
 
-    public function __construct(private readonly Google2FA $google2fa) {}
+    public function __construct(
+        private readonly Google2FA $google2fa,
+        private readonly SettingsService $settings,
+    ) {}
+
+    /** Master switch for the whole TOTP system. Default OFF. */
+    public function enabled(): bool
+    {
+        return (bool) $this->settings->get('security.totp_enabled', false);
+    }
 
     public function requiredFor(User $user): bool
     {
-        return $user->hasAnyRole(self::MANDATORY_ROLES);
+        return $this->enabled() && $user->hasAnyRole(self::MANDATORY_ROLES);
     }
 
     public function generateSecret(): string

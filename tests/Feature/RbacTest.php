@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\LoginAudit;
 use App\Models\User;
 use App\Services\AuthorizationService;
+use App\Services\SettingsService;
 use App\Services\TotpService;
 use App\Support\PermissionCatalog;
 use Database\Seeders\AdminUserSeeder;
@@ -64,6 +65,10 @@ class RbacTest extends TestCase
 
     public function test_seeded_super_admin_can_log_in_and_pass_totp_enrollment(): void
     {
+        // TOTP sits behind the master switch (default OFF) — this test
+        // covers the ON behavior, so turn it on first.
+        app(SettingsService::class)->set('security.totp_enabled', true);
+
         $admin = User::where('username', AdminUserSeeder::USERNAME)->first();
         $this->assertNotNull($admin);
         $this->assertTrue($admin->hasRole('super-admin'));
@@ -120,6 +125,9 @@ class RbacTest extends TestCase
 
     public function test_totp_challenge_required_on_subsequent_login_for_mandatory_role(): void
     {
+        // Master TOTP switch ON (it defaults OFF) — ON behavior under test.
+        app(SettingsService::class)->set('security.totp_enabled', true);
+
         $totp = app(TotpService::class);
         $secret = $totp->generateSecret();
         $manager = $this->makeUser('branch-manager', [
