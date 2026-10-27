@@ -223,4 +223,28 @@ class EmployeeRegisterTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page->component('Settings/Registers/Index')->has('items.data', 4));
     }
+
+    public function test_employee_index_rows_carry_type_and_manager_names(): void
+    {
+        // Live retest (2026-10-27): the list rendered the raw
+        // employee_type_id ("1") and manager_id ("3") because the index
+        // payload never included the type/manager relations. The rows
+        // must carry the related names so the list can display them.
+        $this->hrOfficer();
+        $response = $this->get('/settings/employees')->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Settings/Registers/Index'));
+        $rows = collect($response->viewData('page')['props']['items']['data']);
+
+        $rofiqul = $rows->firstWhere('name', 'Md. Rofiqul Islam');
+        $this->assertNotNull($rofiqul);
+        $this->assertSame('Permanent', $rofiqul['employee_type']['name'] ?? null);
+        $this->assertSame('Md. Abdul Karim', $rofiqul['manager']['name'] ?? null);
+
+        // An employee without a manager must carry a null manager (the
+        // list falls back to a dash), never another employee's name.
+        $mostafa = $rows->firstWhere('name', 'Md. Mostafa');
+        $this->assertNotNull($mostafa);
+        $this->assertSame('Permanent', $mostafa['employee_type']['name'] ?? null);
+        $this->assertNull($mostafa['manager'] ?? null);
+    }
 }

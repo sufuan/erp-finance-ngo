@@ -108,7 +108,7 @@ class RegisterController extends Controller
 
         $query = $model::query();
         if ($entity === 'employees') {
-            $query->with(['branch', 'department', 'designation']);
+            $query->with(['branch', 'department', 'designation', 'employeeType', 'manager']);
         }
         if ($search !== '') {
             $query->where(function ($q) use ($search, $entity) {
@@ -128,6 +128,8 @@ class RegisterController extends Controller
                 $row['branch'] = $item->branch?->only(['id', 'code', 'name']);
                 $row['department'] = $item->department?->only(['id', 'name']);
                 $row['designation'] = $item->designation?->only(['id', 'name']);
+                $row['employee_type'] = $item->employeeType?->only(['id', 'name']);
+                $row['manager'] = $item->manager?->only(['id', 'employee_code', 'name']);
             }
 
             return $row;

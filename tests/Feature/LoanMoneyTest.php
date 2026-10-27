@@ -173,6 +173,34 @@ class LoanMoneyTest extends TestCase
         }
     }
 
+    public function test_receive_history_is_scoped_to_the_selected_loan(): void
+    {
+        // Two loans for the SAME member with identical terms and one
+        // receipt each: loan A's history must list only loan A's
+        // receipt — the history query is loan-scoped, not member-scoped.
+        $loanA = $this->disbursedLoan();
+        $receiptA = $this->money->receive($loanA, ['amount' => '500', 'penalty_charge' => '0'], $this->admin);
+        $loanB = $this->disbursedLoan();
+        $receiptB = $this->money->receive($loanB, ['amount' => '500', 'penalty_charge' => '0'], $this->admin);
+        $this->assertNotSame($loanA->id, $loanB->id);
+
+        $responseA = $this->actingAs($this->admin)
+            ->get('/loans/receive/history?member='.$this->member->member_no.'&loan_id='.$loanA->id)
+            ->assertOk()
+            ->assertInertia(fn ($p) => $p->component('Loans/InstallmentHistory')->has('rows', 1));
+        $rowsA = $responseA->viewData('page')['props']['rows'];
+        $this->assertSame($receiptA->id, $rowsA[0]['id']);
+        $this->assertSame($loanA->loan_number, $rowsA[0]['loan_number']);
+
+        $responseB = $this->actingAs($this->admin)
+            ->get('/loans/receive/history?member='.$this->member->member_no.'&loan_id='.$loanB->id)
+            ->assertOk()
+            ->assertInertia(fn ($p) => $p->component('Loans/InstallmentHistory')->has('rows', 1));
+        $rowsB = $responseB->viewData('page')['props']['rows'];
+        $this->assertSame($receiptB->id, $rowsB[0]['id']);
+        $this->assertSame($loanB->loan_number, $rowsB[0]['loan_number']);
+    }
+
     public function test_pages_render(): void
     {
         $loan = $this->disbursedLoan();

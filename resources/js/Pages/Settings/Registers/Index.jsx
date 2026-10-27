@@ -82,6 +82,8 @@ export default function RegistersIndex({ entity, label, items, fields, search })
         if (key === 'branch_id') return item.branch ? `${item.branch.code} — ${item.branch.name}` : '—';
         if (key === 'department_id') return item.department?.name ?? '—';
         if (key === 'designation_id') return item.designation?.name ?? '—';
+        if (key === 'employee_type_id') return item.employee_type?.name ?? '—';
+        if (key === 'manager_id') return item.manager ? `${item.manager.employee_code} — ${item.manager.name}` : '—';
         const v = item[key];
         if (v === null || v === undefined || v === '') return '—';
         const field = fields.find((f) => f.key === key);

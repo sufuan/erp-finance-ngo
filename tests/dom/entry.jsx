@@ -479,6 +479,39 @@ async function scenarioRegistersDateFormat() {
     await unmount(m);
 }
 
+async function scenarioRegistersTypeManager() {
+    // Live retest (2026-10-27): the employees list printed the raw
+    // employee_type_id ("1") and manager_id ("3") in the Employee Type
+    // and Manager columns; they must show the type NAME and the
+    // manager's NAME (dash when the employee has no manager).
+    __setPage(baseProps());
+    const Wrapped = withI18n(RegistersIndex);
+    const fields = [
+        { key: 'name', type: 'text', required: true, section: 'personal', label: 'name', options: null },
+        { key: 'employee_type_id', type: 'select', section: 'personal', label: 'employee_type', options: [] },
+        { key: 'manager_id', type: 'select', section: 'personal', label: 'manager', options: [] },
+    ];
+    const items = [
+        {
+            id: 10, name: 'Officer With Manager', employee_type_id: 1, manager_id: 3,
+            employee_type: { id: 1, name: 'Permanent' },
+            manager: { id: 3, employee_code: '000003', name: 'Karim Boss' },
+        },
+        {
+            id: 11, name: 'Officer No Manager', employee_type_id: 1, manager_id: null,
+            employee_type: { id: 1, name: 'Permanent' },
+            manager: null,
+        },
+    ];
+    const m = mount(<Wrapped entity="employees" label="employees" items={items} fields={fields} search="" />);
+    const cells = [...m.container.querySelectorAll('tbody tr')].map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent));
+    // Table columns: photo, name, employee_type_id, manager_id, actions.
+    check('Registers: employee type cell shows the type name, not the raw id', cells[0]?.[2] === 'Permanent');
+    check('Registers: manager cell shows the manager name, not the raw id', cells[0]?.[3] === '000003 — Karim Boss');
+    check('Registers: employee with no manager shows a dash in the manager cell', cells[1]?.[3] === '—');
+    await unmount(m);
+}
+
 const scenarios = [
     scenarioPrimaryButton,
     scenarioActionButton,
@@ -493,6 +526,7 @@ const scenarios = [
     scenarioDepositOpeningMemberSync,
     scenarioReportPagesMount,
     scenarioRegistersDateFormat,
+    scenarioRegistersTypeManager,
 ];
 
 for (const fn of scenarios) {
