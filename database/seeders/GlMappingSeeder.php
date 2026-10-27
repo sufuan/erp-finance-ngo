@@ -56,6 +56,9 @@ class GlMappingSeeder extends Seeder
             ['share.receive', '1010', '3010', 'Share capital received'],
             ['share.pay', '3010', '1010', 'Share capital refunded'],
 
+            ['collection.other', '1010', '4035', 'Other collection received in cash'],
+            ['collection.fee', '1010', '4035', 'Passbook / cheque book fee received'],
+
             ['cash.expense', '5020', '1010', 'Office expense paid in cash'],
             ['salary.pay', '5010', '1010', 'Salary paid in cash'],
             ['cash.handover.out', '1130', '1010', 'Cash handed over (out) via clearing'],

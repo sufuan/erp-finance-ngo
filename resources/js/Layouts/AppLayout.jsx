@@ -1,7 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import {
-    Briefcase, Building2, CalendarDays, Globe2, Home, IdCard, Landmark, Loader2, LogOut, Megaphone,
+    Briefcase, Building2, CalendarDays, Globe2, HandCoins, Home, IdCard, Landmark, Loader2, LogOut, Megaphone,
     Menu, Moon, PiggyBank, Scale, ScrollText, Settings, Sun, Users,
 } from 'lucide-react';
 import Toasts from '../Components/Toast';
@@ -76,6 +76,7 @@ export default function AppLayout({ children, branches: branchesProp = undefined
             labelKey: 'nav_field_work',
             items: [
                 ...item('members', '/hub/member', 'members', Users, 'blue', 'members', ['/hub/member', '/members']),
+                ...item('collection', '/hub/collection', 'collection', HandCoins, 'green', 'collection', ['/hub/collection', '/collection']),
                 ...item('samities', '/settings/samities', 'samities', Users, 'violet', 'settings', ['/settings/samities']),
             ],
         },

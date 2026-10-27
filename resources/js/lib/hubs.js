@@ -155,6 +155,102 @@ export const MODULES = [
         ],
     },
     {
+        key: 'collection', titleKey: 'module_collection', icon: HandCoins, tone: 'green',
+        tiles: [
+            L('/collection/member', 'member_collection', HandCoins, 'green', 'collection'),
+            L('/collection/sheet', 'sheet_posting', ListChecks, 'teal', 'collection'),
+            L('/collection/simple-sheet', 'simple_sheet_posting', ListChecks, 'cyan', 'collection'),
+            L('/collection/reports?report=collection_summary', 'collection_summary_report', ScrollText, 'violet', 'collection'),
+            L('/collection/reports?report=dcr_report', 'dcr_report', ScrollText, 'amber', 'collection'),
+            L('/collection/balances?report=samity_balance', 'samity_wise_balance_report', Scale, 'blue', 'collection'),
+            L('/collection/passbook', 'member_passbook', IdCard, 'pink', 'collection'),
+        ],
+        cards: [
+            {
+                titleKey: 'common_collection',
+                links: [
+                    L('/collection/member', 'member_collection', HandCoins, 'green', 'collection'),
+                    L('/collection/member-list', 'member_collection_list', ListChecks, 'blue', 'collection'),
+                    L('/collection/sheet', 'sheet_posting', ListChecks, 'teal', 'collection'),
+                    L('/collection/samity-list', 'samity_collection_list', ListChecks, 'cyan', 'collection'),
+                    L('/collection/other', 'other_collection_receive', Wallet, 'amber', 'collection'),
+                ],
+            },
+            {
+                titleKey: 'deposit_investment_collection',
+                links: [
+                    L('/deposits/receive', 'deposit_receive', HandCoins, 'teal', 'deposits'),
+                    L('/deposits/payment', 'deposit_payment', Wallet, 'amber', 'deposits'),
+                    L('/loans/receive', 'installment_receive', HandCoins, 'green', 'loans'),
+                    L('/collection/simple-sheet', 'simple_sheet_posting', ListChecks, 'cyan', 'collection'),
+                ],
+            },
+            {
+                titleKey: 'collection_sheet_section',
+                links: [
+                    L('/collection/sheets?report=collection_sheet', 'collection_sheet', ScrollText, 'violet', 'collection'),
+                    L('/collection/sheets?report=deposit_collection_sheet', 'deposit_collection_sheet', ScrollText, 'teal', 'collection'),
+                    L('/collection/sheets?report=loan_collection_sheet', 'loan_collection_sheet', ScrollText, 'amber', 'collection'),
+                    L('/collection/sheets?report=loan_collection_sheet_two', 'loan_collection_sheet_two', ScrollText, 'orange', 'collection'),
+                ],
+            },
+            {
+                titleKey: 'collection_reports',
+                links: [
+                    L('/collection/reports?report=collection_details', 'collection_details_report', ScrollText, 'blue', 'collection'),
+                    L('/collection/reports?report=collection_summary', 'collection_summary_report', ScrollText, 'violet', 'collection'),
+                    L('/collection/reports?report=dcr_report', 'dcr_report', ScrollText, 'amber', 'collection'),
+                    L('/collection/reports?report=loan_collection_details', 'loan_collection_details', ScrollText, 'rose', 'collection'),
+                    L('/collection/reports?report=deposit_loan_collection_summary', 'deposit_loan_collection_summary', ScrollText, 'cyan', 'collection'),
+                ],
+            },
+            {
+                titleKey: 'performance_monitoring_reports',
+                links: [
+                    L('/collection/reports?report=field_officers_report', 'field_officers_report', ScrollText, 'green', 'collection'),
+                    L('/collection/reports?report=periodical_progress', 'periodical_progress_report', ScrollText, 'blue', 'collection'),
+                    L('/collection/reports?report=target_vs_achievement', 'target_vs_achievement', ScrollText, 'orange', 'collection'),
+                    L('/collection/reports?report=collection_topsheet', 'collection_topsheet', ScrollText, 'violet', 'collection'),
+                ],
+            },
+            {
+                titleKey: 'member_services',
+                links: [
+                    L('/collection/passbook-issue', 'passbook_issue', IdCard, 'pink', 'collection'),
+                    L('/collection/cheque-issue', 'cheque_book_issue', IdCard, 'cyan', 'collection'),
+                ],
+            },
+            {
+                titleKey: 'balance_reports',
+                links: [
+                    L('/collection/passbook', 'member_passbook', IdCard, 'pink', 'collection'),
+                    L('/collection/balances?report=member_balance', 'member_balance_report', Scale, 'blue', 'collection'),
+                    L('/collection/balances?report=samity_balance', 'samity_wise_balance_report', Scale, 'teal', 'collection'),
+                    L('/collection/balances?report=officer_balance', 'field_officer_balance_outstanding', Scale, 'amber', 'collection'),
+                ],
+            },
+            {
+                titleKey: 'branch_summary_report',
+                links: [
+                    L('/collection/reports?report=monthly_saving_progress', 'monthly_saving_progress', ScrollText, 'teal', 'collection'),
+                    L('/collection/reports?report=monthly_loan_progress', 'monthly_loan_progress', ScrollText, 'amber', 'collection'),
+                    L('/collection/reports?report=statements_summary', 'collection_statements_summary', ScrollText, 'blue', 'collection'),
+                    L('/collection/reports?report=mis_topsheet', 'mis_topsheet', ScrollText, 'violet', 'collection'),
+                    L('/collection/reports?report=mis_progress', 'mis_progress', ScrollText, 'cyan', 'collection'),
+                ],
+            },
+            {
+                titleKey: 'pomis_reports',
+                links: [
+                    L('/collection/reports?report=pomis_1', 'pomis_1', ScrollText, 'rose', 'collection'),
+                    L('/collection/reports?report=pomis_2', 'pomis_2', ScrollText, 'orange', 'collection'),
+                    L('/collection/reports?report=pomis_3', 'pomis_3', ScrollText, 'amber', 'collection'),
+                    L('/collection/reports?report=pomis_4', 'pomis_4', ScrollText, 'slate', 'collection'),
+                ],
+            },
+        ],
+    },
+    {
         key: 'hrm', titleKey: 'module_hrm', icon: Briefcase, tone: 'violet',
         tiles: [
             L('/settings/employees', 'employees', IdCard, 'blue', 'employees'),

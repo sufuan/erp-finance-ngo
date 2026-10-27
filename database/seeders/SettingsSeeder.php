@@ -51,6 +51,7 @@ class SettingsSeeder extends Seeder
 
             ['collection.sheet_types', 'collection', 'json', ['member', 'samity', 'simple'], 'Collection sheet types in use'],
             ['collection.allow_backdate', 'collection', 'boolean', false, 'Allow back-dated collection entries'],
+            ['collection.other_types', 'collection', 'json', ['Admission Fee', 'Passbook Fee', 'Cheque Book Fee', 'Fine', 'Donation', 'Miscellaneous'], 'Other Collection Receive types'],
         ];
 
         foreach ($defs as [$key, $group, $type, $value, $description]) {

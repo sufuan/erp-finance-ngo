@@ -5,6 +5,9 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\TotpController;
 use App\Http\Controllers\BranchSwitchController;
+use App\Http\Controllers\Collections\CollectionController;
+use App\Http\Controllers\Collections\CollectionReportController;
+use App\Http\Controllers\Collections\MemberInstrumentController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\Hrm\MasterController;
 use App\Http\Controllers\Deposits\DepositAccountController;
@@ -72,7 +75,7 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
     // permission-filtered client-side, target routes stay authoritative.
     Route::get('/hub/{module}', function (string $module) {
         return Inertia::render('Hub/Show', ['module' => $module]);
-    })->whereIn('module', ['member', 'deposit', 'loan', 'hrm', 'settings'])->name('hub.show');
+    })->whereIn('module', ['member', 'deposit', 'loan', 'collection', 'hrm', 'settings'])->name('hub.show');
 
     Route::post('/branch/switch', [BranchSwitchController::class, 'switch'])->name('branch.switch');
 
@@ -297,6 +300,40 @@ Route::middleware(['auth', 'password.changed', 'totp'])->prefix('loans')->name('
     Route::post('/insurance-claims', [InsuranceClaimController::class, 'store'])->middleware('can:loans.propose')->name('insurance-claims.store');
     Route::post('/insurance-claims/{claim}/decide', [InsuranceClaimController::class, 'decide'])->middleware('can:loans.approve')->name('insurance-claims.decide');
     Route::post('/insurance-claims/{claim}/pay', [InsuranceClaimController::class, 'pay'])->middleware('can:loans.receive')->name('insurance-claims.pay');
+});
+
+// --- Collection (Steps 21–23) ----------------------------------------------
+Route::middleware(['auth', 'password.changed', 'totp'])->prefix('collection')->name('collection.')->group(function () {
+    // Posting pages (Common Collection).
+    Route::get('/member', [CollectionController::class, 'memberForm'])->middleware('can:collection.collect')->name('member');
+    Route::post('/member', [CollectionController::class, 'storeMember'])->middleware('can:collection.collect')->name('member.store');
+    Route::get('/sheet', [CollectionController::class, 'sheetForm'])->middleware('can:collection.collect')->name('sheet');
+    Route::post('/sheet', [CollectionController::class, 'storeSheet'])->middleware('can:collection.collect')->name('sheet.store');
+    Route::get('/simple-sheet', [CollectionController::class, 'simpleForm'])->middleware('can:collection.collect')->name('simple-sheet');
+    Route::post('/simple-sheet', [CollectionController::class, 'storeSimple'])->middleware('can:collection.collect')->name('simple-sheet.store');
+    Route::get('/member-list', [CollectionController::class, 'memberList'])->middleware('can:collection.view')->name('member-list');
+    Route::get('/samity-list', [CollectionController::class, 'samityList'])->middleware('can:collection.view')->name('samity-list');
+    Route::get('/other', [CollectionController::class, 'otherForm'])->middleware('can:collection.collect')->name('other');
+    Route::post('/other', [CollectionController::class, 'storeOther'])->middleware('can:collection.collect')->name('other.store');
+    // Cancels (latest-only rules live in the money engines).
+    Route::post('/batches/{batch}/cancel', [CollectionController::class, 'cancelBatch'])->middleware('can:collection.cancel')->name('batches.cancel');
+    Route::post('/batches/{batch}/cancel-member', [CollectionController::class, 'cancelMemberLines'])->middleware('can:collection.cancel')->name('batches.cancel-member');
+    Route::post('/lines/{line}/cancel', [CollectionController::class, 'cancelLine'])->middleware('can:collection.cancel')->name('lines.cancel');
+    Route::post('/other/{other}/cancel', [CollectionController::class, 'cancelOther'])->middleware('can:collection.cancel')->name('other.cancel');
+    // Sheets, reports, balances (registry engine).
+    Route::get('/sheets', [CollectionReportController::class, 'sheets'])->middleware('can:collection.sheets')->name('sheets');
+    Route::get('/reports', [CollectionReportController::class, 'reports'])->middleware('can:collection.reports')->name('reports');
+    Route::get('/balances', [CollectionReportController::class, 'balances'])->middleware('can:collection.reports')->name('balances');
+    Route::get('/reports/{key}/pdf', [CollectionReportController::class, 'pdf'])->middleware('can:collection.print')->name('reports.pdf');
+    // Member services (Step 23).
+    Route::get('/passbook-issue', [MemberInstrumentController::class, 'passbookForm'])->middleware('can:collection.collect')->name('passbook-issue');
+    Route::post('/passbook-issue', [MemberInstrumentController::class, 'storePassbook'])->middleware('can:collection.collect')->name('passbook-issue.store');
+    Route::post('/passbook-issue/{issue}/cancel', [MemberInstrumentController::class, 'cancelPassbook'])->middleware('can:collection.cancel')->name('passbook-issue.cancel');
+    Route::get('/cheque-issue', [MemberInstrumentController::class, 'chequeForm'])->middleware('can:collection.collect')->name('cheque-issue');
+    Route::post('/cheque-issue', [MemberInstrumentController::class, 'storeCheque'])->middleware('can:collection.collect')->name('cheque-issue.store');
+    Route::post('/cheque-issue/{issue}/cancel', [MemberInstrumentController::class, 'cancelCheque'])->middleware('can:collection.cancel')->name('cheque-issue.cancel');
+    Route::get('/passbook', [MemberInstrumentController::class, 'passbook'])->middleware('can:collection.view')->name('passbook');
+    Route::get('/passbook/pdf', [MemberInstrumentController::class, 'passbookPdf'])->middleware('can:collection.print')->name('passbook.pdf');
 });
 
 Route::prefix('reports')->name('reports.')->middleware(['auth', 'password.changed', 'totp'])->group(function () {

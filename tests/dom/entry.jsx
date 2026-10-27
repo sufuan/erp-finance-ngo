@@ -32,6 +32,8 @@ import DepositOpening from '../../resources/js/Pages/Deposits/Opening.jsx';
 import DepositReports from '../../resources/js/Pages/Reports/DepositReports.jsx';
 import LoanReports from '../../resources/js/Pages/Reports/LoanReports.jsx';
 import RegistersIndex from '../../resources/js/Pages/Settings/Registers/Index.jsx';
+import SheetPosting from '../../resources/js/Pages/Collections/SheetPosting.jsx';
+import CollectionReports from '../../resources/js/Pages/Collections/Reports.jsx';
 
 const failures = [];
 let passCount = 0;
@@ -512,6 +514,60 @@ async function scenarioRegistersTypeManager() {
     await unmount(m);
 }
 
+async function scenarioCollectionSheetPosting() {
+    // Collection module signature page: the grid prefills receivables
+    // and the Summary card (Total Receivable / Receive / Dues) must
+    // update live as amounts are edited.
+    __setPage(baseProps());
+    const grid = [{
+        member_id: 7, member_no: '102000007', member_name: 'Sheet Member',
+        accounts: [
+            { account_type: 'deposit', account_id: 11, label: '102000011', product_code: 'SAVINGS', product_label: 'Savings', balance: '0.00', receivable: '500.00', amount: '500.00' },
+            { account_type: 'loan', account_id: 21, label: '102000021', product_code: null, product_label: 'Loan', balance: '12000.00', receivable: '1083.10', amount: '1083.10' },
+            { account_type: 'share', account_id: 7, label: '102000007', product_code: null, product_label: 'Share', balance: '500.00', receivable: '0.00', amount: '0.00' },
+        ],
+    }];
+    const props = {
+        samities: [{ id: 3, code: '0001', name: 'Talgachi Samity' }],
+        samityId: 3, grid, businessDate: '2026-10-27',
+    };
+    const Wrapped = withI18n(SheetPosting);
+    const m = mount(<Wrapped {...props} />);
+    const text = () => m.container.textContent;
+    check('SheetPosting: mounts with member row', text().includes('Sheet Member'));
+    check('SheetPosting: summary shows total receivable 1583.10', text().includes('1583.10'));
+    check('SheetPosting: summary dues start at 0.00', text().includes(en.total_dues));
+    const amountInputs = [...m.container.querySelectorAll('input[type="number"]')];
+    check('SheetPosting: one amount input per account', amountInputs.length === 3);
+    await act(async () => { setValue(amountInputs[0], '200'); });
+    check('SheetPosting: editing deposit to 200 makes dues 300.00', text().includes('300.00'));
+    check('SheetPosting: total receive drops to 1283.10', text().includes('1283.10'));
+    await unmount(m);
+
+    // BN render: heading switches with the locale.
+    __setPage(baseProps({ locale: 'bn', translations: bn, translations_version: 'harness-bn' }));
+    const m2 = mount(<Wrapped {...props} />);
+    check('SheetPosting: BN heading renders', m2.container.textContent.includes(bn.sheet_posting));
+    await unmount(m2);
+    __setPage(baseProps());
+}
+
+async function scenarioCollectionReportsMount() {
+    __setPage(baseProps());
+    const Wrapped = withI18n(CollectionReports);
+    const m = mount(<Wrapped
+        group="reports"
+        reportKey="collection_details"
+        reports={[{ key: 'collection_details', title: 'collection_details_report', group: 'reports', filters: ['from_date', 'to_date'] }]}
+        activeFilters={['from_date', 'to_date']}
+        filters={{ from_date: '', to_date: '' }}
+        columns={[]} rows={[]} totalRow={null} ran={false}
+        samities={[]} employees={[]}
+    />);
+    check('CollectionReports: mounts without ReferenceError', m.container.textContent.includes(en.collection_details_report));
+    await unmount(m);
+}
+
 const scenarios = [
     scenarioPrimaryButton,
     scenarioActionButton,
@@ -527,6 +583,8 @@ const scenarios = [
     scenarioReportPagesMount,
     scenarioRegistersDateFormat,
     scenarioRegistersTypeManager,
+    scenarioCollectionSheetPosting,
+    scenarioCollectionReportsMount,
 ];
 
 for (const fn of scenarios) {

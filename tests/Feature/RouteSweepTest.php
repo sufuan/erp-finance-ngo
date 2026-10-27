@@ -76,7 +76,11 @@ class RouteSweepTest extends TestCase
         ])->save();
 
         $urls = [
-            '/', '/hub/member', '/hub/deposit', '/hub/loan', '/hub/hrm', '/hub/settings',
+            '/', '/hub/member', '/hub/deposit', '/hub/loan', '/hub/collection', '/hub/hrm', '/hub/settings',
+            '/collection/member', '/collection/sheet', '/collection/simple-sheet',
+            '/collection/member-list', '/collection/samity-list', '/collection/other',
+            '/collection/sheets', '/collection/reports', '/collection/balances',
+            '/collection/passbook-issue', '/collection/cheque-issue', '/collection/passbook',
             '/members', '/members/admission', '/members/closing', '/members/transfer',
             "/members/{$member->id}", "/members/{$member->id}/edit", "/members/{$member->id}/admission-form",
             '/deposits', '/deposits/blocks', '/deposits/blocks/clear', '/deposits/closing',
@@ -123,6 +127,6 @@ class RouteSweepTest extends TestCase
         }
 
         $this->assertSame([], $failures, "Route sweep failures:\n".implode("\n", $failures));
-        $this->assertCount(77, $urls);
+        $this->assertCount(90, $urls);
     }
 }
