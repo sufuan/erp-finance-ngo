@@ -11,10 +11,12 @@ use App\Models\OtherAccount;
 use App\Services\AuditService;
 use App\Services\BranchAccessService;
 use App\Services\DepositAccountService;
+use App\Services\DepositTransactionService;
 use App\Services\NumberingService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -110,17 +112,34 @@ class DepositAccountController extends Controller
             ])->id;
         }
 
-        $account = $service->open($member, $product, [
-            'title' => $data['title'] ?? null,
-            'address' => $data['address'] ?? null,
-            'phone' => $data['phone'],
-            'opening_date' => $data['opening_date'],
-            'profit_rate' => $data['profit_rate'] ?? null,
-            'installment_amount' => $data['amount'] ?? null,
-            'term_months' => $data['term_months'] ?? null,
-            'credit_limit' => $data['credit_limit'] ?? 0,
-            'nominee_id' => $nomineeId,
-        ], $request->user()->id);
+        $account = DB::transaction(function () use ($service, $member, $product, $data, $nomineeId, $request) {
+            $account = $service->open($member, $product, [
+                'title' => $data['title'] ?? null,
+                'address' => $data['address'] ?? null,
+                'phone' => $data['phone'],
+                'opening_date' => $data['opening_date'],
+                'profit_rate' => $data['profit_rate'] ?? null,
+                'installment_amount' => $data['amount'] ?? null,
+                'term_months' => $data['term_months'] ?? null,
+                'credit_limit' => $data['credit_limit'] ?? 0,
+                'nominee_id' => $nomineeId,
+            ], $request->user()->id);
+
+            // The form's Amount is money actually handed over at opening:
+            // open() records it as the installment size, and here it is
+            // credited through the normal Receive path so the balance,
+            // sub-ledger and GL reflect it (previously it was silently
+            // dropped and the account opened at 0.00). Amount is
+            // optional — blank means no opening deposit.
+            $amount = $data['amount'] ?? null;
+            if ($amount !== null && (float) $amount > 0) {
+                app(DepositTransactionService::class)->receive(
+                    $account, (string) $amount, null, 'Opening deposit', $request->user(),
+                );
+            }
+
+            return $account;
+        });
 
         $audit->log($request->user()->id, 'deposit_account.opened', 'deposit_accounts', $account->id, null, [
             'account_number' => $account->account_number, 'product' => $product->code, 'member_id' => $member->id,

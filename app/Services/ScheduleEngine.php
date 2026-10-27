@@ -50,9 +50,110 @@ class ScheduleEngine
     }
 
     /**
-     * @return array{installment_amount: string, actual_installment_amount: string, extra_installment_amount: string, last_installment_amount: string, profit_amount: string, total_repayment: string, installment_expire_date: string}
+     * The schedule's money rows (no dates) — the SINGLE computation both
+     * preview() and rows() read, so the calculator can never drift from
+     * the generated schedule. Declining: PMT amortization with each
+     * period's profit rounded to 2dp and the final row absorbing the
+     * remaining principal (its total therefore differs from PMT by the
+     * accumulated rounding). Flat: equal splits, final row absorbs.
+     *
+     * @return array<int, array{principal_due: string, profit_due: string, total_due: string}>
      */
-    public function preview(string $amount, string $ratePercent, string $rateMethod, string $frequency, int $installments, string $fromDate): array
+    private function amounts(string $amount, string $ratePercent, string $rateMethod, string $frequency, int $installments): array
+    {
+        $principal = BigDecimal::of($amount);
+        $ppy = $this->periodsPerYear($frequency);
+        $rows = [];
+        if ($rateMethod === 'flat') {
+            $termYears = BigDecimal::of($installments)->dividedBy($ppy, 10, RoundingMode::HalfUp);
+            $totalProfit = $principal->multipliedBy($ratePercent)->multipliedBy($termYears)
+                ->dividedBy(100, 10, RoundingMode::HalfUp)->toScale(2, RoundingMode::HalfUp);
+            $perPrincipal = $principal->dividedBy($installments, 2, RoundingMode::HalfUp);
+            $perProfit = $totalProfit->dividedBy($installments, 2, RoundingMode::HalfUp);
+            $principalLeft = $principal;
+            $profitLeft = $totalProfit;
+            for ($i = 1; $i <= $installments; $i++) {
+                $isLast = $i === $installments;
+                $p = $isLast ? $principalLeft : $perPrincipal;
+                $f = $isLast ? $profitLeft : $perProfit;
+                $principalLeft = $principalLeft->minus($p);
+                $profitLeft = $profitLeft->minus($f);
+                $rows[] = [
+                    'principal_due' => (string) $p->toScale(2, RoundingMode::HalfUp),
+                    'profit_due' => (string) $f->toScale(2, RoundingMode::HalfUp),
+                    'total_due' => (string) $p->plus($f)->toScale(2, RoundingMode::HalfUp),
+                ];
+            }
+
+            return $rows;
+        }
+
+        // Declining amortization.
+        $r = BigDecimal::of($ratePercent)->dividedBy(100 * $ppy, 10, RoundingMode::HalfUp);
+        if ($r->isZero()) {
+            $perPrincipal = $principal->dividedBy($installments, 2, RoundingMode::HalfUp);
+            $principalLeft = $principal;
+            for ($i = 1; $i <= $installments; $i++) {
+                $p = $i === $installments ? $principalLeft : $perPrincipal;
+                $principalLeft = $principalLeft->minus($p);
+                $rows[] = [
+                    'principal_due' => (string) $p->toScale(2, RoundingMode::HalfUp),
+                    'profit_due' => '0.00',
+                    'total_due' => (string) $p->toScale(2, RoundingMode::HalfUp),
+                ];
+            }
+
+            return $rows;
+        }
+        $installment = $this->levelInstallment($amount, $ratePercent, $rateMethod, $frequency, $installments);
+        $outstanding = $principal;
+        for ($i = 1; $i <= $installments; $i++) {
+            $profit = $outstanding->multipliedBy($r)->toScale(2, RoundingMode::HalfUp);
+            if ($i === $installments) {
+                $principalPart = $outstanding;
+                $total = $principalPart->plus($profit);
+            } else {
+                $principalPart = $installment->minus($profit);
+                $total = $installment;
+            }
+            $outstanding = $outstanding->minus($principalPart);
+            $rows[] = [
+                'principal_due' => (string) $principalPart->toScale(2, RoundingMode::HalfUp),
+                'profit_due' => (string) $profit->toScale(2, RoundingMode::HalfUp),
+                'total_due' => (string) $total->toScale(2, RoundingMode::HalfUp),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * The schedule's due dates: weekly loans first align to the samity's
+     * meeting day; every date then shifts forward to a working day.
+     *
+     * @return string[]
+     */
+    private function dates(string $frequency, int $installments, string $fromDate, ?int $branchId = null, ?int $samityId = null, ?string $samityDay = null): array
+    {
+        $first = Carbon::parse($fromDate);
+        if ($frequency === 'W' && $samityDay) {
+            // Weekly installments fall on the samity's meeting day.
+            for ($guard = 0; $guard < 7 && $first->format('l') !== $samityDay; $guard++) {
+                $first->addDay();
+            }
+        }
+        $dates = [];
+        $cursor = $first->copy();
+        for ($i = 0; $i < $installments; $i++) {
+            $dates[] = $this->shiftToWorkingDay($cursor, $branchId, $samityId)->toDateString();
+            $cursor = $this->stepDate($cursor, $frequency);
+        }
+
+        return $dates;
+    }
+
+    /** The level installment (PMT for declining; total ÷ n for flat). */
+    private function levelInstallment(string $amount, string $ratePercent, string $rateMethod, string $frequency, int $installments): BigDecimal
     {
         $principal = BigDecimal::of($amount);
         $ppy = $this->periodsPerYear($frequency);
@@ -60,49 +161,64 @@ class ScheduleEngine
             $termYears = BigDecimal::of($installments)->dividedBy($ppy, 10, RoundingMode::HalfUp);
             $profit = $principal->multipliedBy($ratePercent)->multipliedBy($termYears)
                 ->dividedBy(100, 10, RoundingMode::HalfUp)->toScale(2, RoundingMode::HalfUp);
-            $total = $principal->plus($profit);
-            $installment = $total->dividedBy($installments, 2, RoundingMode::HalfUp);
-            $last = $total->minus($installment->multipliedBy($installments - 1));
+
+            return $principal->plus($profit)->dividedBy($installments, 2, RoundingMode::HalfUp);
+        }
+        $r = BigDecimal::of($ratePercent)->dividedBy(100 * $ppy, 10, RoundingMode::HalfUp);
+        if ($r->isZero()) {
+            return $principal->dividedBy($installments, 2, RoundingMode::HalfUp);
+        }
+        $base = BigDecimal::one()->plus($r);
+        $factor = BigDecimal::one();
+        for ($i = 0; $i < $installments; $i++) {
+            $factor = $factor->multipliedBy($base)->toScale(12, RoundingMode::HalfUp);
+        }
+        $inverse = BigDecimal::one()->dividedBy($factor, 10, RoundingMode::HalfUp);
+
+        return $principal->multipliedBy($r)
+            ->dividedBy(BigDecimal::one()->minus($inverse), 10, RoundingMode::HalfUp)
+            ->toScale(2, RoundingMode::HalfUp);
+    }
+
+    /**
+     * Calculator figures that ALWAYS agree with the schedule rows() will
+     * generate: total/profit/last come from amounts() (the schedule's own
+     * money rows), and — when the member context is supplied — the expiry
+     * date comes from dates() (samity-day alignment + working-day shift),
+     * i.e. it is the last schedule row's due date. Without context the
+     * expiry is the raw stepped date (an estimate).
+     *
+     * @return array{installment_amount: string, actual_installment_amount: string, extra_installment_amount: string, last_installment_amount: string, profit_amount: string, total_repayment: string, installment_expire_date: string}
+     */
+    public function preview(string $amount, string $ratePercent, string $rateMethod, string $frequency, int $installments, string $fromDate, ?int $branchId = null, ?int $samityId = null, ?string $samityDay = null): array
+    {
+        $principal = BigDecimal::of($amount);
+        $amounts = $this->amounts($amount, $ratePercent, $rateMethod, $frequency, $installments);
+        $total = collect($amounts)->reduce(
+            fn ($sum, $row) => $sum->plus($row['total_due']), BigDecimal::zero()
+        );
+        $profit = $total->minus($principal);
+        $installment = $this->levelInstallment($amount, $ratePercent, $rateMethod, $frequency, $installments);
+        $last = $amounts[$installments - 1]['total_due'];
+
+        if ($branchId !== null || $samityId !== null || $samityDay !== null) {
+            $expiry = $this->dates($frequency, $installments, $fromDate, $branchId, $samityId, $samityDay)[$installments - 1];
         } else {
-            $r = BigDecimal::of($ratePercent)->dividedBy(100 * $ppy, 10, RoundingMode::HalfUp);
-            if ($r->isZero()) {
-                $installment = $principal->dividedBy($installments, 2, RoundingMode::HalfUp);
-                $profit = BigDecimal::zero();
-                $total = $principal;
-                $last = $total->minus($installment->multipliedBy($installments - 1));
-            } else {
-                // PMT = P·r / (1 − (1+r)^−n); the power is built with a
-                // scale-trimming loop so long daily terms stay cheap.
-                $base = BigDecimal::one()->plus($r);
-                $factor = BigDecimal::one();
-                for ($i = 0; $i < $installments; $i++) {
-                    $factor = $factor->multipliedBy($base)->toScale(12, RoundingMode::HalfUp);
-                }
-                $inverse = BigDecimal::one()->dividedBy($factor, 10, RoundingMode::HalfUp);
-                $pmt = $principal->multipliedBy($r)
-                    ->dividedBy(BigDecimal::one()->minus($inverse), 10, RoundingMode::HalfUp)
-                    ->toScale(2, RoundingMode::HalfUp);
-                $installment = $pmt;
-                $total = $pmt->multipliedBy($installments);
-                $profit = $total->minus($principal);
-                $last = $pmt;
+            $cursor = Carbon::parse($fromDate);
+            for ($i = 1; $i < $installments; $i++) {
+                $cursor = $this->stepDate($cursor, $frequency);
             }
+            $expiry = $cursor->toDateString();
         }
-        $expiry = Carbon::parse($fromDate);
-        for ($i = 1; $i < $installments; $i++) {
-            $expiry = $this->stepDate($expiry, $frequency);
-        }
-        // (expiry here is the raw stepped date; generate() applies the
-        // working-day shift when writing real schedule rows.)
 
         return [
             'installment_amount' => (string) $installment->toScale(2, RoundingMode::HalfUp),
             'actual_installment_amount' => (string) $installment->toScale(2, RoundingMode::HalfUp),
             'extra_installment_amount' => '0.00',
-            'last_installment_amount' => (string) $last->toScale(2, RoundingMode::HalfUp),
+            'last_installment_amount' => (string) BigDecimal::of($last)->toScale(2, RoundingMode::HalfUp),
             'profit_amount' => (string) $profit->toScale(2, RoundingMode::HalfUp),
             'total_repayment' => (string) $total->toScale(2, RoundingMode::HalfUp),
-            'installment_expire_date' => $expiry->toDateString(),
+            'installment_expire_date' => $expiry,
         ];
     }
 
@@ -154,67 +270,14 @@ class ScheduleEngine
      */
     public function rows(string $amount, string $ratePercent, string $rateMethod, string $frequency, int $installments, string $fromDate, ?int $branchId = null, ?int $samityId = null, ?string $samityDay = null): array
     {
-        $principal = BigDecimal::of($amount);
-        $ppy = $this->periodsPerYear($frequency);
-        $first = Carbon::parse($fromDate);
-        if ($frequency === 'W' && $samityDay) {
-            // Weekly installments fall on the samity's meeting day.
-            for ($guard = 0; $guard < 7 && $first->format('l') !== $samityDay; $guard++) {
-                $first->addDay();
-            }
-        }
-        $dates = [];
-        $cursor = $first->copy();
-        for ($i = 0; $i < $installments; $i++) {
-            $dates[] = $this->shiftToWorkingDay($cursor, $branchId, $samityId)->toDateString();
-            $cursor = $this->stepDate($cursor, $frequency);
-        }
-
+        $dates = $this->dates($frequency, $installments, $fromDate, $branchId, $samityId, $samityDay);
         $rows = [];
-        if ($rateMethod === 'flat') {
-            $preview = $this->preview($amount, $ratePercent, $rateMethod, $frequency, $installments, $fromDate);
-            $totalProfit = BigDecimal::of($preview['profit_amount']);
-            $perPrincipal = $principal->dividedBy($installments, 2, RoundingMode::HalfUp);
-            $perProfit = $totalProfit->dividedBy($installments, 2, RoundingMode::HalfUp);
-            $principalLeft = $principal;
-            $profitLeft = $totalProfit;
-            for ($i = 1; $i <= $installments; $i++) {
-                $isLast = $i === $installments;
-                $p = $isLast ? $principalLeft : $perPrincipal;
-                $f = $isLast ? $profitLeft : $perProfit;
-                $principalLeft = $principalLeft->minus($p);
-                $profitLeft = $profitLeft->minus($f);
-                $rows[] = [
-                    'installment_no' => $i, 'due_date' => $dates[$i - 1],
-                    'principal_due' => (string) $p->toScale(2, RoundingMode::HalfUp),
-                    'profit_due' => (string) $f->toScale(2, RoundingMode::HalfUp),
-                    'total_due' => (string) $p->plus($f)->toScale(2, RoundingMode::HalfUp),
-                ];
-            }
-
-            return $rows;
-        }
-
-        // Declining amortization.
-        $preview = $this->preview($amount, $ratePercent, $rateMethod, $frequency, $installments, $fromDate);
-        $installment = BigDecimal::of($preview['installment_amount']);
-        $r = BigDecimal::of($ratePercent)->dividedBy(100 * $ppy, 10, RoundingMode::HalfUp);
-        $outstanding = $principal;
-        for ($i = 1; $i <= $installments; $i++) {
-            $profit = $outstanding->multipliedBy($r)->toScale(2, RoundingMode::HalfUp);
-            if ($i === $installments) {
-                $principalPart = $outstanding;
-                $total = $principalPart->plus($profit);
-            } else {
-                $principalPart = $installment->minus($profit);
-                $total = $installment;
-            }
-            $outstanding = $outstanding->minus($principalPart);
+        foreach ($this->amounts($amount, $ratePercent, $rateMethod, $frequency, $installments) as $i => $row) {
             $rows[] = [
-                'installment_no' => $i, 'due_date' => $dates[$i - 1],
-                'principal_due' => (string) $principalPart->toScale(2, RoundingMode::HalfUp),
-                'profit_due' => (string) $profit->toScale(2, RoundingMode::HalfUp),
-                'total_due' => (string) $total->toScale(2, RoundingMode::HalfUp),
+                'installment_no' => $i + 1, 'due_date' => $dates[$i],
+                'principal_due' => $row['principal_due'],
+                'profit_due' => $row['profit_due'],
+                'total_due' => $row['total_due'],
             ];
         }
 

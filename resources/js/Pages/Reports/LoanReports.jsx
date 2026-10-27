@@ -6,8 +6,8 @@ import { t } from '../../lib/i18n';
 
 /** Loan reports (Step 20) — eleven registers on the shared engine. */
 export default function LoanReports({ reportKey, reports, activeFilters, filters, columns, rows, totalRow, ran, samities, employees, products, frequencies, loanTypes, loanStatuses }) {
-    const [values, setValues] = useState(() => {
     const [searching, setSearching] = useState(false);
+    const [values, setValues] = useState(() => {
         const initial = {};
         activeFilters.forEach((f) => { initial[f] = filters[f] ?? ''; });
         return initial;

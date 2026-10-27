@@ -82,6 +82,7 @@ class LoanOpeningService
             $preview = $this->schedule->preview(
                 (string) $input['loan_amount'], $rate, $product->rate_method,
                 $input['frequency'], (int) $input['no_of_installments'], $input['installment_from_date'],
+                $branchId, $samity?->id, $samity?->samity_day,
             );
             $lastRow = end($rows);
             // The loan's totals are the schedule's totals (the final row

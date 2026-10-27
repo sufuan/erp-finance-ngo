@@ -65,13 +65,19 @@ class LoanProposalController extends Controller
             'frequency' => ['required', 'string'],
             'no_of_installments' => ['required', 'integer', 'min:1'],
             'installment_from_date' => ['required', 'date'],
+            'member_id' => ['nullable', 'integer', 'exists:members,id'],
         ]);
         $product = LoanProduct::findOrFail($data['loan_product_id']);
         $rate = (string) ($data['profit_rate'] ?? $product->profit_rate);
+        // With the member known, the calculator uses the member's branch /
+        // samity context so its totals and expire date match the schedule
+        // that opening will generate (samity-day alignment, working days).
+        $member = ! empty($data['member_id']) ? Member::with('samity')->find($data['member_id']) : null;
 
         return response()->json($this->schedule->preview(
             (string) $data['loan_amount'], $rate, $product->rate_method,
             $data['frequency'], (int) $data['no_of_installments'], $data['installment_from_date'],
+            $member?->branch_id, $member?->samity_id, $member?->samity?->samity_day,
         ));
     }
 

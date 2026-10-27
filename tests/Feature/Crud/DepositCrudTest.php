@@ -141,14 +141,16 @@ class DepositCrudTest extends CrudTestCase
             'amount' => 1000, 'comments' => 'CRUD move to DPS',
         ])->assertRedirect()->assertSessionHas('success');
         $this->assertSame('2500.00', (string) $savings->fresh()->current_balance);
-        $this->assertSame('1500.00', (string) $dps->fresh()->current_balance);
+        // DPS math: 500 opening amount (credited as an opening Receive
+        // since the 2026-10-27 live-test fix) + 500 receive + 1000 in.
+        $this->assertSame('2000.00', (string) $dps->fresh()->current_balance);
         $transfer = DepositTransfer::where('from_account_id', $savings->id)->firstOrFail();
 
         // Cancel the transfer, then cancel the payment — both reverse.
         $this->post("/deposits/transfers/{$transfer->id}/cancel", ['reason' => 'CRUD cancel transfer'])
             ->assertRedirect()->assertSessionHas('success');
         $this->assertSame('3500.00', (string) $savings->fresh()->current_balance);
-        $this->assertSame('500.00', (string) $dps->fresh()->current_balance);
+        $this->assertSame('1000.00', (string) $dps->fresh()->current_balance);
 
         $this->post("/deposits/transactions/{$paymentTxn->id}/cancel", ['reason' => 'CRUD cancel payment'])
             ->assertRedirect()->assertSessionHas('success');

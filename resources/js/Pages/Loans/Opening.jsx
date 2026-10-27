@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -29,6 +29,13 @@ export default function LoanOpening({ mode, proposal, member, memberQuery, emplo
         fees: Object.fromEntries(feeTypes.map((f) => [f, 0])),
         guarantors: proposal?.guarantors ?? [],
     });
+    // The member/employee lookups preserve form state, so useForm keeps
+    // the values it was first mounted with (no borrower → ids ''). Sync
+    // the loaded borrower's id into the form whenever it changes,
+    // otherwise the submit posts an empty member_id and the service
+    // rejects it with an error this page never rendered (silent failure).
+    useEffect(() => { if (member) form.setData('member_id', member.id); }, [member?.id]);
+    useEffect(() => { if (employee) form.setData('employee_id', employee.id); }, [employee?.id]);
     const product = products.find((p) => String(p.id) === String(form.data.loan_product_id));
     const allowedFreqs = frequencies.filter((f) => (product?.allowed_frequencies ?? []).includes(f.code));
     const lookupMember = (e) => { e.preventDefault(); router.get('/loans/opening', { mode, member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
@@ -43,6 +50,7 @@ export default function LoanOpening({ mode, proposal, member, memberQuery, emplo
                 profit_rate: form.data.profit_rate, frequency: form.data.frequency,
                 no_of_installments: form.data.no_of_installments,
                 installment_from_date: form.data.installment_from_date,
+                member_id: form.data.member_id || undefined,
             }),
         });
         if (response.ok) setCalc(await response.json());
@@ -193,6 +201,8 @@ export default function LoanOpening({ mode, proposal, member, memberQuery, emplo
                                     <input className={inputCls} placeholder={t('national_id')} value={g.national_id} onChange={(e) => setGuarantor(i, 'national_id', e.target.value)} />
                                 </div>
                             ))}
+                            {form.errors.member_id && <span className="text-sm text-red-600 dark:text-red-400 sm:col-span-2">{form.errors.member_id}</span>}
+                            {form.errors.employee_id && <span className="text-sm text-red-600 dark:text-red-400 sm:col-span-2">{form.errors.employee_id}</span>}
                             {form.errors.loan_proposal_id && <span className="text-sm text-red-600 dark:text-red-400 sm:col-span-2">{form.errors.loan_proposal_id}</span>}
                             <div className="sm:col-span-2">
                                 <PrimaryButton type="submit" loading={form.processing}>{t('open_loan_account')}</PrimaryButton>

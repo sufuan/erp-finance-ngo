@@ -70,12 +70,22 @@ export default function RegistersIndex({ entity, label, items, fields, search })
     );
 
     const sections = ['personal', 'bank'];
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    // Date fields arrive as full ISO datetimes from the API serialization
+    // ("2015-03-01T00:00:00.000000Z"); the list must show the app's
+    // d-M-Y display format instead of the raw string.
+    const fmtDate = (v) => {
+        const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v));
+        return m ? `${m[3]}-${MONTHS[Number(m[2]) - 1]}-${m[1]}` : String(v);
+    };
     const cellValue = (item, key) => {
         if (key === 'branch_id') return item.branch ? `${item.branch.code} — ${item.branch.name}` : '—';
         if (key === 'department_id') return item.department?.name ?? '—';
         if (key === 'designation_id') return item.designation?.name ?? '—';
         const v = item[key];
-        return v === null || v === undefined || v === '' ? '—' : String(v).slice(0, 60);
+        if (v === null || v === undefined || v === '') return '—';
+        const field = fields.find((f) => f.key === key);
+        return field?.type === 'date' ? fmtDate(v) : String(v).slice(0, 60);
     };
 
     return (

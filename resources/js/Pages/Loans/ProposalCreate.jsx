@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, Field, PrimaryButton, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -20,6 +20,11 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
         profit_rate: products[0]?.profit_rate ?? '', installment_from_date: businessDate ?? '',
         guarantors: [],
     });
+    // The member lookup above preserves form state, so useForm keeps the
+    // values it was first mounted with (member === null → member_id '').
+    // Sync the loaded member's id into the form whenever it changes,
+    // otherwise the submit posts an empty member_id and validation fails.
+    useEffect(() => { if (member) form.setData('member_id', member.id); }, [member?.id]);
     const lookup = (e) => { e.preventDefault(); router.get('/loans/proposals/create', { member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const product = products.find((p) => String(p.id) === String(form.data.loan_product_id));
     const allowedFreqs = frequencies.filter((f) => (product?.allowed_frequencies ?? []).includes(f.code));
@@ -34,6 +39,7 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
                 profit_rate: form.data.profit_rate, frequency: form.data.frequency,
                 no_of_installments: form.data.no_of_installments,
                 installment_from_date: form.data.installment_from_date,
+                member_id: form.data.member_id || undefined,
             }),
         });
         if (response.ok) setCalc(await response.json());

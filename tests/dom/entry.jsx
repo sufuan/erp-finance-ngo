@@ -26,6 +26,12 @@ import MemberMigrations from '../../resources/js/Pages/Settings/MemberMigrations
 import SamitiesIndex from '../../resources/js/Pages/Settings/Samities/Index.jsx';
 import SamityChanges from '../../resources/js/Pages/Settings/Samities/Changes.jsx';
 import GeneralSettings from '../../resources/js/Pages/Settings/General/Index.jsx';
+import ProposalCreate from '../../resources/js/Pages/Loans/ProposalCreate.jsx';
+import LoanOpening from '../../resources/js/Pages/Loans/Opening.jsx';
+import DepositOpening from '../../resources/js/Pages/Deposits/Opening.jsx';
+import DepositReports from '../../resources/js/Pages/Reports/DepositReports.jsx';
+import LoanReports from '../../resources/js/Pages/Reports/LoanReports.jsx';
+import RegistersIndex from '../../resources/js/Pages/Settings/Registers/Index.jsx';
 
 const failures = [];
 let passCount = 0;
@@ -356,6 +362,123 @@ async function scenarioPageMounts() {
     await unmount(m);
 }
 
+// ---- Live-CRUD-pass regressions (2026-10-27) ----
+// The member lookup on the loan/deposit forms round-trips with
+// preserveState, so useForm keeps its first-mount values: mounted with
+// member=null the submitted member_id stayed '' and the server rejected
+// the post ("The member id field is required." / a silent no-op where
+// the page never rendered that error). These scenarios reproduce the
+// lookup-then-submit flow and pin the synced payload.
+const HARNESS_MEMBER = {
+    id: 4, member_no: '102000004', name: 'LIVE TEST Member', mobile: '01710000000',
+    present_address: 'Talgachi', samity: '0001 — Talgachi Samity', branch: '102 — Talgachi',
+    share_amount: '0.00', savings_balance: '0.00', status: 'Active', photo_url: null,
+    nominee: { name: 'Nominee One' },
+};
+const LOAN_PRODUCTS = [{ id: 1, code: '3001', name_en: 'General Loan', profit_rate: '15.00', rate_method: 'declining', allowed_frequencies: ['D', 'W', 'M'] }];
+const FREQUENCIES = [
+    { code: 'D', label_en: 'Daily' }, { code: 'W', label_en: 'Weekly' }, { code: 'M', label_en: 'Monthly' },
+];
+const mainFormOf = (container) => [...container.querySelectorAll('form')]
+    .find((f) => !f.querySelector('input[name="member"]') && !f.querySelector('input[name="employee"]'));
+const lastPostTo = (url) => __state.visits.filter((v) => v.method === 'post' && v.url.startsWith(url)).pop();
+
+async function scenarioProposalMemberSync() {
+    __setPage(baseProps());
+    const Wrapped = withI18n(ProposalCreate);
+    const props = {
+        memberQuery: '102000004', products: LOAN_PRODUCTS, frequencies: FREQUENCIES,
+        fdrAccounts: [], canOverride: false, businessDate: '2026-10-26',
+    };
+    const m = mount(<Wrapped {...props} member={null} />);
+    check('ProposalCreate: mounts before member lookup (main form hidden until lookup)',
+        !!m.container.querySelector('input[name="member"]') && !mainFormOf(m.container));
+    await rerender(m, <Wrapped {...props} member={HARNESS_MEMBER} />);
+    check('ProposalCreate: member profile renders after lookup', m.container.textContent.includes('102000004'));
+    await act(async () => { mainFormOf(m.container).dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    check('ProposalCreate submit: member_id synced from lookup (defect 1)', lastPostTo('/loans/proposals')?.data?.member_id === 4);
+    await act(async () => { __finishVisit({}); });
+    await unmount(m);
+}
+
+async function scenarioLoanOpeningMemberSync() {
+    __setPage(baseProps());
+    const Wrapped = withI18n(LoanOpening);
+    const props = {
+        mode: 'member', proposal: null, memberQuery: '102000004', employee: null, employeeQuery: '',
+        products: LOAN_PRODUCTS, frequencies: FREQUENCIES, feeTypes: [], canOverride: false,
+        businessDate: '2026-10-26', productLoans: [],
+    };
+    const m = mount(<Wrapped {...props} member={null} />);
+    await rerender(m, <Wrapped {...props} member={HARNESS_MEMBER} />);
+    check('LoanOpening: member profile renders after lookup', m.container.textContent.includes('102000004'));
+    await act(async () => { mainFormOf(m.container).dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit = lastPostTo('/loans/opening');
+    check('LoanOpening submit: member_id synced from lookup (defect 4)', visit?.data?.member_id === 4);
+    check('LoanOpening submit: blank payment fields post as blanks (optional)', visit?.data?.payment_type === '' && visit?.data?.payment_to_account === '');
+    await act(async () => { __finishVisit({}); });
+    await unmount(m);
+}
+
+async function scenarioDepositOpeningMemberSync() {
+    __setPage(baseProps());
+    const Wrapped = withI18n(DepositOpening);
+    const products = [{ id: 1, code: 'SAVINGS', name_en: 'Savings', default_profit_rate: '5.00', config: null }];
+    const props = { products, memberQuery: '102000004', businessDate: '2026-10-26' };
+    const m = mount(<Wrapped {...props} member={null} />);
+    await rerender(m, <Wrapped {...props} member={HARNESS_MEMBER} />);
+    check('DepositOpening: member profile renders after lookup', m.container.textContent.includes('102000004'));
+    const form = [...m.container.querySelectorAll('form')].find((f) => f.querySelector('select'));
+    await act(async () => { form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit = lastPostTo('/deposits');
+    check('DepositOpening submit: member_id synced from lookup (defect 3)', visit?.data?.member_id === 4);
+    check('DepositOpening submit: phone prefilled from member', visit?.data?.phone === '01710000000');
+    await act(async () => { __finishVisit({}); });
+    await unmount(m);
+}
+
+async function scenarioReportPagesMount() {
+    // Defect 2: both report pages crashed at render with
+    // "searching is not defined" (the useState was nested inside the
+    // values initializer). Mounting with realistic props must not throw.
+    __setPage(baseProps());
+    const shared = {
+        reports: [{ key: 'register', title: 'reports', filters: ['samity_id', 'from_date', 'to_date'] }],
+        reportKey: 'register',
+        activeFilters: ['samity_id', 'from_date', 'to_date'],
+        filters: { samity_id: '', from_date: '2026-10-01', to_date: '2026-10-26' },
+        columns: [], rows: [], totalRow: null, ran: false,
+        samities: [{ id: 1, samity_code: '0001', name: 'Talgachi Samity' }],
+        employees: [{ id: 1, employee_code: '000001', name: 'Officer One' }],
+        products: [{ id: 1, code: 'SAVINGS', name_en: 'Savings' }],
+    };
+    const WrappedDeposits = withI18n(DepositReports);
+    let m = mount(<WrappedDeposits {...shared} accountStatuses={['all', 'active', 'closed']} />);
+    check('DepositReports: mounts without ReferenceError (defect 2)', m.container.textContent.includes(en.reports));
+    await unmount(m);
+    const WrappedLoans = withI18n(LoanReports);
+    m = mount(<WrappedLoans {...shared} frequencies={FREQUENCIES} loanTypes={[]} loanStatuses={[]} />);
+    check('LoanReports: mounts without ReferenceError (defect 2)', m.container.textContent.includes(en.reports));
+    await unmount(m);
+}
+
+async function scenarioRegistersDateFormat() {
+    // Defect 8: the employees list printed the raw ISO datetime for
+    // date fields; it must render the app's d-M-Y display format.
+    __setPage(baseProps());
+    const Wrapped = withI18n(RegistersIndex);
+    const fields = [
+        { key: 'name', type: 'text', required: true, section: 'personal', label: 'name', options: null },
+        { key: 'joining_date', type: 'date', required: true, section: 'personal', label: 'joining_date', options: null },
+        { key: 'status', type: 'select', section: 'personal', label: 'status', options: [{ id: 'Active', name: 'Active' }] },
+    ];
+    const items = [{ id: 1, name: 'Officer One', joining_date: '2015-03-01T00:00:00.000000Z', status: 'Active' }];
+    const m = mount(<Wrapped entity="employees" label="employees" items={items} fields={fields} search="" />);
+    check('Registers: joining date renders as 01-Mar-2015 (defect 8)', m.container.textContent.includes('01-Mar-2015'));
+    check('Registers: no raw ISO datetime leaks into the list', !m.container.textContent.includes('2015-03-01T00:00'));
+    await unmount(m);
+}
+
 const scenarios = [
     scenarioPrimaryButton,
     scenarioActionButton,
@@ -365,6 +488,11 @@ const scenarios = [
     scenarioExcelImport,
     scenarioSchedulePicker,
     scenarioPageMounts,
+    scenarioProposalMemberSync,
+    scenarioLoanOpeningMemberSync,
+    scenarioDepositOpeningMemberSync,
+    scenarioReportPagesMount,
+    scenarioRegistersDateFormat,
 ];
 
 for (const fn of scenarios) {

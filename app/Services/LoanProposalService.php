@@ -68,6 +68,7 @@ class LoanProposalService
         $preview = $this->schedule->preview(
             $amount, $rate, $product->rate_method, $input['frequency'],
             $installments, $input['installment_from_date'],
+            $member->branch_id, $member->samity_id, $member->samity?->samity_day,
         );
 
         return LoanProposal::create([

@@ -6,8 +6,8 @@ import { t } from '../../lib/i18n';
 
 /** Deposit reports (Step 14) — one engine, twelve registers. */
 export default function DepositReports({ reportKey, reports, activeFilters, filters, columns, rows, totalRow, ran, samities, employees, products, accountStatuses }) {
-    const [values, setValues] = useState(() => {
     const [searching, setSearching] = useState(false);
+    const [values, setValues] = useState(() => {
         const initial = {};
         activeFilters.forEach((f) => { initial[f] = filters[f] ?? ''; });
         return initial;

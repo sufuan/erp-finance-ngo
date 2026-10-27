@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, Field, PrimaryButton, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -15,6 +15,18 @@ export default function DepositOpening({ products, member, memberQuery, business
         profit_rate: '', term_months: '', credit_limit: '',
         nominee_name: '', nominee_dob: '', nominee_phone: '', nominee_relation: '', nominee_address: '',
     });
+
+    // The member lookup preserves form state, so useForm keeps the values
+    // it was first mounted with (member === null → member_id ''). Sync the
+    // loaded member into the form whenever it changes, otherwise the
+    // submit posts an empty member_id and fails with no visible error.
+    useEffect(() => {
+        if (!member) return;
+        setData('member_id', member.id);
+        if (!data.title) setData('title', member.name ?? '');
+        if (!data.address) setData('address', member.present_address ?? '');
+        if (!data.phone) setData('phone', member.mobile ?? '');
+    }, [member?.id]);
 
     const product = products.find((p) => String(p.id) === String(data.deposit_product_id));
     const termsYears = product?.config?.terms_years ?? null;
@@ -51,6 +63,7 @@ export default function DepositOpening({ products, member, memberQuery, business
                 <div className="grid gap-4 lg:grid-cols-3">
                     <Card className="lg:col-span-2">
                         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+                            {errors.member_id && <span className="text-sm text-red-600 dark:text-red-400 sm:col-span-2">{errors.member_id}</span>}
                             <Field label={t('samity')}>
                                 <input className={inputCls} value={member.samity ?? ''} readOnly />
                             </Field>
