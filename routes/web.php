@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\TotpController;
 use App\Http\Controllers\BranchSwitchController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Collections\CollectionController;
 use App\Http\Controllers\Collections\CollectionReportController;
 use App\Http\Controllers\Collections\MemberInstrumentController;
@@ -67,9 +68,9 @@ Route::middleware('auth')->group(function () {
 
 // --- The application: login + password changed + TOTP passed -------------
 Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
-    Route::get('/', function () {
-        return Inertia::render('Home');
-    })->name('home');
+    // Post-login home = the Dashboard (Module 2 / Step 24); the mega-hub
+    // tiles/search render below the overview on the same page.
+    Route::get('/', [DashboardController::class, 'index'])->name('home');
 
     // Module hub pages (redesign): navigation only — tiles/cards are
     // permission-filtered client-side, target routes stay authoritative.

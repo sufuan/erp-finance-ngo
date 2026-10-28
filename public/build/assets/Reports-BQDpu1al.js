@@ -1,0 +1,1 @@
+import{i as e}from"./app-Cd6QnYBs.js";import{t}from"./CollectionReportEngine-CJ0BAA_9.js";var n=e();function r(e){let r=e.group===`balance`?`/collection/balances`:`/collection/reports`,i=e.group===`balance`?`balance_reports`:`collection_reports`;return(0,n.jsx)(t,{basePath:r,headingKey:i,...e})}export{r as default};

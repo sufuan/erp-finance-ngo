@@ -22,7 +22,7 @@ class ScaffoldTest extends TestCase
         $this->actingAs($this->user())->get('/')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Home')
+                ->component('Dashboard')
                 ->has('locale')
                 ->has('translations_version')
                 ->where('translations.welcome', 'Welcome') // default locale = en
@@ -41,7 +41,7 @@ class ScaffoldTest extends TestCase
         $this->get('/')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Home')
+                ->component('Dashboard')
                 ->where('locale', 'en')
                 ->where('translations.welcome', 'Welcome')
             );

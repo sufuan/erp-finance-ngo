@@ -39,7 +39,7 @@ class PlatformCrudTest extends CrudTestCase
     public function test_home_and_module_hubs_render_after_login(): void
     {
         $this->get('/')->assertOk()
-            ->assertInertia(fn ($p) => $p->component('Home'));
+            ->assertInertia(fn ($p) => $p->component('Dashboard'));
 
         foreach (['member', 'deposit', 'loan', 'hrm', 'settings'] as $module) {
             $this->get("/hub/{$module}")->assertOk()

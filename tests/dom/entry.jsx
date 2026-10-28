@@ -20,6 +20,7 @@ import ExcelImport from '../../resources/js/Components/ExcelImport.jsx';
 import SamitySchedulePicker, { scheduleTokenOf, scheduleLabel } from '../../resources/js/Components/SamitySchedulePicker.jsx';
 import Login from '../../resources/js/Pages/Auth/Login.jsx';
 import Home from '../../resources/js/Pages/Home.jsx';
+import Dashboard from '../../resources/js/Pages/Dashboard.jsx';
 import BusinessDay from '../../resources/js/Pages/Settings/BusinessDay/Index.jsx';
 import MemberClosing from '../../resources/js/Pages/Members/Closing.jsx';
 import MemberMigrations from '../../resources/js/Pages/Settings/MemberMigrations.jsx';
@@ -641,6 +642,67 @@ async function scenarioCollectionReportsMount() {
     await unmount(m);
 }
 
+async function scenarioDashboardMounts() {
+    // Dashboard (Module 2 / Step 24): KPI cards, charts and the samity /
+    // officer tables render the server-computed figures; the branch
+    // filter appears when the user can see more than one branch; the
+    // mega-hub stays below the overview.
+    __setPage(baseProps());
+    const Wrapped = withI18n(Dashboard);
+    const props = {
+        asOn: '2026-10-28',
+        kpis: {
+            members: { total: 5, active: 4, new_month: 2, closed: 1 },
+            samities: { total: 2, active: 2 },
+            deposit: { accounts: 3, savings: '1000.00', dps: '2300.00', fdr: '5000.00', other: '0.00', total: '8300.00' },
+            loan: { disbursed_count: 2, disbursed_amount: '18000.00', active: 2, outstanding: '18995.79', overdue_amount: '3290.85', overdue_loans: 1 },
+            collection: { today: '8800.00', today_loan: '500.00', today_deposit: '8300.00', month: '8800.00' },
+        },
+        trend: [
+            { date: '2026-10-27', total: '0.00' },
+            { date: '2026-10-28', total: '8800.00' },
+        ],
+        samityRows: [
+            { code: '0001', name: 'Talgachi Samity', branch_id: 2, officer_id: 3, members: 4, savings: '8300.00', outstanding: '18995.79', collection: '8800.00' },
+        ],
+        officerRows: [
+            { officer: '000003 — Field Officer', samities: 1, members: 4, savings: '8300.00', outstanding: '18995.79', collection: '8800.00' },
+        ],
+        branches: baseProps().branches,
+        selectedBranch: null,
+    };
+    const m = mount(<Wrapped {...props} />);
+    const text = m.container.textContent;
+    check('Dashboard: mounts with title', text.includes(en.dashboard));
+    check('Dashboard: shows as-on business date', text.includes('2026-10-28'));
+    check('Dashboard: today collection headline 8,800.00', text.includes('8,800.00'));
+    check('Dashboard: loan outstanding 18,995.79', text.includes('18,995.79'));
+    check('Dashboard: overdue amount 3,290.85 flagged', text.includes('3,290.85'));
+    check('Dashboard: samity table row renders', text.includes('Talgachi Samity'));
+    check('Dashboard: officer table row renders', text.includes('000003 — Field Officer'));
+    check('Dashboard: trend chart svg renders', !!m.container.querySelector('svg[aria-label]'));
+    // The dashboard filter is the select offering the "all branches"
+    // option (AppLayout has its own branch switcher select).
+    const filterOf = (c) => [...c.querySelectorAll('select')]
+        .find((s) => [...s.options].some((o) => o.textContent === en['dash.all_branches']));
+    const select = filterOf(m.container);
+    check('Dashboard: branch filter lists all + 2 branches', !!select && select.options.length === 3);
+    check('Dashboard: hub search stays reachable below', !!m.container.querySelector('input'));
+    await unmount(m);
+
+    // Single-branch users get no filter.
+    const m1 = mount(<Wrapped {...props} branches={[baseProps().branches[1]]} />);
+    check('Dashboard: no branch filter for single-branch user', !filterOf(m1.container));
+    await unmount(m1);
+
+    // BN render: title switches with the locale.
+    __setPage(baseProps({ locale: 'bn', translations: bn, translations_version: 'harness-bn' }));
+    const m2 = mount(<Wrapped {...props} />);
+    check('Dashboard: BN title renders', m2.container.textContent.includes(bn.dashboard));
+    await unmount(m2);
+    __setPage(baseProps());
+}
+
 const scenarios = [
     scenarioPrimaryButton,
     scenarioActionButton,
@@ -661,6 +723,7 @@ const scenarios = [
     scenarioRegistersTypeManager,
     scenarioCollectionSheetPosting,
     scenarioCollectionReportsMount,
+    scenarioDashboardMounts,
 ];
 
 for (const fn of scenarios) {
