@@ -544,3 +544,4 @@ Module 6 built in full (old Steps 21–23): Common Collection (Member Collection
 - On each deploy, `.cpanel.yml` at the repo root runs two tasks as the account user: `artisan migrate --force`, then `artisan optimize:clear` (via the server's alt-php84 binary). No `storage:link` (symlink() is disabled on this host; uploads are served through the `/files` route).
 - Composer stays manual: dependencies are installed by hand when composer.lock changes; the deploy tasks never run composer.
 - A GitHub Action (`deploy.yml`, owner-uploaded since the app connection cannot write `.github/workflows/`) triggers cPanel's update-from-remote + deploy APIs on every push to `main`, so a push deploys end-to-end on its own.
+- Auto-deploy end-to-end test push: 2026-10-28.
