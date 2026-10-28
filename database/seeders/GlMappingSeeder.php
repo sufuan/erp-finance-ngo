@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\GlMapping;
 use App\Models\Ledger;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 
 /**
  * Every posting resolves its ledgers through gl_mappings (plan Step 3A) —
@@ -66,11 +67,21 @@ class GlMappingSeeder extends Seeder
         ];
 
         foreach ($rows as [$key, $debit, $credit, $description]) {
+            $debitLedger = Ledger::byCode($debit);
+            $creditLedger = Ledger::byCode($credit);
+
+            if ($debitLedger === null || $creditLedger === null) {
+                $missingCode = $debitLedger === null ? $debit : $credit;
+                throw new RuntimeException(
+                    "GlMappingSeeder: ledger code '{$missingCode}' for mapping '{$key}' not found — run ChartOfAccountsSeeder first."
+                );
+            }
+
             GlMapping::updateOrCreate(
                 ['mapping_key' => $key],
                 [
-                    'debit_ledger_id' => Ledger::byCode($debit)->id,
-                    'credit_ledger_id' => Ledger::byCode($credit)->id,
+                    'debit_ledger_id' => $debitLedger->id,
+                    'credit_ledger_id' => $creditLedger->id,
                     'description' => $description,
                 ]
             );
