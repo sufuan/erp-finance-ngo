@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Crud;
 
+use App\Models\ChequeBookIssue;
 use App\Models\CollectionBatch;
 use App\Models\DepositAccount;
 use App\Models\DepositProduct;
@@ -248,6 +249,53 @@ class CollectionCrudTest extends CrudTestCase
         // The guard the bug tripped: an empty member_id is still rejected.
         $this->post('/collection/passbook-issue', [
             'member_id' => '', 'book_number' => 'X', 'fee_amount' => '', 'document_number' => null,
+        ])->assertSessionHasErrors('member_id');
+    }
+
+    /**
+     * Regression (2026-10-28): same member-binding defect as Passbook
+     * Issue — the Cheque Book Issue page first mounts with no member;
+     * the search round-trip supplies the member as a prop, and the
+     * (fixed) form posts it. Driving the endpoints the same way must
+     * issue the book — before the form fix, the post carried an empty
+     * member_id and validation rejected it with "The member id field
+     * is required."
+     */
+    public function test_cheque_issue_via_lookup_then_submit(): void
+    {
+        $member = $this->makeMember();
+
+        // The lookup the search button performs.
+        $props = $this->inertiaProps('/collection/cheque-issue?member='.$member->member_no);
+        $this->assertSame($member->id, $props['member']['id'] ?? null);
+
+        // The payload the fixed form submits.
+        $this->post('/collection/cheque-issue', [
+            'member_id' => $props['member']['id'], 'cheque_prefix' => 'CB',
+            'start_leaf' => '201', 'end_leaf' => '225',
+            'fee_amount' => '30', 'document_number' => 'CB-DOC-1',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $issue = ChequeBookIssue::where('member_id', $member->id)->latest('id')->firstOrFail();
+        $this->assertSame('201', $issue->start_leaf);
+        $this->assertSame('30.00', (string) $issue->fee_amount);
+        $this->assertNotNull($issue->voucher_id, 'a positive fee still posts its voucher');
+
+        // An untouched (empty) fee records the issue with no voucher,
+        // exactly as before.
+        $this->post('/collection/cheque-issue', [
+            'member_id' => $member->id, 'cheque_prefix' => 'CB',
+            'start_leaf' => '226', 'end_leaf' => '250',
+            'fee_amount' => '', 'document_number' => null,
+        ])->assertRedirect()->assertSessionHas('success');
+        $free = ChequeBookIssue::where('member_id', $member->id)->latest('id')->firstOrFail();
+        $this->assertSame('226', $free->start_leaf);
+        $this->assertNull($free->voucher_id);
+
+        // The guard the bug tripped: an empty member_id is still rejected.
+        $this->post('/collection/cheque-issue', [
+            'member_id' => '', 'cheque_prefix' => 'CB', 'start_leaf' => '301', 'end_leaf' => '325',
+            'fee_amount' => '', 'document_number' => null,
         ])->assertSessionHasErrors('member_id');
     }
 

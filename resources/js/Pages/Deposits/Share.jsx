@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, Field, PrimaryButton, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -7,6 +7,11 @@ import { t } from '../../lib/i18n';
 /** Share receive / payment (Step 11) — posts to members.share_amount. */
 export default function DepositShare({ member, memberQuery, snapshot, mode, businessDate }) {
     const form = useForm({ member_id: member?.id ?? '', mode, amount: '', document_number: '', comments: '' });
+
+    // Sync the loaded member's id into the form whenever it changes,
+    // otherwise the submit posts an empty member_id and validation fails.
+    useEffect(() => { if (member) form.setData('member_id', member.id); }, [member?.id]);
+
     const [searching, setSearching] = useState(false);
     const lookup = (e) => {
         e.preventDefault();

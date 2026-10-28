@@ -45,6 +45,16 @@ class DepositCrudTest extends CrudTestCase
         return DepositProduct::where('code', $code)->firstOrFail();
     }
 
+    /** Read the Inertia page props from the rendered HTML shell. */
+    private function inertiaProps(string $url): array
+    {
+        $html = $this->get($url)->assertOk()->getContent();
+        $found = preg_match('/<script data-page="app"[^>]*>(.*?)<\/script>/s', $html, $m);
+        $this->assertSame(1, $found, 'Inertia shell carries the page JSON');
+
+        return json_decode($m[1], true)['props'] ?? [];
+    }
+
     private function openAccount(Member $member, DepositProduct $product, array $extra = []): DepositAccount
     {
         $this->post('/deposits', array_merge([
@@ -218,6 +228,46 @@ class DepositCrudTest extends CrudTestCase
             'balance' => 2500, 'comments' => 'CRUD opening',
         ])->assertRedirect('/deposits/other')->assertSessionHas('success');
         $this->assertSame('2500.00', (string) OtherAccount::where('name', 'CRUD Petty Cash')->firstOrFail()->balance);
+    }
+
+    /**
+     * Regression (2026-10-28): same member-binding defect as Passbook
+     * Issue — the Share page first mounts with no member; the search
+     * round-trip supplies the member + snapshot as props, and the
+     * (fixed) form posts the member id. Driving the endpoints the same
+     * way must move the share balance — before the form fix, the post
+     * carried an empty member_id and validation rejected it with "The
+     * member id field is required."
+     */
+    public function test_share_via_lookup_then_submit(): void
+    {
+        $member = $this->makeMember();
+
+        // The lookup the search button performs.
+        $props = $this->inertiaProps('/deposits/share?member='.$member->member_no);
+        $this->assertSame($member->id, $props['member']['id'] ?? null);
+        $this->assertNotNull($props['snapshot'] ?? null);
+
+        $before = (string) $member->fresh()->share_amount;
+
+        // The payload the fixed form submits: receive, then a payment.
+        $this->post('/deposits/share', [
+            'member_id' => $props['member']['id'], 'mode' => 'receive', 'amount' => '100',
+            'document_number' => 'SH-DOC-1', 'comments' => null,
+        ])->assertRedirect()->assertSessionHas('success');
+        $this->post('/deposits/share', [
+            'member_id' => $member->id, 'mode' => 'payment', 'amount' => '40',
+            'document_number' => null, 'comments' => null,
+        ])->assertRedirect()->assertSessionHas('success');
+        $this->assertSame(
+            number_format((float) $before + 60, 2, '.', ''),
+            (string) $member->fresh()->share_amount
+        );
+
+        // The guard the bug tripped: an empty member_id is still rejected.
+        $this->post('/deposits/share', [
+            'member_id' => '', 'mode' => 'receive', 'amount' => '10',
+        ])->assertSessionHasErrors('member_id');
     }
 
     public function test_profit_distribution_run_post_and_payment_over_http(): void

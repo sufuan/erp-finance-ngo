@@ -35,6 +35,8 @@ import RegistersIndex from '../../resources/js/Pages/Settings/Registers/Index.js
 import SheetPosting from '../../resources/js/Pages/Collections/SheetPosting.jsx';
 import CollectionReports from '../../resources/js/Pages/Collections/Reports.jsx';
 import PassbookIssue from '../../resources/js/Pages/Collections/PassbookIssue.jsx';
+import ChequeBookIssue from '../../resources/js/Pages/Collections/ChequeBookIssue.jsx';
+import DepositShare from '../../resources/js/Pages/Deposits/Share.jsx';
 
 const failures = [];
 let passCount = 0;
@@ -463,6 +465,53 @@ async function scenarioPassbookIssueMemberSync() {
     await unmount(m);
 }
 
+// Same defect class as Passbook Issue, flagged by the same review:
+// Cheque Book Issue mounted with member=null, so after the lookup
+// round-trip the issue form still posted member_id '' and the server
+// rejected it with "The member id field is required."
+async function scenarioChequeBookIssueMemberSync() {
+    __setPage(baseProps());
+    const Wrapped = withI18n(ChequeBookIssue);
+    const props = {
+        memberQuery: '102000004', rows: [], businessDate: '2026-10-28',
+    };
+    const m = mount(<Wrapped {...props} member={null} />);
+    check('ChequeBookIssue: mounts before member lookup (issue form hidden until lookup)',
+        !!m.container.querySelector('input[name="member"]') && !mainFormOf(m.container));
+    await rerender(m, <Wrapped {...props} member={HARNESS_MEMBER} />);
+    check('ChequeBookIssue: member renders after lookup', m.container.textContent.includes('102000004'));
+    await act(async () => { mainFormOf(m.container).dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit = lastPostTo('/collection/cheque-issue');
+    check('ChequeBookIssue submit: member_id synced from lookup (defect: cheque book issue)', visit?.data?.member_id === 4);
+    await act(async () => { __finishVisit({}); });
+    await unmount(m);
+}
+
+// Same defect class in Deposits → Share: the page mounted with
+// member=null, so after the lookup round-trip the share form still
+// posted member_id '' and the server rejected it with
+// "The member id field is required."
+async function scenarioDepositShareMemberSync() {
+    __setPage(baseProps());
+    const Wrapped = withI18n(DepositShare);
+    const snapshot = {
+        name: HARNESS_MEMBER.name, member_no: HARNESS_MEMBER.member_no,
+        samity: HARNESS_MEMBER.samity, share_amount: '500.00',
+    };
+    const props = { memberQuery: '102000004', mode: 'receive', businessDate: '2026-10-28' };
+    const m = mount(<Wrapped {...props} member={null} snapshot={null} />);
+    check('DepositShare: mounts before member lookup (share form hidden until lookup)',
+        !!m.container.querySelector('input[name="member"]') && !mainFormOf(m.container));
+    await rerender(m, <Wrapped {...props} member={HARNESS_MEMBER} snapshot={snapshot} />);
+    check('DepositShare: member renders after lookup', m.container.textContent.includes('102000004'));
+    await act(async () => { mainFormOf(m.container).dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit = lastPostTo('/deposits/share');
+    check('DepositShare submit: member_id synced from lookup (defect: share)', visit?.data?.member_id === 4);
+    check('DepositShare submit: mode posts from the page mode', visit?.data?.mode === 'receive');
+    await act(async () => { __finishVisit({}); });
+    await unmount(m);
+}
+
 async function scenarioReportPagesMount() {
     // Defect 2: both report pages crashed at render with
     // "searching is not defined" (the useState was nested inside the
@@ -605,6 +654,8 @@ const scenarios = [
     scenarioLoanOpeningMemberSync,
     scenarioDepositOpeningMemberSync,
     scenarioPassbookIssueMemberSync,
+    scenarioChequeBookIssueMemberSync,
+    scenarioDepositShareMemberSync,
     scenarioReportPagesMount,
     scenarioRegistersDateFormat,
     scenarioRegistersTypeManager,
