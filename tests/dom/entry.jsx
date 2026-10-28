@@ -513,6 +513,33 @@ async function scenarioDepositShareMemberSync() {
     await unmount(m);
 }
 
+// Same form, second mount-captured field: `mode`. switchMode re-GETs
+// with preserveState, so after looking a member up in Receive mode and
+// switching to Payment, the heading/buttons follow the mode prop but
+// the submit still posted mode 'receive' — a share payment recorded
+// as a receive (wrong direction on a money form).
+async function scenarioDepositShareModeSync() {
+    __setPage(baseProps());
+    const Wrapped = withI18n(DepositShare);
+    const snapshot = {
+        name: HARNESS_MEMBER.name, member_no: HARNESS_MEMBER.member_no,
+        samity: HARNESS_MEMBER.samity, share_amount: '500.00',
+    };
+    const props = { memberQuery: '102000004', businessDate: '2026-10-28' };
+    const m = mount(<Wrapped {...props} member={null} snapshot={null} mode="receive" />);
+    // Lookup round-trip: the member arrives, still in Receive mode.
+    await rerender(m, <Wrapped {...props} member={HARNESS_MEMBER} snapshot={snapshot} mode="receive" />);
+    check('DepositShare mode switch: member renders after lookup', m.container.textContent.includes('102000004'));
+    // Mode-switch round-trip (preserveState): only the mode prop changes.
+    await rerender(m, <Wrapped {...props} member={HARNESS_MEMBER} snapshot={snapshot} mode="payment" />);
+    await act(async () => { mainFormOf(m.container).dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit = lastPostTo('/deposits/share');
+    check('DepositShare submit after mode switch: member_id still synced', visit?.data?.member_id === 4);
+    check('DepositShare submit after mode switch: mode synced to payment (defect: share mode)', visit?.data?.mode === 'payment');
+    await act(async () => { __finishVisit({}); });
+    await unmount(m);
+}
+
 async function scenarioReportPagesMount() {
     // Defect 2: both report pages crashed at render with
     // "searching is not defined" (the useState was nested inside the
@@ -718,6 +745,7 @@ const scenarios = [
     scenarioPassbookIssueMemberSync,
     scenarioChequeBookIssueMemberSync,
     scenarioDepositShareMemberSync,
+    scenarioDepositShareModeSync,
     scenarioReportPagesMount,
     scenarioRegistersDateFormat,
     scenarioRegistersTypeManager,

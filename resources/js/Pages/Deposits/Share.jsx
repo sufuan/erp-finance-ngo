@@ -12,6 +12,11 @@ export default function DepositShare({ member, memberQuery, snapshot, mode, busi
     // otherwise the submit posts an empty member_id and validation fails.
     useEffect(() => { if (member) form.setData('member_id', member.id); }, [member?.id]);
 
+    // Sync the page mode too: switching Receive/Payment round-trips with
+    // preserveState, so the form would keep the mount-time mode and post
+    // the wrong transaction type after a switch.
+    useEffect(() => { form.setData('mode', mode); }, [mode]);
+
     const [searching, setSearching] = useState(false);
     const lookup = (e) => {
         e.preventDefault();
