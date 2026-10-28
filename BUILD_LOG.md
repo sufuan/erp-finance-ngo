@@ -537,3 +537,10 @@ Module 6 built in full (old Steps 21–23): Common Collection (Member Collection
 - Tests: `CollectionTest` (8, service level incl. atomicity + trial balance + POMIS reconciliation) and `Crud/CollectionCrudTest` (4, full HTTP cycle: sheet post → lists → batch cancel reversal; member collection + cancel-member-lines; other collection; passbook/cheque issue + cancel; all 25 report keys run + PDFs; member passbook). Full suite 258 passed / 1 skipped. DOM harness 69 passed (incl. Sheet Posting live-summary scenario). `npm run build` green.
 - Browser CRUD gate (real Chrome via the CDP bridge rig, local app): login → Sheet Posting grid prefills (deposit 500.00 installment, loan 1083.10, share 0.00) → edited deposit 200 + share 100 → live Summary 1383.10 → Post Transaction → batch visible in Member/Samity Collection Lists → Cancel (confirm dialog) → batch Cancelled, savings back to 0.00, loan outstanding restored to 12997.20, branch trial balance balanced. 360px viewport: no horizontal page overflow. Gate script + shots: goal hidden_files/collection-crud-gate/.
 - Note: seeded members carry a cached `share_amount` with no share sub-ledger rows; the deposit engine's resync-from-ledger therefore resets the cache on the first share receive/cancel (pre-existing engine behavior, ledger is truth) — admission-created members are ledger-backed and unaffected.
+
+## Auto-deploy via cPanel (2026-10-28)
+
+- Deploys to test.tpdabd.com are managed by cPanel Git Version Control; no manual terminal `git pull` needed.
+- On each deploy, `.cpanel.yml` at the repo root runs two tasks as the account user: `artisan migrate --force`, then `artisan optimize:clear` (via the server's alt-php84 binary). No `storage:link` (symlink() is disabled on this host; uploads are served through the `/files` route).
+- Composer stays manual: dependencies are installed by hand when composer.lock changes; the deploy tasks never run composer.
+- A GitHub Action (`deploy.yml`, owner-uploaded since the app connection cannot write `.github/workflows/`) triggers cPanel's update-from-remote + deploy APIs on every push to `main`, so a push deploys end-to-end on its own.
