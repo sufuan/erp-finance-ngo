@@ -1,0 +1,23 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull latest code on the server
+        run: |
+          curl -sS -H "Authorization: cpanel tpdabdco:${{ secrets.CPANEL_TOKEN }}" \
+            "https://cpanel.tpdabd.com:2083/execute/VersionControl/update?repository_root=%2Fhome%2Ftpdabdco%2Ftest.tpdabd.com" \
+            | tee /tmp/update.json
+          grep -q '"status":1' /tmp/update.json
+      - name: Run deployment (migrations + cache clear)
+        run: |
+          curl -sS -H "Authorization: cpanel tpdabdco:${{ secrets.CPANEL_TOKEN }}" \
+            "https://cpanel.tpdabd.com:2083/execute/VersionControlDeployment/create?repository_root=%2Fhome%2Ftpdabdco%2Ftest.tpdabd.com" \
+            | tee /tmp/deploy.json
+          grep -q '"status":1' /tmp/deploy.json
