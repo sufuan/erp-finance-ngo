@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
@@ -8,6 +8,10 @@ import { t } from '../../lib/i18n';
 export default function PassbookIssue({ member, memberQuery, rows, nextBookNumber, businessDate }) {
     const [searching, setSearching] = useState(false);
     const form = useForm({ member_id: member?.id ?? '', book_number: nextBookNumber ?? '', fee_amount: '', document_number: '' });
+
+    // Sync the loaded member's id into the form whenever it changes,
+    // otherwise the submit posts an empty member_id and validation fails.
+    useEffect(() => { if (member) form.setData('member_id', member.id); }, [member?.id]);
 
     const lookup = (e) => {
         e.preventDefault();

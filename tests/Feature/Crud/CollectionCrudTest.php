@@ -205,6 +205,52 @@ class CollectionCrudTest extends CrudTestCase
         $this->assertDatabaseHas('cheque_book_issues', ['member_id' => $member->id, 'start_leaf' => '101']);
     }
 
+    /**
+     * Regression (2026-10-28): the Passbook Issue page first mounts with
+     * no member; the search round-trip supplies the member and the next
+     * book number as props, and the (fixed) form posts exactly those.
+     * Driving the endpoints the same way must issue the book — before
+     * the form fix, the post carried an empty member_id and validation
+     * rejected it with "The member id field is required."
+     */
+    public function test_passbook_issue_via_lookup_then_submit(): void
+    {
+        $member = $this->makeMember();
+
+        // The lookup the search button performs.
+        $props = $this->inertiaProps('/collection/passbook-issue?member='.$member->member_no);
+        $this->assertSame($member->id, $props['member']['id'] ?? null);
+        $bookNumber = (string) ($props['nextBookNumber'] ?? '');
+        $this->assertNotSame('', $bookNumber);
+
+        // The payload the fixed form submits.
+        $this->post('/collection/passbook-issue', [
+            'member_id' => $props['member']['id'], 'book_number' => $bookNumber,
+            'fee_amount' => '25', 'document_number' => 'PB-DOC-1',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $issue = PassbookIssue::where('member_id', $member->id)->latest('id')->firstOrFail();
+        $this->assertSame($bookNumber, $issue->book_number);
+        $this->assertSame('25.00', (string) $issue->fee_amount);
+        $this->assertNotNull($issue->voucher_id, 'a positive fee still posts its voucher');
+
+        // A second lookup offers the next number; an untouched (empty) fee
+        // records the issue with no voucher, exactly as before.
+        $props = $this->inertiaProps('/collection/passbook-issue?member='.$member->member_no);
+        $this->post('/collection/passbook-issue', [
+            'member_id' => $member->id, 'book_number' => $props['nextBookNumber'],
+            'fee_amount' => '', 'document_number' => null,
+        ])->assertRedirect()->assertSessionHas('success');
+        $free = PassbookIssue::where('member_id', $member->id)->latest('id')->firstOrFail();
+        $this->assertSame((string) $props['nextBookNumber'], $free->book_number);
+        $this->assertNull($free->voucher_id);
+
+        // The guard the bug tripped: an empty member_id is still rejected.
+        $this->post('/collection/passbook-issue', [
+            'member_id' => '', 'book_number' => 'X', 'fee_amount' => '', 'document_number' => null,
+        ])->assertSessionHasErrors('member_id');
+    }
+
     public function test_reports_sheets_and_passbook_over_http(): void
     {
         $member = $this->makeMember();

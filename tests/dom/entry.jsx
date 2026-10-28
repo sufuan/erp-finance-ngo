@@ -34,6 +34,7 @@ import LoanReports from '../../resources/js/Pages/Reports/LoanReports.jsx';
 import RegistersIndex from '../../resources/js/Pages/Settings/Registers/Index.jsx';
 import SheetPosting from '../../resources/js/Pages/Collections/SheetPosting.jsx';
 import CollectionReports from '../../resources/js/Pages/Collections/Reports.jsx';
+import PassbookIssue from '../../resources/js/Pages/Collections/PassbookIssue.jsx';
 
 const failures = [];
 let passCount = 0;
@@ -439,6 +440,29 @@ async function scenarioDepositOpeningMemberSync() {
     await unmount(m);
 }
 
+// Same defect class, found 2026-10-28 while recording the Collection
+// tour: Passbook Issue mounted with member=null, so after the lookup
+// round-trip the issue form still posted member_id '' and the server
+// rejected it with "The member id field is required."
+async function scenarioPassbookIssueMemberSync() {
+    __setPage(baseProps());
+    const Wrapped = withI18n(PassbookIssue);
+    const props = {
+        memberQuery: '102000004', rows: [], nextBookNumber: '1002', businessDate: '2026-10-28',
+    };
+    const m = mount(<Wrapped {...props} member={null} />);
+    check('PassbookIssue: mounts before member lookup (issue form hidden until lookup)',
+        !!m.container.querySelector('input[name="member"]') && !mainFormOf(m.container));
+    await rerender(m, <Wrapped {...props} member={HARNESS_MEMBER} />);
+    check('PassbookIssue: member renders after lookup', m.container.textContent.includes('102000004'));
+    await act(async () => { mainFormOf(m.container).dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit = lastPostTo('/collection/passbook-issue');
+    check('PassbookIssue submit: member_id synced from lookup (defect: passbook issue)', visit?.data?.member_id === 4);
+    check('PassbookIssue submit: book number posts from the nextBookNumber prop', visit?.data?.book_number === '1002');
+    await act(async () => { __finishVisit({}); });
+    await unmount(m);
+}
+
 async function scenarioReportPagesMount() {
     // Defect 2: both report pages crashed at render with
     // "searching is not defined" (the useState was nested inside the
@@ -580,6 +604,7 @@ const scenarios = [
     scenarioProposalMemberSync,
     scenarioLoanOpeningMemberSync,
     scenarioDepositOpeningMemberSync,
+    scenarioPassbookIssueMemberSync,
     scenarioReportPagesMount,
     scenarioRegistersDateFormat,
     scenarioRegistersTypeManager,
