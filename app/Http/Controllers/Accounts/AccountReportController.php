@@ -130,60 +130,60 @@ class AccountReportController extends Controller
         switch ($key) {
             case 'account_balance':
                 $rows = $this->reports->ledgerBalances($branchIds, null, $to);
-                return $empty + [
+                return array_merge($empty, [
                     'columns' => ['ledger_code', 'ledger_name', 'ledger_group', 'balance'],
                     'rows' => collect($rows)->map(fn ($r) => [$r['code'], $r['name'], $r['group'], $r['balance']])->all(),
-                ];
+                ]);
             case 'account_receipt_payment':
                 $rows = $this->reports->accountReceiptPayment($branchIds, $from, $to);
-                return $empty + [
+                return array_merge($empty, [
                     'columns' => ['ledger_code', 'ledger_name', 'ledger_group', 'total_debit', 'total_credit', 'balance'],
                     'rows' => collect($rows)->map(fn ($r) => [$r['code'], $r['name'], $r['group'], $r['debit'], $r['credit'], $r['balance']])->all(),
-                ];
+                ]);
             case 'trial_balance':
                 $tb = $this->reports->trialBalance($branchIds, null, $to);
-                return $empty + [
+                return array_merge($empty, [
                     'columns' => ['ledger_code', 'ledger_name', 'ledger_group', 'debit', 'credit'],
                     'rows' => collect($tb['rows'])->map(fn ($r) => [$r['code'], $r['name'], $r['group'], $r['tb_debit'], $r['tb_credit']])->all(),
                     'totalRow' => ['', __('total'), '', $tb['total_debit'], $tb['total_credit']],
                     'summary' => ['balanced' => $tb['balanced']],
-                ];
+                ]);
             case 'trial_balance_2':
                 $tb = $this->reports->trialBalance($branchIds, $from, $to);
-                return $empty + [
+                return array_merge($empty, [
                     'columns' => ['ledger_code', 'ledger_name', 'opening_debit', 'opening_credit', 'period_debit', 'period_credit', 'closing_debit', 'closing_credit'],
                     'rows' => collect($tb['rows'])->map(fn ($r) => [$r['code'], $r['name'], $r['opening_debit'], $r['opening_credit'], $r['debit'], $r['credit'], $r['closing_debit'], $r['closing_credit']])->all(),
                     'totalRow' => ['', __('total'), $tb['totals']['opening_debit'], $tb['totals']['opening_credit'], $tb['totals']['debit'], $tb['totals']['credit'], $tb['totals']['closing_debit'], $tb['totals']['closing_credit']],
                     'summary' => ['balanced' => $tb['totals']['balanced']],
-                ];
+                ]);
             case 'ledger_statement':
                 $ledger = Ledger::find($request->integer('ledger_id'));
                 if (! $ledger) {
                     return $empty;
                 }
                 $st = $this->reports->ledgerStatement($branchIds, $ledger, $from, $to);
-                return $empty + [
+                return array_merge($empty, [
                     'columns' => ['date', 'voucher_no', 'particulars', 'debit', 'credit', 'balance'],
                     'rows' => collect($st['rows'])->map(fn ($r) => [$r['date'], $r['voucher_no'], $r['particulars'] ?? '', $r['debit'], $r['credit'], $r['balance']])->all(),
                     'totalRow' => ['', '', __('total'), $st['total_debit'], $st['total_credit'], $st['closing']],
                     'summary' => ['opening' => $st['opening'], 'closing' => $st['closing'], 'ledger' => $st['ledger']['code'].' — '.$st['ledger']['name']],
-                ];
+                ]);
             case 'cash_book':
                 $st = $this->reports->cashBook($branchIds, $from, $to);
-                return $empty + [
+                return array_merge($empty, [
                     'columns' => ['date', 'voucher_no', 'particulars', 'debit', 'credit', 'balance'],
                     'rows' => collect($st['rows'])->map(fn ($r) => [$r['date'], $r['voucher_no'], $r['particulars'] ?? '', $r['debit'], $r['credit'], $r['balance']])->all(),
                     'totalRow' => ['', '', __('total'), $st['total_debit'], $st['total_credit'], $st['closing']],
                     'summary' => ['opening' => $st['opening'], 'closing' => $st['closing']],
-                ];
+                ]);
             case 'daily_cash_book':
                 $date = (string) $request->query('date', $to);
                 $day = $this->reports->dailyCashBook($branchIds[0], $date);
-                return $empty + [
+                return array_merge($empty, [
                     'columns' => ['cashier', 'cash_in', 'cash_out', 'balance'],
                     'rows' => collect($day['cashiers'])->map(fn ($r) => [$r['name'], $r['cash_in'], $r['cash_out'], $r['balance']])->all(),
                     'summary' => ['opening' => $day['opening'], 'receipts' => $day['receipts'], 'payments' => $day['payments'], 'closing' => $day['closing'], 'date' => $date],
-                ];
+                ]);
             case 'account_statement':
                 $type = (string) $request->query('account_type');
                 $accountId = $request->integer('account_id');
@@ -191,11 +191,11 @@ class AccountReportController extends Controller
                     return $empty;
                 }
                 $st = $this->reports->accountStatement($type, $accountId, $from, $to);
-                return $empty + [
+                return array_merge($empty, [
                     'columns' => ['date', 'tran_code', 'amount', 'balance'],
                     'rows' => collect($st['rows'])->map(fn ($r) => [$r['date'], $r['tran_code'], $r['amount'], $r['balance_after']])->all(),
                     'summary' => ['opening' => $st['opening'], 'closing' => $st['closing']],
-                ];
+                ]);
             case 'customer_statement':
                 $needle = trim((string) $request->query('member', ''));
                 if ($needle === '') {
@@ -204,17 +204,17 @@ class AccountReportController extends Controller
                 $member = Member::where('member_no', $needle)
                     ->orWhere('id', ctype_digit($needle) ? (int) $needle : -1)->first();
                 if (! $member) {
-                    return $empty + ['summary' => ['not_found' => true]];
+                    return array_merge($empty, ['summary' => ['not_found' => true]]);
                 }
                 abort_unless($this->branchAccess->canAccess($request->user(), $member->branch_id), 403);
                 $cs = $this->reports->customerStatement($member->id, $from, $to);
-                return $empty + [
+                return array_merge($empty, [
                     'columns' => ['date', 'account', 'tran_code', 'amount', 'balance'],
                     'rows' => collect($cs['rows'])->map(fn ($r) => [$r['date'], $r['account'], $r['tran_code'], $r['amount'], $r['balance_after']])->all(),
                     'summary' => ['member' => $cs['member']['member_no'].' — '.$cs['member']['name'],
                         'samity' => $cs['member']['samity'] ?? '', 'share_amount' => $cs['share_amount'],
                         'deposits' => collect($cs['deposits'])->map(fn ($d) => $d['account_number'].': '.$d['balance'])->implode(' · ')],
-                ];
+                ]);
             case 'receipt_payment':
             case 'receipt_payment_2':
                 $rp = $this->reports->receiptPayment($branchIds, $from, $to, $key === 'receipt_payment_2');
@@ -230,17 +230,17 @@ class AccountReportController extends Controller
                         ['heading' => 'payments', 'groups' => $rp['payment_groups'], 'total' => ['total_payments', $rp['total_payments']]],
                     ];
                 }
-                return $empty + ['sections' => $sections,
+                return array_merge($empty, ['sections' => $sections,
                     'summary' => ['opening' => $rp['opening'], 'closing' => $rp['closing'],
-                        'total_receipts' => $rp['total_receipts'], 'total_payments' => $rp['total_payments']]];
+                        'total_receipts' => $rp['total_receipts'], 'total_payments' => $rp['total_payments']]]);
             case 'income_expense_topsheet':
                 $ie = $this->reports->incomeExpense($branchIds, $from, $to);
                 $top = fn ($rows) => collect($rows)->sortByDesc(fn ($r) => abs((float) $r['balance']))->take(5)
                     ->map(fn ($r) => [$r['code'].' — '.$r['name'], $r['balance']])->all();
-                return $empty + ['sections' => [
+                return array_merge($empty, ['sections' => [
                     ['heading' => 'top_income_heads', 'rows' => $top($ie['income']), 'total' => ['total_income', $ie['total_income']]],
                     ['heading' => 'top_expense_heads', 'rows' => $top($ie['expense']), 'total' => ['total_expense', $ie['total_expense']]],
-                ], 'summary' => ['surplus' => $ie['surplus']]];
+                ], 'summary' => ['surplus' => $ie['surplus']]]);
         }
 
         return $empty;
