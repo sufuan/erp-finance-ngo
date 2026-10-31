@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             ChartOfAccountsSeeder::class,
             GlMappingSeeder::class,
             VoucherTypeSeeder::class,
+            AccountsMasterSeeder::class,
             FiscalYearSeeder::class,
             GeoSeeder::class,
             HrmMasterSeeder::class,

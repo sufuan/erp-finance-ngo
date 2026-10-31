@@ -1,7 +1,7 @@
 import {
-    ArrowLeftRight, Ban, Banknote, Briefcase, Building2, CalendarDays, Clock3, FilePlus2,
+    ArrowLeftRight, Ban, Banknote, BookOpen, Briefcase, Building2, CalendarDays, CheckCheck, Clock3, Coins, FilePlus2, FileText,
     HandCoins, History, IdCard, Landmark, LayoutGrid, ListChecks, MapPin, Megaphone,
-    Package, PiggyBank, Scale, ScrollText, Settings, ShieldCheck, Sun, Unlock, UploadCloud,
+    Package, PiggyBank, Repeat, Scale, ScrollText, Settings, ShieldCheck, Sun, Unlock, UploadCloud,
     UserPlus, Users, UserX, Wallet, XCircle,
 } from 'lucide-react';
 
@@ -246,6 +246,106 @@ export const MODULES = [
                     L('/collection/reports?report=pomis_2', 'pomis_2', ScrollText, 'orange', 'collection'),
                     L('/collection/reports?report=pomis_3', 'pomis_3', ScrollText, 'amber', 'collection'),
                     L('/collection/reports?report=pomis_4', 'pomis_4', ScrollText, 'slate', 'collection'),
+                ],
+            },
+        ],
+    },
+    {
+        key: 'accounts', titleKey: 'module_accounts', icon: BookOpen, tone: 'cyan',
+        tiles: [
+            L('/accounts/transaction', 'acc_account_transaction', HandCoins, 'teal', 'accounts'),
+            L('/accounts/ledger-transaction', 'acc_ledger_transaction', ArrowLeftRight, 'blue', 'accounts'),
+            L('/accounts/reports?report=cash_book&run=1', 'acc_cash_book', BookOpen, 'green', 'accounts'),
+            L('/accounts/reports?report=receipt_payment_2&run=1', 'acc_receipt_payment_2', ScrollText, 'violet', 'accounts'),
+            L('/accounts/statements?statement=income_expenses_2&run=1', 'acc_income_expenses_2', Scale, 'amber', 'accounts'),
+            L('/accounts/transfer-request', 'acc_fund_transfer_request', Banknote, 'orange', 'accounts'),
+            L('/accounts/reports?report=trial_balance&run=1', 'acc_trial_balance', Scale, 'slate', 'accounts'),
+            L('/accounts/statements?statement=balance_sheet&run=1', 'acc_balance_sheet', Landmark, 'cyan', 'accounts'),
+        ],
+        cards: [
+            {
+                titleKey: 'acc_financial_transaction',
+                links: [
+                    L('/accounts/transaction', 'acc_account_transaction', HandCoins, 'teal', 'accounts'),
+                    L('/accounts/ledger-transaction', 'acc_ledger_transaction', ArrowLeftRight, 'blue', 'accounts'),
+                    L('/accounts/journal', 'acc_journal_entry', FileText, 'violet', 'accounts'),
+                    L('/accounts/contra', 'acc_contra_voucher', ArrowLeftRight, 'amber', 'accounts'),
+                    L('/accounts/vouchers', 'acc_voucher_list', ListChecks, 'slate', 'accounts'),
+                ],
+            },
+            {
+                titleKey: 'acc_approval_cancel',
+                links: [
+                    L('/accounts/cancel', 'acc_transaction_cancel', XCircle, 'rose', 'accounts'),
+                    L('/accounts/authorization', 'acc_authorization_list', ListChecks, 'blue', 'accounts'),
+                    L('/accounts/authorization?mode=approval', 'acc_financial_transaction_approval', CheckCheck, 'green', 'accounts'),
+                    L('/accounts/recurring', 'acc_recurring_setup', Repeat, 'cyan', 'accounts'),
+                    L('/accounts/vouchers?preset=backdate', 'acc_back_date_list', History, 'orange', 'accounts'),
+                    L('/accounts/vouchers?preset=cancelled', 'acc_transaction_cancel_list', Ban, 'rose', 'accounts'),
+                ],
+            },
+            {
+                titleKey: 'acc_account_management',
+                links: [
+                    L('/accounts/ledgers', 'acc_new_account_opening', FilePlus2, 'green', 'accounts'),
+                    L('/accounts/ledgers', 'acc_account_list', LayoutGrid, 'blue', 'accounts'),
+                    L('/accounts/masters/billing-types', 'acc_billing_type', FileText, 'slate', 'accounts'),
+                    L('/accounts/masters/setups', 'acc_receive_payment_setup', Settings, 'cyan', 'accounts'),
+                    L('/accounts/group-transaction', 'acc_group_transaction', Coins, 'violet', 'accounts'),
+                    L('/accounts/group-transactions', 'acc_group_transaction_list', ListChecks, 'amber', 'accounts'),
+                ],
+            },
+            {
+                titleKey: 'acc_inter_branch',
+                links: [
+                    L('/accounts/transfer-request', 'acc_fund_transfer_request', Banknote, 'orange', 'accounts'),
+                    L('/accounts/transfer-requests', 'acc_transfer_request_list', ListChecks, 'blue', 'accounts'),
+                    L('/accounts/transfer-request?kind=Product', 'acc_product_sending_request', Package, 'teal', 'accounts'),
+                    L('/accounts/transfer-requests?view=receive', 'acc_product_receive_approval', CheckCheck, 'green', 'accounts'),
+                    L('/accounts/branch-balances', 'acc_branch_wise_balance', Scale, 'violet', 'accounts'),
+                    L('/accounts/branch-statement', 'acc_branch_transaction_statement', ScrollText, 'slate', 'accounts'),
+                ],
+            },
+            {
+                titleKey: 'acc_cash_management',
+                links: [
+                    L('/accounts/cash', 'acc_cash_transfer_request', HandCoins, 'teal', 'accounts'),
+                    L('/accounts/cash', 'acc_cash_receive_payment', Wallet, 'amber', 'accounts'),
+                    L('/accounts/cashier-balances', 'acc_cashier_balance_report', Scale, 'blue', 'accounts'),
+                    L('/accounts/cashier-details', 'acc_cashier_transaction_details', ScrollText, 'cyan', 'accounts'),
+                ],
+            },
+            {
+                titleKey: 'acc_account_report',
+                links: [
+                    L('/accounts/reports?report=account_balance', 'acc_account_balance', Scale, 'blue', 'accounts'),
+                    L('/accounts/reports?report=account_receipt_payment', 'acc_account_receipt_payment', ScrollText, 'teal', 'accounts'),
+                    L('/accounts/reports?report=account_statement', 'acc_account_statement', FileText, 'violet', 'accounts'),
+                    L('/accounts/reports?report=customer_statement', 'acc_customer_statement', Users, 'pink', 'accounts'),
+                ],
+            },
+            {
+                titleKey: 'acc_ledger_reports',
+                links: [
+                    L('/accounts/reports?report=cash_book', 'acc_cash_book', BookOpen, 'green', 'accounts'),
+                    L('/accounts/reports?report=daily_cash_book', 'acc_daily_cash_book', BookOpen, 'teal', 'accounts'),
+                    L('/accounts/cashier-details', 'acc_cash_transaction_details', ScrollText, 'cyan', 'accounts'),
+                    L('/accounts/reports?report=ledger_statement', 'acc_ledger_statement', FileText, 'blue', 'accounts'),
+                    L('/accounts/reports?report=receipt_payment', 'acc_receipt_payment', ScrollText, 'amber', 'accounts'),
+                    L('/accounts/reports?report=receipt_payment_2', 'acc_receipt_payment_2', ScrollText, 'violet', 'accounts'),
+                    L('/accounts/reports?report=income_expense_topsheet', 'acc_income_expense_topsheet', Scale, 'orange', 'accounts'),
+                ],
+            },
+            {
+                titleKey: 'acc_statements_analysis',
+                links: [
+                    L('/accounts/statements?statement=balance_sheet', 'acc_balance_sheet', Landmark, 'cyan', 'accounts'),
+                    L('/accounts/statements?statement=balance_sheet_2', 'acc_balance_sheet_2', Landmark, 'blue', 'accounts'),
+                    L('/accounts/statements?statement=income_expenses', 'acc_income_expenses', Scale, 'green', 'accounts'),
+                    L('/accounts/statements?statement=income_expenses_2', 'acc_income_expenses_2', Scale, 'amber', 'accounts'),
+                    L('/accounts/statements?statement=profit_loss', 'acc_profit_loss', ScrollText, 'rose', 'accounts'),
+                    L('/accounts/reports?report=trial_balance', 'acc_trial_balance', Scale, 'slate', 'accounts'),
+                    L('/accounts/reports?report=trial_balance_2', 'acc_trial_balance_2', Scale, 'violet', 'accounts'),
                 ],
             },
         ],

@@ -1,7 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import {
-    Briefcase, Building2, CalendarDays, Globe2, HandCoins, Home, IdCard, Landmark, Loader2, LogOut, Megaphone,
+    BookOpen, Briefcase, Building2, CalendarDays, Globe2, HandCoins, Home, IdCard, Landmark, Loader2, LogOut, Megaphone,
     Menu, Moon, PiggyBank, Scale, ScrollText, Settings, Sun, Users,
 } from 'lucide-react';
 import Toasts from '../Components/Toast';
@@ -85,6 +85,7 @@ export default function AppLayout({ children, branches: branchesProp = undefined
             items: [
                 ...item('deposits', '/hub/deposit', 'deposits', PiggyBank, 'teal', 'deposits', ['/hub/deposit', '/deposits']),
                 ...item('loans', '/hub/loan', 'loans', Landmark, 'amber', 'loans', ['/hub/loan', '/loans']),
+                ...item('accounts', '/hub/accounts', 'module_accounts', BookOpen, 'cyan', 'accounts', ['/hub/accounts', '/accounts']),
             ],
         },
         {

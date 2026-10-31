@@ -38,6 +38,9 @@ import CollectionReports from '../../resources/js/Pages/Collections/Reports.jsx'
 import PassbookIssue from '../../resources/js/Pages/Collections/PassbookIssue.jsx';
 import ChequeBookIssue from '../../resources/js/Pages/Collections/ChequeBookIssue.jsx';
 import DepositShare from '../../resources/js/Pages/Deposits/Share.jsx';
+import AccountsTransactionForm from '../../resources/js/Pages/Accounts/TransactionForm.jsx';
+import AccountsGroupTransaction from '../../resources/js/Pages/Accounts/GroupTransaction.jsx';
+import AccountsVouchers from '../../resources/js/Pages/Accounts/Vouchers.jsx';
 
 const failures = [];
 let passCount = 0;
@@ -730,6 +733,86 @@ async function scenarioDashboardMounts() {
     __setPage(baseProps());
 }
 
+// Accounts (Module 9): the Receive/Payment Setup preset is a lookup —
+// picking one must apply its side + ledger to the submit payload. The
+// stale-state bug class (mount-time capture) would post the default
+// Receive/'' ledger instead of the preset's Payment/5010.
+async function scenarioAccountsSetupSync() {
+    __setPage(baseProps());
+    const Wrapped = withI18n(AccountsTransactionForm);
+    const props = {
+        kind: 'account', businessDate: '2026-10-31', mode: 'Receive', setupId: null,
+        ledgers: [
+            { id: 11, code: '4030', name: 'Fee Income — Form', name_bn: '', group: 'Income' },
+            { id: 12, code: '5010', name: 'Salary Expense', name_bn: '', group: 'Expense' },
+        ],
+        setups: [
+            { id: 1, name: 'Form Fee', side: 'Receive', ledger_id: 11, ledger_code: '4030', ledger_name: 'Fee Income — Form' },
+            { id: 2, name: 'Salary Pay', side: 'Payment', ledger_id: 12, ledger_code: '5010', ledger_name: 'Salary Expense' },
+        ],
+    };
+    const m = mount(<Wrapped {...props} />);
+    const setupSelect = [...m.container.querySelectorAll('select')]
+        .find((s) => [...s.options].some((o) => o.textContent.includes('Salary Pay')));
+    check('Accounts TransactionForm: setup preset picker renders', !!setupSelect);
+    await act(async () => { setValue(setupSelect, '2', 'change'); });
+    const amountInput = [...m.container.querySelectorAll('input')].find((i) => i.type === 'number');
+    await act(async () => { setValue(amountInput, '750'); });
+    await act(async () => { mainFormOf(m.container).dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit = lastPostTo('/accounts/transaction');
+    check('Accounts TransactionForm submit: setup side synced from preset (defect class: stale lookup)', visit?.data?.side === 'Payment');
+    check('Accounts TransactionForm submit: setup ledger synced from preset', Number(visit?.data?.ledger_id) === 12);
+    check('Accounts TransactionForm submit: setup_id posts with the form', visit?.data?.setup_id === 2);
+    check('Accounts TransactionForm submit: amount posts', visit?.data?.amount === '750');
+    await act(async () => { __finishVisit({}); });
+    await unmount(m);
+}
+
+// Accounts (Module 9): the Group Transaction form loads its template
+// lines through a server round-trip after the group is picked; the
+// amount inputs must key off the LOADED group prop. Mount-time capture
+// would submit amounts for no/stale lines.
+async function scenarioAccountsGroupSync() {
+    __setPage(baseProps());
+    const Wrapped = withI18n(AccountsGroupTransaction);
+    const groups = [{ id: 5, name: 'Office Costs' }];
+    const loadedGroup = {
+        id: 5, name: 'Office Costs',
+        lines: [
+            { id: 51, side: 'Debit', ledger: '5040 — Deposit Profit Expense' },
+            { id: 52, side: 'Credit', ledger: '4040 — Bank Interest Income' },
+        ],
+    };
+    const m = mount(<Wrapped groups={groups} group={null} />);
+    check('Accounts GroupTransaction: no amount form before a group is picked', !mainFormOf(m.container));
+    await rerender(m, <Wrapped groups={groups} group={loadedGroup} />);
+    check('Accounts GroupTransaction: template lines render after the lookup round-trip',
+        m.container.textContent.includes('Deposit Profit Expense') && m.container.textContent.includes('Bank Interest Income'));
+    const amounts = [...m.container.querySelectorAll('input[type="number"]')];
+    check('Accounts GroupTransaction: one amount input per template line', amounts.length === 2);
+    await act(async () => { setValue(amounts[0], '1000'); setValue(amounts[1], '1000'); });
+    await act(async () => { mainFormOf(m.container).dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit = lastPostTo('/accounts/group-transaction');
+    check('Accounts GroupTransaction submit: group_id synced from loaded group (defect class: stale lookup)', visit?.data?.group_id === 5);
+    check('Accounts GroupTransaction submit: amounts keyed by loaded line ids',
+        visit?.data?.amounts?.[51] === '1000' && visit?.data?.amounts?.[52] === '1000');
+    await act(async () => { __finishVisit({}); });
+    await unmount(m);
+}
+
+async function scenarioAccountsPagesMount() {
+    __setPage(baseProps());
+    const Wrapped = withI18n(AccountsVouchers);
+    const m = mount(<Wrapped preset="all" filters={{}} branches={[{ id: 2, code: '102', name: 'Talgachi' }]}
+        vouchers={[{
+            id: 9, batch_number: '102-000123', voucher_type: 'Receipt', transaction_date: '2026-10-31',
+            business_date: '2026-10-31', total_amount: '1500.00', status: 'Authorized', comments: '',
+            branch: '102 — Talgachi', entry_by: 'Admin', backdated: false,
+        }]} />);
+    check('Accounts Vouchers: register renders rows with batch numbers', m.container.textContent.includes('102-000123'));
+    await unmount(m);
+}
+
 const scenarios = [
     scenarioPrimaryButton,
     scenarioActionButton,
@@ -752,6 +835,9 @@ const scenarios = [
     scenarioCollectionSheetPosting,
     scenarioCollectionReportsMount,
     scenarioDashboardMounts,
+    scenarioAccountsSetupSync,
+    scenarioAccountsGroupSync,
+    scenarioAccountsPagesMount,
 ];
 
 for (const fn of scenarios) {

@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Accounts\AccountMasterController;
+use App\Http\Controllers\Accounts\AccountReportController;
+use App\Http\Controllers\Accounts\TransferController;
+use App\Http\Controllers\Accounts\VoucherController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\PasswordController;
@@ -76,7 +80,7 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
     // permission-filtered client-side, target routes stay authoritative.
     Route::get('/hub/{module}', function (string $module) {
         return Inertia::render('Hub/Show', ['module' => $module]);
-    })->whereIn('module', ['member', 'deposit', 'loan', 'collection', 'hrm', 'settings'])->name('hub.show');
+    })->whereIn('module', ['member', 'deposit', 'loan', 'collection', 'accounts', 'hrm', 'settings'])->name('hub.show');
 
     Route::post('/branch/switch', [BranchSwitchController::class, 'switch'])->name('branch.switch');
 
@@ -335,6 +339,66 @@ Route::middleware(['auth', 'password.changed', 'totp'])->prefix('collection')->n
     Route::post('/cheque-issue/{issue}/cancel', [MemberInstrumentController::class, 'cancelCheque'])->middleware('can:collection.cancel')->name('cheque-issue.cancel');
     Route::get('/passbook', [MemberInstrumentController::class, 'passbook'])->middleware('can:collection.view')->name('passbook');
     Route::get('/passbook/pdf', [MemberInstrumentController::class, 'passbookPdf'])->middleware('can:collection.print')->name('passbook.pdf');
+});
+
+// --- Accounts (Module 9, Steps 26–30) ---------------------------------------
+Route::middleware(['auth', 'password.changed', 'totp'])->prefix('accounts')->name('accounts.')->group(function () {
+    // Financial Transaction (Step 26).
+    Route::get('/transaction', [VoucherController::class, 'transactionForm'])->middleware('can:accounts.post')->name('transaction');
+    Route::post('/transaction', [VoucherController::class, 'storeTransaction'])->middleware('can:accounts.post')->name('transaction.store');
+    Route::get('/ledger-transaction', [VoucherController::class, 'ledgerTransactionForm'])->middleware('can:accounts.post')->name('ledger-transaction');
+    Route::post('/ledger-transaction', [VoucherController::class, 'storeLedgerTransaction'])->middleware('can:accounts.post')->name('ledger-transaction.store');
+    Route::get('/journal', [VoucherController::class, 'journalForm'])->middleware('can:accounts.post')->name('journal');
+    Route::post('/journal', [VoucherController::class, 'storeJournal'])->middleware('can:accounts.post')->name('journal.store');
+    Route::get('/contra', [VoucherController::class, 'contraForm'])->middleware('can:accounts.post')->name('contra');
+    Route::post('/contra', [VoucherController::class, 'storeContra'])->middleware('can:accounts.post')->name('contra.store');
+    Route::get('/vouchers', [VoucherController::class, 'index'])->middleware('can:accounts.view')->name('vouchers');
+    Route::get('/vouchers/{voucher}', [VoucherController::class, 'show'])->middleware('can:accounts.view')->name('vouchers.show');
+    // Approval & Cancel (Step 27).
+    Route::get('/authorization', [VoucherController::class, 'authorization'])->middleware('can:accounts.view')->name('authorization');
+    Route::post('/vouchers/{voucher}/authorize', [VoucherController::class, 'authorize'])->middleware('can:accounts.authorize')->name('vouchers.authorize');
+    Route::get('/cancel', [VoucherController::class, 'cancelForm'])->middleware('can:accounts.cancel')->name('cancel');
+    Route::post('/vouchers/{voucher}/cancel', [VoucherController::class, 'cancel'])->middleware('can:accounts.cancel')->name('vouchers.cancel');
+    Route::get('/recurring', [AccountMasterController::class, 'recurringIndex'])->middleware('can:accounts.view')->name('recurring');
+    Route::post('/recurring', [AccountMasterController::class, 'recurringStore'])->middleware('can:accounts.post')->name('recurring.store');
+    Route::put('/recurring/{setup}', [AccountMasterController::class, 'recurringUpdate'])->middleware('can:accounts.post')->name('recurring.update');
+    Route::post('/recurring/{setup}/post', [AccountMasterController::class, 'recurringPost'])->middleware('can:accounts.post')->name('recurring.post');
+    // Account Management (Steps 26/28).
+    Route::get('/ledgers', [AccountMasterController::class, 'ledgerIndex'])->middleware('can:accounts.view')->name('ledgers');
+    Route::post('/ledgers', [AccountMasterController::class, 'ledgerStore'])->middleware('can:accounts.post')->name('ledgers.store');
+    Route::put('/ledgers/{ledger}', [AccountMasterController::class, 'ledgerUpdate'])->middleware('can:accounts.post')->name('ledgers.update');
+    Route::get('/masters/{entity}', [AccountMasterController::class, 'masterIndex'])->middleware('can:accounts.view')->name('masters')->whereIn('entity', ['billing-types', 'setups']);
+    Route::post('/masters/{entity}', [AccountMasterController::class, 'masterStore'])->middleware('can:accounts.post')->name('masters.store')->whereIn('entity', ['billing-types', 'setups']);
+    Route::put('/masters/{entity}/{id}', [AccountMasterController::class, 'masterUpdate'])->middleware('can:accounts.post')->name('masters.update')->whereIn('entity', ['billing-types', 'setups']);
+    Route::delete('/masters/{entity}/{id}', [AccountMasterController::class, 'masterDestroy'])->middleware('can:accounts.post')->name('masters.destroy')->whereIn('entity', ['billing-types', 'setups']);
+    Route::get('/groups', [AccountMasterController::class, 'groupIndex'])->middleware('can:accounts.view')->name('groups');
+    Route::post('/groups', [AccountMasterController::class, 'groupStore'])->middleware('can:accounts.post')->name('groups.store');
+    Route::put('/groups/{group}', [AccountMasterController::class, 'groupUpdate'])->middleware('can:accounts.post')->name('groups.update');
+    Route::delete('/groups/{group}', [AccountMasterController::class, 'groupDestroy'])->middleware('can:accounts.post')->name('groups.destroy');
+    Route::get('/group-transaction', [AccountMasterController::class, 'groupTransactionForm'])->middleware('can:accounts.post')->name('group-transaction');
+    Route::post('/group-transaction', [AccountMasterController::class, 'groupTransactionStore'])->middleware('can:accounts.post')->name('group-transaction.store');
+    Route::get('/group-transactions', [AccountMasterController::class, 'groupTransactionList'])->middleware('can:accounts.view')->name('group-transactions');
+    // Inter Branch Transaction (Step 28).
+    Route::get('/transfer-request', [TransferController::class, 'requestForm'])->middleware('can:accounts.post')->name('transfer-request');
+    Route::post('/transfer-request', [TransferController::class, 'storeRequest'])->middleware('can:accounts.post')->name('transfer-request.store');
+    Route::get('/transfer-requests', [TransferController::class, 'requestList'])->middleware('can:accounts.view')->name('transfer-requests');
+    Route::post('/transfers/{transfer}/approve', [TransferController::class, 'approve'])->middleware('can:accounts.authorize')->name('transfers.approve');
+    Route::post('/transfers/{transfer}/receive', [TransferController::class, 'receive'])->middleware('can:accounts.authorize')->name('transfers.receive');
+    Route::post('/transfers/{transfer}/close', [TransferController::class, 'close'])->middleware('can:accounts.post')->name('transfers.close');
+    Route::get('/branch-balances', [TransferController::class, 'branchBalances'])->middleware('can:accounts.reports')->name('branch-balances');
+    Route::get('/branch-statement', [TransferController::class, 'branchStatement'])->middleware('can:accounts.reports')->name('branch-statement');
+    // Cash Management (Step 29).
+    Route::get('/cash', [TransferController::class, 'cashForm'])->middleware('can:accounts.post')->name('cash');
+    Route::post('/cash', [TransferController::class, 'storeCashTransfer'])->middleware('can:accounts.post')->name('cash.store');
+    Route::post('/cash/{transfer}/receive', [TransferController::class, 'receiveCash'])->middleware('can:accounts.post')->name('cash.receive');
+    Route::post('/cash/{transfer}/cancel', [TransferController::class, 'cancelCash'])->middleware('can:accounts.post')->name('cash.cancel');
+    Route::post('/cash/count', [TransferController::class, 'storeCount'])->middleware('can:accounts.post')->name('cash.count');
+    Route::get('/cashier-balances', [TransferController::class, 'cashierBalances'])->middleware('can:accounts.reports')->name('cashier-balances');
+    Route::get('/cashier-details', [TransferController::class, 'cashierDetails'])->middleware('can:accounts.reports')->name('cashier-details');
+    // Reports & Statements (Step 30).
+    Route::get('/reports', [AccountReportController::class, 'index'])->middleware('can:accounts.reports')->name('reports');
+    Route::get('/reports/pdf', [AccountReportController::class, 'pdf'])->middleware('can:accounts.reports')->name('reports.pdf');
+    Route::get('/statements', [AccountReportController::class, 'statement'])->middleware('can:accounts.reports')->name('statements');
 });
 
 Route::prefix('reports')->name('reports.')->middleware(['auth', 'password.changed', 'totp'])->group(function () {
