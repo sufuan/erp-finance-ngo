@@ -2,7 +2,7 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import {
     BookOpen, Briefcase, Building2, CalendarDays, Globe2, HandCoins, Home, IdCard, Landmark, Loader2, LogOut, Megaphone,
-    Menu, Moon, PiggyBank, Scale, ScrollText, Settings, ShieldCheck, Sun, Users,
+    Menu, Moon, PiggyBank, Scale, ScrollText, Settings, Sun, Users,
 } from 'lucide-react';
 import Toasts from '../Components/Toast';
 import { TONES } from '../lib/hubs';
@@ -107,8 +107,7 @@ export default function AppLayout({ children, branches: branchesProp = undefined
         {
             labelKey: 'nav_settings',
             items: [
-                ...item('users', '/settings/users', 'users_roles', Users, 'violet', 'users', ['/settings/users']),
-                ...item('roles', '/settings/roles', 'roles', ShieldCheck, 'violet', 'roles', ['/settings/roles']),
+                ...item('users', '/settings/users', 'users_roles', Users, 'violet', 'users', ['/settings/users', '/settings/roles']),
                 ...item('general', '/settings/general', 'general_settings', Settings, 'blue', 'settings', ['/settings/general']),
                 ...item('geo', '/settings/geo/villages', 'geography', Globe2, 'cyan', 'geo', ['/settings/geo']),
                 ...item('holidays', '/settings/holidays', 'holidays', Sun, 'orange', 'settings', ['/settings/holidays']),

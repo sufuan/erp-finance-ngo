@@ -42,6 +42,8 @@ import AccountsTransactionForm from '../../resources/js/Pages/Accounts/Transacti
 import AccountsGroupTransaction from '../../resources/js/Pages/Accounts/GroupTransaction.jsx';
 import AccountsVouchers from '../../resources/js/Pages/Accounts/Vouchers.jsx';
 import AppLayout from '../../resources/js/Layouts/AppLayout.jsx';
+import UsersIndex from '../../resources/js/Pages/Settings/Users/Index.jsx';
+import RolesIndex from '../../resources/js/Pages/Settings/Roles/Index.jsx';
 
 const failures = [];
 let passCount = 0;
@@ -817,27 +819,55 @@ async function scenarioAccountsPagesMount() {
 // Sidebar (Settings group): the Roles item sits immediately after Users
 // and is driven purely by the shared auth.can.roles hint — present for a
 // roles-manage holder, hidden (Users still shown) without it.
-async function scenarioSidebarRolesItem() {
+async function scenarioUsersRolesTabs() {
     const Wrapped = withI18n(AppLayout);
+    const WrappedUsers = withI18n(UsersIndex);
+    const WrappedRoles = withI18n(RolesIndex);
     const navHrefs = (c) => [...c.querySelectorAll('aside nav a')].map((a) => a.getAttribute('href'));
+    const pageAnchors = (c) => [...c.querySelectorAll('a')].filter((a) => !a.closest('aside'));
     const authAs = (can) => ({
         auth: { user: { id: 1, name: 'Admin', username: 'admin' }, can },
     });
 
+    // (a) Sidebar: exactly ONE entry for the whole area, no standalone Roles link.
     __setPage(baseProps(authAs({ users: true, roles: true, settings: true })));
     let m = mount(<Wrapped><div>page body</div></Wrapped>);
-    let hrefs = navHrefs(m.container);
-    check('Sidebar: Users item present for users-manage holder', hrefs.includes('/settings/users'));
-    check('Sidebar: Roles item present for roles-manage holder', hrefs.includes('/settings/roles'));
-    check('Sidebar: Roles item sits immediately after Users',
-        hrefs.indexOf('/settings/roles') === hrefs.indexOf('/settings/users') + 1);
+    const hrefs = navHrefs(m.container);
+    check('Sidebar: single Users & Roles entry present', hrefs.includes('/settings/users'));
+    check('Sidebar: no standalone Roles link', !hrefs.includes('/settings/roles'));
+    const usersEntry = [...m.container.querySelectorAll('aside nav a')]
+        .find((a) => a.getAttribute('href') === '/settings/users');
+    check('Sidebar: entry label reads "Users & Roles"', !!usersEntry && usersEntry.textContent.includes('Users & Roles'));
     await unmount(m);
 
+    // (b) Users page: tab bar present, Users active, Roles tab for a roles-manage holder.
+    __setPage(baseProps(authAs({ users: true, roles: true, settings: true })));
+    m = mount(<WrappedUsers users={[]} roles={[]} branches={[]} />);
+    let anchors = pageAnchors(m.container);
+    const usersTab = anchors.find((a) => a.getAttribute('href') === '/settings/users');
+    const rolesTab = anchors.find((a) => a.getAttribute('href') === '/settings/roles');
+    check('Users page: Users tab shown active', !!usersTab && usersTab.getAttribute('aria-current') === 'page');
+    check('Users page: Roles tab shown for roles-manage holder', !!rolesTab && rolesTab.getAttribute('aria-current') !== 'page');
+    await unmount(m);
+
+    // (c) Roles page: same tab bar, Roles active.
+    __setPage(baseProps(authAs({ users: true, roles: true, settings: true })));
+    m = mount(<WrappedRoles roles={[]} permissionGroups={[]} />);
+    anchors = pageAnchors(m.container);
+    const rUsersTab = anchors.find((a) => a.getAttribute('href') === '/settings/users');
+    const rRolesTab = anchors.find((a) => a.getAttribute('href') === '/settings/roles');
+    check('Roles page: Roles tab shown active', !!rRolesTab && rRolesTab.getAttribute('aria-current') === 'page');
+    check('Roles page: Users tab shown', !!rUsersTab && rUsersTab.getAttribute('aria-current') !== 'page');
+    await unmount(m);
+
+    // (d) Without roles-manage the Roles tab is hidden, Users tab remains.
     __setPage(baseProps(authAs({ users: true, roles: false, settings: true })));
-    m = mount(<Wrapped><div>page body</div></Wrapped>);
-    hrefs = navHrefs(m.container);
-    check('Sidebar: Roles item hidden without roles-manage, Users still shown',
-        !hrefs.includes('/settings/roles') && hrefs.includes('/settings/users'));
+    m = mount(<WrappedUsers users={[]} roles={[]} branches={[]} />);
+    anchors = pageAnchors(m.container);
+    check('Users page: Roles tab hidden without roles-manage',
+        !anchors.some((a) => a.getAttribute('href') === '/settings/roles'));
+    check('Users page: Users tab still shown without roles-manage',
+        anchors.some((a) => a.getAttribute('href') === '/settings/users'));
     await unmount(m);
 }
 
@@ -866,7 +896,7 @@ const scenarios = [
     scenarioAccountsSetupSync,
     scenarioAccountsGroupSync,
     scenarioAccountsPagesMount,
-    scenarioSidebarRolesItem,
+    scenarioUsersRolesTabs,
 ];
 
 for (const fn of scenarios) {

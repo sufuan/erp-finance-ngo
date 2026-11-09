@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ActionButton, Field, PrimaryButton, inputCls } from '../../../Components/ui';
 import AppLayout from '../../../Layouts/AppLayout';
 import { t } from '../../../lib/i18n';
+import UsersRolesTabs from '../Partials/UsersRolesTabs';
 
 const empty = { name: '', username: '', email: '', employee_id: '', locale: 'bn', password: '', roles: [], branch_ids: [], branch_children: [], samity_ids: '' };
 
@@ -33,16 +34,9 @@ export default function UsersIndex({ users, roles, branches }) {
 
     return (
         <AppLayout>
+            <UsersRolesTabs active="users" />
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-xl font-semibold">{t('users')}</h1>
-                {props.auth?.can?.roles && (
-                    <Link
-                        href="/settings/roles"
-                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-                    >
-                        {t('roles')}
-                    </Link>
-                )}
             </div>
 
             {props.flash?.temp_password && (
