@@ -871,30 +871,47 @@ async function scenarioUsersRolesTabs() {
     await unmount(m);
 }
 
-// Create-user form: selecting an employee auto-fills Name, generates the
-// Username (name slug + employee id) and fills the stored Email; an
-// employee without an email leaves Email blank for manual typing.
+// Create-user form (owner redesign, syncs #69/#71): Employee comes
+// FIRST, then Full Name, then Username. Selecting an employee auto-fills
+// Name, generates the Username (name slug + employee id), fills the
+// stored Email (blank when none), and auto-selects the employee's own
+// Branch in the single Branch dropdown — the old Assign Branches
+// checkbox list is gone.
 async function scenarioUserEmployeeAutofill() {
     const WrappedUsers = withI18n(UsersIndex);
     __setPage(baseProps({
         auth: { user: { id: 1, name: 'Admin', username: 'admin' }, can: { users: true, roles: true, settings: true } },
     }));
     const employees = [
-        { id: 7, name: 'Rokeya Begum', email: 'rokeya@tpda.example' },
-        { id: 9, name: 'No Mail Officer', email: null },
+        { id: 7, name: 'Rokeya Begum', email: 'rokeya@tpda.example', branch_id: 12 },
+        { id: 9, name: 'No Mail Officer', email: null, branch_id: 11 },
     ];
-    const m = mount(<WrappedUsers users={[]} roles={[]} branches={[]} employees={employees} />);
+    const branches = [
+        { id: 11, code: '101', name: 'Head Office' },
+        { id: 12, code: '102', name: 'Talgachi' },
+    ];
+    const m = mount(<WrappedUsers users={[]} roles={[]} branches={branches} employees={employees} />);
     const form = m.container.querySelector('form');
     const sel = [...form.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.value === '7'));
     check('Users form: employee select lists employees', !!sel);
+    const fieldLabels = [...form.querySelectorAll('label')]
+        .filter((l) => l.querySelector('select, input'))
+        .map((l) => l.querySelector('span')?.textContent.trim() ?? '');
+    check('Users form: field order is Employee, Full Name, Username',
+        fieldLabels[0] === 'Employee' && fieldLabels[1].startsWith('Full Name') && fieldLabels[2].startsWith('Username'));
+    const branchSel = [...form.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.value === '12'));
+    check('Users form: branch dropdown lists branches', !!branchSel);
+    check('Users form: no branch checkboxes remain', form.querySelectorAll('input[type="checkbox"]').length === 0);
     const inputs = () => [...form.querySelectorAll('input')];
     await act(async () => { setValue(sel, '7', 'change'); });
     check('Users form: name auto-fills from employee', inputs()[0].value === 'Rokeya Begum');
     check('Users form: username auto-generated from employee', inputs()[1].value === 'rokeya.begum7');
     check('Users form: email auto-fills from employee', form.querySelector('input[type="email"]').value === 'rokeya@tpda.example');
+    check('Users form: branch auto-selects the employee branch', branchSel.value === '12');
     await act(async () => { setValue(sel, '9', 'change'); });
     check('Users form: username regenerates for second employee', inputs()[1].value === 'no.mail.officer9');
     check('Users form: employee without email leaves email blank', form.querySelector('input[type="email"]').value === '');
+    check('Users form: branch follows the second employee', branchSel.value === '11');
     await unmount(m);
 }
 

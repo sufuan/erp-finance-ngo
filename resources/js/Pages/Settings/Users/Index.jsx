@@ -5,7 +5,7 @@ import AppLayout from '../../../Layouts/AppLayout';
 import { t } from '../../../lib/i18n';
 import UsersRolesTabs from '../Partials/UsersRolesTabs';
 
-const empty = { name: '', username: '', email: '', employee_id: '', locale: 'bn', password: '', roles: [], branch_ids: [], branch_children: [], samity_ids: '' };
+const empty = { name: '', username: '', email: '', employee_id: '', locale: 'bn', password: '', roles: [], branch_id: '', samity_ids: '' };
 
 export default function UsersIndex({ users, roles, branches, employees }) {
     const { props } = usePage();
@@ -18,8 +18,7 @@ export default function UsersIndex({ users, roles, branches, employees }) {
             name: u.name, username: u.username, email: u.email ?? '', employee_id: u.employee_id ?? '',
             locale: u.locale, password: '',
             roles: u.roles,
-            branch_ids: u.branches.map((b) => b.id),
-            branch_children: u.branches.filter((b) => b.include_children).map((b) => b.id),
+            branch_id: u.branches[0]?.id ?? '',
             samity_ids: (u.samity_ids ?? []).join(', '),
         });
     };
@@ -33,8 +32,9 @@ export default function UsersIndex({ users, roles, branches, employees }) {
         setData(field, data[field].includes(value) ? data[field].filter((v) => v !== value) : [...data[field], value]);
 
     // Create form only: picking an employee fills Name, generates a
-    // unique Username suggestion (name slug + employee id) and fills the
-    // employee's Email when one is stored. Everything stays editable.
+    // unique Username suggestion (name slug + employee id), fills the
+    // employee's Email when one is stored, and selects the employee's
+    // own Branch in the dropdown. Everything stays editable.
     const onEmployeeChange = (e) => {
         const id = e.target.value;
         if (editingId || id === '') { setData('employee_id', id); return; }
@@ -47,6 +47,7 @@ export default function UsersIndex({ users, roles, branches, employees }) {
             name: emp.name ?? '',
             username: `${slug || 'employee'}${emp.id}`,
             email: emp.email ?? '',
+            branch_id: emp.branch_id ?? '',
         });
     };
 
@@ -66,13 +67,19 @@ export default function UsersIndex({ users, roles, branches, employees }) {
             <form onSubmit={submit} className="mb-6 rounded-2xl bg-white p-4 shadow dark:bg-zinc-900">
                 <h2 className="mb-3 font-medium">{editingId ? t('edit') : t('new_user')}</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label={t('employees_short')} error={errors.employee_id}><select className={inputCls} value={data.employee_id} onChange={onEmployeeChange}><option value="">—</option>{(employees ?? []).map((emp) => (<option key={emp.id} value={emp.id}>{emp.name}</option>))}</select></Field>
                     <Field label={t('full_name')} required error={errors.name}><input className={inputCls} value={data.name} onChange={(e) => setData('name', e.target.value)} required /></Field>
                     <Field label={t('username')} required error={errors.username}><input className={inputCls} value={data.username} onChange={(e) => setData('username', e.target.value)} required /></Field>
                     <Field label={t('email_address')} error={errors.email}><input type="email" className={inputCls} value={data.email} onChange={(e) => setData('email', e.target.value)} /></Field>
-                    <Field label={t('employees_short')} error={errors.employee_id}><select className={inputCls} value={data.employee_id} onChange={onEmployeeChange}><option value="">—</option>{(employees ?? []).map((emp) => (<option key={emp.id} value={emp.id}>{emp.name}</option>))}</select></Field>
                     {!editingId && (
                         <Field label={t('password')} required error={errors.password}><input type="password" className={inputCls} value={data.password} onChange={(e) => setData('password', e.target.value)} required /></Field>
                     )}
+                    <Field label={t('branch')} error={errors.branch_id}>
+                        <select className={inputCls} value={data.branch_id} onChange={(e) => setData('branch_id', e.target.value)}>
+                            <option value="">—</option>
+                            {branches.map((b) => (<option key={b.id} value={b.id}>{b.code} — {b.name}</option>))}
+                        </select>
+                    </Field>
                     <Field label={t('language')} error={errors.locale}>
                         <select className={inputCls} value={data.locale} onChange={(e) => setData('locale', e.target.value)}>
                             <option value="bn">বাংলা</option><option value="en">English</option>
@@ -80,7 +87,7 @@ export default function UsersIndex({ users, roles, branches, employees }) {
                     </Field>
                 </div>
 
-                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div className="mt-4">
                     <fieldset>
                         <legend className="mb-2 text-sm font-medium">{t('assign_roles')}</legend>
                         <div className="space-y-1">
@@ -89,25 +96,6 @@ export default function UsersIndex({ users, roles, branches, employees }) {
                                     <input type="checkbox" className="h-5 w-5" checked={data.roles.includes(r.name)} onChange={() => toggleIn('roles', r.name)} />
                                     {r.label ?? r.name} <span className="text-zinc-400">({r.name})</span>
                                 </label>
-                            ))}
-                        </div>
-                    </fieldset>
-                    <fieldset>
-                        <legend className="mb-2 text-sm font-medium">{t('assign_branches')}</legend>
-                        <div className="space-y-1">
-                            {branches.map((b) => (
-                                <div key={b.id} className="flex min-h-[44px] flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                                    <label className="flex items-center gap-2">
-                                        <input type="checkbox" className="h-5 w-5" checked={data.branch_ids.includes(b.id)} onChange={() => toggleIn('branch_ids', b.id)} />
-                                        {b.code} — {b.name}
-                                    </label>
-                                    {data.branch_ids.includes(b.id) && (
-                                        <label className="flex items-center gap-2 text-zinc-500">
-                                            <input type="checkbox" className="h-5 w-5" checked={data.branch_children.includes(b.id)} onChange={() => toggleIn('branch_children', b.id)} />
-                                            {t('include_children')}
-                                        </label>
-                                    )}
-                                </div>
                             ))}
                         </div>
                     </fieldset>

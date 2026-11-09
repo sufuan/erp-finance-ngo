@@ -50,7 +50,7 @@ class UserController extends Controller
             'users' => $users,
             'roles' => Role::orderBy('name')->get(['id', 'name', 'label']),
             'branches' => Branch::orderBy('code')->get(['id', 'code', 'name']),
-            'employees' => Employee::orderBy('name')->get(['id', 'name', 'email']),
+            'employees' => Employee::orderBy('name')->get(['id', 'name', 'email', 'branch_id']),
         ]);
     }
 
@@ -147,10 +147,7 @@ class UserController extends Controller
             'password' => $user ? ['nullable'] : ['required', 'string', 'min:8'],
             'roles' => ['nullable', 'array'],
             'roles.*' => ['string', Rule::exists('roles', 'name')],
-            'branch_ids' => ['nullable', 'array'],
-            'branch_ids.*' => ['integer', Rule::exists('branches', 'id')],
-            'branch_children' => ['nullable', 'array'],
-            'branch_children.*' => ['integer'],
+            'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
             'samity_ids' => ['nullable', 'string'],
         ]);
     }
@@ -159,12 +156,10 @@ class UserController extends Controller
     {
         $user->syncRoles($request->input('roles', []));
 
-        $children = collect($request->input('branch_children', []))->map(fn ($id) => (int) $id);
-        $payload = [];
-        foreach ($request->input('branch_ids', []) as $branchId) {
-            $payload[(int) $branchId] = ['include_children' => $children->contains((int) $branchId)];
-        }
-        $user->branches()->sync($payload);
+        // One user, one branch: the form's Branch dropdown is the whole
+        // assignment (no selection = no branch, e.g. a super admin).
+        $branchId = $request->input('branch_id');
+        $user->branches()->sync($branchId ? [(int) $branchId] : []);
 
         $samityIds = collect(explode(',', (string) $request->input('samity_ids', '')))
             ->map(fn ($v) => (int) trim($v))->filter()->unique()->values();

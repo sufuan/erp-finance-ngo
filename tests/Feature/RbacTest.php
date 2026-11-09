@@ -168,7 +168,7 @@ class RbacTest extends TestCase
             'name' => 'Karim Uddin', 'username' => 'karim', 'email' => 'karim@example.com',
             'password' => 'temp-pass-123', 'locale' => 'bn',
             'roles' => ['field-officer'],
-            'branch_ids' => [$branch->id], 'branch_children' => [],
+            'branch_id' => $branch->id,
             'samity_ids' => implode(', ', $samityIds),
         ])->assertRedirect()->assertSessionHas('success');
 

@@ -108,7 +108,7 @@ class SettingsCrudTest extends CrudTestCase
             'name' => 'CRUD User', 'username' => 'crud.user', 'email' => 'crud.user@tpda.example',
             'password' => 'Password@123', 'locale' => 'en',
             'roles' => [$roleA->name],
-            'branch_ids' => [$branch->id], 'branch_children' => [],
+            'branch_id' => $branch->id,
             'samity_ids' => (string) $samity->id,
         ])->assertRedirect()->assertSessionHas('success');
 
@@ -125,7 +125,7 @@ class SettingsCrudTest extends CrudTestCase
             'name' => 'CRUD User Renamed', 'username' => 'crud.user',
             'email' => 'crud.user@tpda.example', 'locale' => 'bn',
             'roles' => [$roleB->name],
-            'branch_ids' => [$branch->id], 'branch_children' => [$branch->id],
+            'branch_id' => $branch->id,
             'samity_ids' => '',
         ])->assertRedirect()->assertSessionHas('success');
 
@@ -153,7 +153,7 @@ class SettingsCrudTest extends CrudTestCase
         $this->post('/settings/users', [
             'name' => 'Bogus Employee User', 'username' => 'bogus.employee', 'email' => 'bogus@tpda.example',
             'password' => 'Password@123', 'locale' => 'en', 'employee_id' => $bogusId,
-            'roles' => [], 'branch_ids' => [], 'branch_children' => [], 'samity_ids' => '',
+            'roles' => [], 'samity_ids' => '',
         ])->assertRedirect()->assertSessionHasErrors('employee_id');
 
         $this->assertDatabaseMissing('users', ['username' => 'bogus.employee']);
@@ -170,7 +170,7 @@ class SettingsCrudTest extends CrudTestCase
         $this->post('/settings/users', [
             'name' => 'Linked User', 'username' => 'linked.user', 'email' => 'linked@tpda.example',
             'password' => 'Password@123', 'locale' => 'en', 'employee_id' => $employee->id,
-            'roles' => [], 'branch_ids' => [], 'branch_children' => [], 'samity_ids' => '',
+            'roles' => [], 'samity_ids' => '',
         ])->assertRedirect()->assertSessionHas('success');
 
         $user = User::where('username', 'linked.user')->firstOrFail();
@@ -179,10 +179,51 @@ class SettingsCrudTest extends CrudTestCase
         $this->put("/settings/users/{$user->id}", [
             'name' => 'Linked User', 'username' => 'linked.user',
             'email' => 'linked@tpda.example', 'locale' => 'en', 'employee_id' => (int) Employee::max('id') + 9999,
-            'roles' => [], 'branch_ids' => [], 'branch_children' => [], 'samity_ids' => '',
+            'roles' => [], 'samity_ids' => '',
         ])->assertRedirect()->assertSessionHasErrors('employee_id');
 
         $this->assertSame($employee->id, $user->refresh()->employee_id);
+    }
+
+    public function test_user_branch_assignment_is_a_single_branch(): void
+    {
+        // Owner redesign (sync #71): the form's Branch dropdown is the
+        // whole assignment — one user, one branch; none is allowed.
+        $b102 = $this->branch('102');
+        $b101 = $this->branch('101');
+
+        $this->post('/settings/users', [
+            'name' => 'One Branch User', 'username' => 'one.branch', 'email' => 'one.branch@tpda.example',
+            'password' => 'Password@123', 'locale' => 'en',
+            'roles' => [], 'branch_id' => $b102->id, 'samity_ids' => '',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $user = User::where('username', 'one.branch')->firstOrFail();
+        $this->assertSame([$b102->id], $user->branches->pluck('id')->all(), 'create stores exactly the selected branch');
+
+        // Updating to another branch replaces the assignment outright.
+        $this->put("/settings/users/{$user->id}", [
+            'name' => 'One Branch User', 'username' => 'one.branch',
+            'email' => 'one.branch@tpda.example', 'locale' => 'en',
+            'roles' => [], 'branch_id' => $b101->id, 'samity_ids' => '',
+        ])->assertRedirect()->assertSessionHas('success');
+        $this->assertSame([$b101->id], $user->refresh()->branches->pluck('id')->all(), 'update replaces the branch');
+
+        // No branch selected: allowed, stores no assignment.
+        $this->post('/settings/users', [
+            'name' => 'No Branch User', 'username' => 'no.branch', 'email' => 'no.branch@tpda.example',
+            'password' => 'Password@123', 'locale' => 'en',
+            'roles' => [], 'samity_ids' => '',
+        ])->assertRedirect()->assertSessionHas('success');
+        $this->assertSame([], User::where('username', 'no.branch')->firstOrFail()->branches->pluck('id')->all());
+
+        // A branch id that does not exist is a validation error, not a 500.
+        $this->post('/settings/users', [
+            'name' => 'Bogus Branch User', 'username' => 'bogus.branch', 'email' => 'bogus.branch@tpda.example',
+            'password' => 'Password@123', 'locale' => 'en',
+            'roles' => [], 'branch_id' => (int) \App\Models\Branch::max('id') + 9999, 'samity_ids' => '',
+        ])->assertRedirect()->assertSessionHasErrors('branch_id');
+        $this->assertDatabaseMissing('users', ['username' => 'bogus.branch']);
     }
 
     public function test_roles_crud_and_permission_sync(): void
