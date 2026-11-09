@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Employee;
 use App\Models\LoginAudit;
 use App\Models\User;
 use App\Services\AuditService;
@@ -49,6 +50,7 @@ class UserController extends Controller
             'users' => $users,
             'roles' => Role::orderBy('name')->get(['id', 'name', 'label']),
             'branches' => Branch::orderBy('code')->get(['id', 'code', 'name']),
+            'employees' => Employee::orderBy('name')->get(['id', 'name', 'email']),
         ]);
     }
 
@@ -140,7 +142,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:255', Rule::unique('users', 'username')->ignore($user?->id)],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user?->id)],
-            'employee_id' => ['nullable', 'integer'],
+            'employee_id' => ['nullable', 'integer', Rule::exists('employees', 'id')],
             'locale' => ['nullable', Rule::in(['en', 'bn'])],
             'password' => $user ? ['nullable'] : ['required', 'string', 'min:8'],
             'roles' => ['nullable', 'array'],

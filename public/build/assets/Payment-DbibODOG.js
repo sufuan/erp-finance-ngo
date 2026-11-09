@@ -1,0 +1,1 @@
+import{i as e}from"./app-CsvQ_Dce.js";import t from"./MoneyMove-b7-e8owX.js";var n=e();function r(e){return(0,n.jsx)(t,{mode:`payment`,...e})}export{r as default};

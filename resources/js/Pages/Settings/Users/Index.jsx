@@ -7,7 +7,7 @@ import UsersRolesTabs from '../Partials/UsersRolesTabs';
 
 const empty = { name: '', username: '', email: '', employee_id: '', locale: 'bn', password: '', roles: [], branch_ids: [], branch_children: [], samity_ids: '' };
 
-export default function UsersIndex({ users, roles, branches }) {
+export default function UsersIndex({ users, roles, branches, employees }) {
     const { props } = usePage();
     const [editingId, setEditingId] = useState(null);
     const { data, setData, post, put, processing, errors, reset } = useForm(empty);
@@ -32,6 +32,24 @@ export default function UsersIndex({ users, roles, branches }) {
     const toggleIn = (field, value) =>
         setData(field, data[field].includes(value) ? data[field].filter((v) => v !== value) : [...data[field], value]);
 
+    // Create form only: picking an employee fills Name, generates a
+    // unique Username suggestion (name slug + employee id) and fills the
+    // employee's Email when one is stored. Everything stays editable.
+    const onEmployeeChange = (e) => {
+        const id = e.target.value;
+        if (editingId || id === '') { setData('employee_id', id); return; }
+        const emp = (employees ?? []).find((x) => String(x.id) === String(id));
+        if (!emp) { setData('employee_id', id); return; }
+        const slug = String(emp.name ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
+        setData({
+            ...data,
+            employee_id: id,
+            name: emp.name ?? '',
+            username: `${slug || 'employee'}${emp.id}`,
+            email: emp.email ?? '',
+        });
+    };
+
     return (
         <AppLayout>
             <UsersRolesTabs active="users" />
@@ -51,7 +69,7 @@ export default function UsersIndex({ users, roles, branches }) {
                     <Field label={t('full_name')} required error={errors.name}><input className={inputCls} value={data.name} onChange={(e) => setData('name', e.target.value)} required /></Field>
                     <Field label={t('username')} required error={errors.username}><input className={inputCls} value={data.username} onChange={(e) => setData('username', e.target.value)} required /></Field>
                     <Field label={t('email_address')} error={errors.email}><input type="email" className={inputCls} value={data.email} onChange={(e) => setData('email', e.target.value)} /></Field>
-                    <Field label={t('employees_short')} error={errors.employee_id}><input type="number" className={inputCls} value={data.employee_id} onChange={(e) => setData('employee_id', e.target.value)} /></Field>
+                    <Field label={t('employees_short')} error={errors.employee_id}><select className={inputCls} value={data.employee_id} onChange={onEmployeeChange}><option value="">—</option>{(employees ?? []).map((emp) => (<option key={emp.id} value={emp.id}>{emp.name}</option>))}</select></Field>
                     {!editingId && (
                         <Field label={t('password')} required error={errors.password}><input type="password" className={inputCls} value={data.password} onChange={(e) => setData('password', e.target.value)} required /></Field>
                     )}

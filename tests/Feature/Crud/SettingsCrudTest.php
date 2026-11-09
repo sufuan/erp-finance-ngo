@@ -144,6 +144,47 @@ class SettingsCrudTest extends CrudTestCase
             ->assertSessionHas('success')->assertSessionHas('temp_password');
     }
 
+    public function test_user_store_rejects_non_existent_employee_id(): void
+    {
+        // Regression: a hand-typed employee id used to pass validation and
+        // crash the INSERT on the users.employee_id foreign key (500).
+        $bogusId = (int) Employee::max('id') + 9999;
+
+        $this->post('/settings/users', [
+            'name' => 'Bogus Employee User', 'username' => 'bogus.employee', 'email' => 'bogus@tpda.example',
+            'password' => 'Password@123', 'locale' => 'en', 'employee_id' => $bogusId,
+            'roles' => [], 'branch_ids' => [], 'branch_children' => [], 'samity_ids' => '',
+        ])->assertRedirect()->assertSessionHasErrors('employee_id');
+
+        $this->assertDatabaseMissing('users', ['username' => 'bogus.employee']);
+    }
+
+    public function test_user_store_links_real_employee_and_update_rejects_bogus_employee_id(): void
+    {
+        $employee = Employee::orderBy('id')->firstOrFail();
+
+        // The index page must hand the form a real employees list to pick from.
+        $this->get('/settings/users')->assertOk()
+            ->assertInertia(fn ($p) => $p->component('Settings/Users/Index')->has('employees'));
+
+        $this->post('/settings/users', [
+            'name' => 'Linked User', 'username' => 'linked.user', 'email' => 'linked@tpda.example',
+            'password' => 'Password@123', 'locale' => 'en', 'employee_id' => $employee->id,
+            'roles' => [], 'branch_ids' => [], 'branch_children' => [], 'samity_ids' => '',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $user = User::where('username', 'linked.user')->firstOrFail();
+        $this->assertSame($employee->id, $user->employee_id);
+
+        $this->put("/settings/users/{$user->id}", [
+            'name' => 'Linked User', 'username' => 'linked.user',
+            'email' => 'linked@tpda.example', 'locale' => 'en', 'employee_id' => (int) Employee::max('id') + 9999,
+            'roles' => [], 'branch_ids' => [], 'branch_children' => [], 'samity_ids' => '',
+        ])->assertRedirect()->assertSessionHasErrors('employee_id');
+
+        $this->assertSame($employee->id, $user->refresh()->employee_id);
+    }
+
     public function test_roles_crud_and_permission_sync(): void
     {
         $perms = Permission::orderBy('name')->pluck('name')->take(3)->all();
