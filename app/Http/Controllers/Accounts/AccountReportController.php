@@ -13,6 +13,7 @@ use App\Services\AccountReportService;
 use App\Services\BranchAccessService;
 use App\Services\BusinessDayService;
 use App\Services\PdfService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
@@ -66,7 +67,15 @@ class AccountReportController extends Controller
     private function dates(Request $request): array
     {
         $branchId = $this->branchId($request);
-        $businessDate = $this->businessDays->currentDate($branchId);
+        // A user with no branch assignment resolves to branch 0 (or an
+        // empty 'all' scope): never feed that id into BusinessDayService —
+        // current() would try to CREATE a business_days row for a branch
+        // that does not exist and crash on the FK. Such a user simply
+        // gets empty reports dated by the wall clock; report queries run
+        // against the empty scope and return no rows.
+        $businessDate = ($branchId > 0 && Branch::whereKey($branchId)->exists())
+            ? $this->businessDays->currentDate($branchId)
+            : CarbonImmutable::now('Asia/Dhaka')->toDateString();
         $from = (string) $request->query('from', $this->reports->fiscalYearStart($branchId, $businessDate));
         $to = (string) $request->query('to', $businessDate);
 
@@ -178,7 +187,7 @@ class AccountReportController extends Controller
                 ]);
             case 'daily_cash_book':
                 $date = (string) $request->query('date', $to);
-                $day = $this->reports->dailyCashBook($branchIds[0], $date);
+                $day = $this->reports->dailyCashBook($branchIds[0] ?? 0, $date);
                 return array_merge($empty, [
                     'columns' => ['cashier', 'cash_in', 'cash_out', 'balance'],
                     'rows' => collect($day['cashiers'])->map(fn ($r) => [$r['name'], $r['cash_in'], $r['cash_out'], $r['balance']])->all(),

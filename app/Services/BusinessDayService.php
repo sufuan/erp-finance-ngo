@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Branch;
 use App\Models\BusinessDay;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -20,6 +21,14 @@ class BusinessDayService
      */
     public function current(int $branchId): BusinessDay
     {
+        // Safety net: never create (or look up) a business day for a
+        // branch that does not exist. Callers have historically resolved
+        // "no branch" to 0, which crashed on the business_days FK insert;
+        // fail loudly with a clear cause instead.
+        if (! Branch::whereKey($branchId)->exists()) {
+            throw new DomainException("Cannot open a business day for unknown branch {$branchId}.");
+        }
+
         $open = BusinessDay::where('branch_id', $branchId)
             ->where('is_closed', false)
             ->orderByDesc('business_date')
