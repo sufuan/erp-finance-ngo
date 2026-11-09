@@ -41,6 +41,7 @@ import DepositShare from '../../resources/js/Pages/Deposits/Share.jsx';
 import AccountsTransactionForm from '../../resources/js/Pages/Accounts/TransactionForm.jsx';
 import AccountsGroupTransaction from '../../resources/js/Pages/Accounts/GroupTransaction.jsx';
 import AccountsVouchers from '../../resources/js/Pages/Accounts/Vouchers.jsx';
+import AppLayout from '../../resources/js/Layouts/AppLayout.jsx';
 
 const failures = [];
 let passCount = 0;
@@ -813,6 +814,33 @@ async function scenarioAccountsPagesMount() {
     await unmount(m);
 }
 
+// Sidebar (Settings group): the Roles item sits immediately after Users
+// and is driven purely by the shared auth.can.roles hint — present for a
+// roles-manage holder, hidden (Users still shown) without it.
+async function scenarioSidebarRolesItem() {
+    const Wrapped = withI18n(AppLayout);
+    const navHrefs = (c) => [...c.querySelectorAll('aside nav a')].map((a) => a.getAttribute('href'));
+    const authAs = (can) => ({
+        auth: { user: { id: 1, name: 'Admin', username: 'admin' }, can },
+    });
+
+    __setPage(baseProps(authAs({ users: true, roles: true, settings: true })));
+    let m = mount(<Wrapped><div>page body</div></Wrapped>);
+    let hrefs = navHrefs(m.container);
+    check('Sidebar: Users item present for users-manage holder', hrefs.includes('/settings/users'));
+    check('Sidebar: Roles item present for roles-manage holder', hrefs.includes('/settings/roles'));
+    check('Sidebar: Roles item sits immediately after Users',
+        hrefs.indexOf('/settings/roles') === hrefs.indexOf('/settings/users') + 1);
+    await unmount(m);
+
+    __setPage(baseProps(authAs({ users: true, roles: false, settings: true })));
+    m = mount(<Wrapped><div>page body</div></Wrapped>);
+    hrefs = navHrefs(m.container);
+    check('Sidebar: Roles item hidden without roles-manage, Users still shown',
+        !hrefs.includes('/settings/roles') && hrefs.includes('/settings/users'));
+    await unmount(m);
+}
+
 const scenarios = [
     scenarioPrimaryButton,
     scenarioActionButton,
@@ -838,6 +866,7 @@ const scenarios = [
     scenarioAccountsSetupSync,
     scenarioAccountsGroupSync,
     scenarioAccountsPagesMount,
+    scenarioSidebarRolesItem,
 ];
 
 for (const fn of scenarios) {

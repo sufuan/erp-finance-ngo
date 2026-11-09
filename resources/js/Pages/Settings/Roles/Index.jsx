@@ -1,4 +1,4 @@
-import { router, useForm } from '@inertiajs/react';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import { ActionButton, Field, PrimaryButton, inputCls } from '../../../Components/ui';
 import AppLayout from '../../../Layouts/AppLayout';
@@ -8,6 +8,7 @@ const empty = { name: '', label: '', description: '', permissions: [] };
 
 /** Roles admin with the grouped permission matrix (module = a section, plan §4.1). */
 export default function RolesIndex({ roles, permissionGroups }) {
+    const { props } = usePage();
     const [editingId, setEditingId] = useState(null);
     const [filter, setFilter] = useState('');
     const { data, setData, post, put, processing, errors, reset } = useForm(empty);
@@ -34,7 +35,17 @@ export default function RolesIndex({ roles, permissionGroups }) {
 
     return (
         <AppLayout>
-            <h1 className="mb-4 text-xl font-semibold">{t('roles')}</h1>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-xl font-semibold">{t('roles')}</h1>
+                {props.auth?.can?.users && (
+                    <Link
+                        href="/settings/users"
+                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                    >
+                        {t('users')}
+                    </Link>
+                )}
+            </div>
 
             <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {roles.map((r) => (

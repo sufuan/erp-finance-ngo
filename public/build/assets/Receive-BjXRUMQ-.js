@@ -1,0 +1,1 @@
+import{i as e}from"./app-BIkK1f9q.js";import t from"./MoneyMove-DDZ1-sOk.js";var n=e();function r(e){return(0,n.jsx)(t,{mode:`receive`,...e})}export{r as default};

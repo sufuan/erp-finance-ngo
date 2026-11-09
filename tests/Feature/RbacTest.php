@@ -266,6 +266,36 @@ class RbacTest extends TestCase
         $service->assertDifferentMakerChecker(7, 7);
     }
 
+    public function test_sidebar_roles_item_gate_follows_roles_manage_permission(): void
+    {
+        // The shared `auth.can.roles` prop drives the sidebar Roles item and
+        // the Users→Roles cross-link: Super Admin (holds
+        // settings.roles-manage) gets it, and the Roles page itself opens.
+        $admin = $this->makeUser('super-admin');
+        $this->actingAsTotpPassed($admin)->get('/settings/users')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('auth.can.users', true)
+                ->where('auth.can.roles', true));
+        $this->actingAsTotpPassed($admin)->get('/settings/roles')->assertOk();
+
+        // A custom role with ONLY settings.users-manage: the Users page
+        // opens and `auth.can.users` is true, but `auth.can.roles` stays
+        // false — so the sidebar Roles item and cross-link stay hidden —
+        // and the Roles page itself is forbidden.
+        $role = Role::create(['name' => 'user-clerk', 'guard_name' => 'web']);
+        $role->givePermissionTo('settings.users-manage');
+        $clerk = $this->makeUser();
+        $clerk->assignRole($role);
+
+        $this->actingAs($clerk)->get('/settings/users')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('auth.can.users', true)
+                ->where('auth.can.roles', false));
+        $this->actingAs($clerk)->get('/settings/roles')->assertForbidden();
+    }
+
     public function test_passwords_use_argon2id(): void
     {
         $this->assertSame('argon2id', config('hashing.driver'));

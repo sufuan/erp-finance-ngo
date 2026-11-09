@@ -33,7 +33,17 @@ export default function UsersIndex({ users, roles, branches }) {
 
     return (
         <AppLayout>
-            <h1 className="mb-4 text-xl font-semibold">{t('users')}</h1>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-xl font-semibold">{t('users')}</h1>
+                {props.auth?.can?.roles && (
+                    <Link
+                        href="/settings/roles"
+                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                    >
+                        {t('roles')}
+                    </Link>
+                )}
+            </div>
 
             {props.flash?.temp_password && (
                 <div className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">

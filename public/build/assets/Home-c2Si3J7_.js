@@ -1,0 +1,1 @@
+import{i as e}from"./app-BIkK1f9q.js";import{t}from"./AppLayout-DE_-KLtv.js";import{t as n}from"./HomeHub-Cp5n8Aow.js";var r=e();function i(){return(0,r.jsx)(t,{children:(0,r.jsx)(n,{})})}export{i as default};
