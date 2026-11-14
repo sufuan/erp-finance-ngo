@@ -69,9 +69,25 @@ class LoanProposalsTest extends TestCase
         $this->assertSame('933.33', $flat['installment_amount']);
         $this->assertSame('933.37', $flat['last_installment_amount']);
 
-        // Weekly flat: term = 52/52 = 1 year → profit = 10% of 5200.
+        // Weekly flat: profit is 10% of principal per cycle, whatever the term.
         $weekly = $engine->preview('5200', '10', 'flat', 'W', 52, '2026-11-01');
         $this->assertSame('520.00', $weekly['profit_amount']);
+        // …and the same profit for a half-length term (term-independence).
+        $weeklyShort = $engine->preview('5200', '10', 'flat', 'W', 26, '2026-11-01');
+        $this->assertSame('520.00', $weeklyShort['profit_amount']);
+
+        // CLIENT ACCEPTANCE (2026-11-14): flat = principal × rate% per cycle.
+        // 10,000 @ flat 15% over 115 daily installments → profit 1,500,
+        // installment exactly 100.00, total 11,500.
+        $client = $engine->preview('10000', '15', 'flat', 'D', 115, '2026-11-01');
+        $this->assertSame('1500.00', $client['profit_amount']);
+        $this->assertSame('100.00', $client['installment_amount']);
+        $this->assertSame('11500.00', $client['total_repayment']);
+        // Same loan over 100 installments → installment 115.00, same profit.
+        $client100 = $engine->preview('10000', '15', 'flat', 'D', 100, '2026-11-01');
+        $this->assertSame('1500.00', $client100['profit_amount']);
+        $this->assertSame('115.00', $client100['installment_amount']);
+        $this->assertSame('11500.00', $client100['total_repayment']);
     }
 
     public function test_submit_approve_flow_and_list(): void

@@ -9,9 +9,10 @@ use Carbon\Carbon;
 /**
  * Step 16/17 — the loan schedule engine (binding formulas).
  *
- * FLAT:      profit = amount × rate% × term-in-years; term from frequency
- *            (daily n/365, weekly n/52, monthly n/12, quarterly n/4,
- *            half-yearly n/2, yearly n, 15-days n/24). Equal splits.
+ * FLAT:      profit = amount × rate% per loan cycle (client rule —
+ *            charged once on the principal, independent of term,
+ *            frequency and installment count). Equal splits; the
+ *            final row absorbs rounding.
  * DECLINING: PMT amortization — period rate r = rate% / periods-per-year,
  *            installment = P·r / (1 − (1+r)^−n); each period's profit is
  *            outstanding × r and the final row absorbs rounding.
@@ -65,8 +66,9 @@ class ScheduleEngine
         $ppy = $this->periodsPerYear($frequency);
         $rows = [];
         if ($rateMethod === 'flat') {
-            $termYears = BigDecimal::of($installments)->dividedBy($ppy, 10, RoundingMode::HalfUp);
-            $totalProfit = $principal->multipliedBy($ratePercent)->multipliedBy($termYears)
+            // Client rule: flat profit is charged once per cycle on the
+            // principal — no term/frequency factor.
+            $totalProfit = $principal->multipliedBy($ratePercent)
                 ->dividedBy(100, 10, RoundingMode::HalfUp)->toScale(2, RoundingMode::HalfUp);
             $perPrincipal = $principal->dividedBy($installments, 2, RoundingMode::HalfUp);
             $perProfit = $totalProfit->dividedBy($installments, 2, RoundingMode::HalfUp);
@@ -158,8 +160,7 @@ class ScheduleEngine
         $principal = BigDecimal::of($amount);
         $ppy = $this->periodsPerYear($frequency);
         if ($rateMethod === 'flat') {
-            $termYears = BigDecimal::of($installments)->dividedBy($ppy, 10, RoundingMode::HalfUp);
-            $profit = $principal->multipliedBy($ratePercent)->multipliedBy($termYears)
+            $profit = $principal->multipliedBy($ratePercent)
                 ->dividedBy(100, 10, RoundingMode::HalfUp)->toScale(2, RoundingMode::HalfUp);
 
             return $principal->plus($profit)->dividedBy($installments, 2, RoundingMode::HalfUp);

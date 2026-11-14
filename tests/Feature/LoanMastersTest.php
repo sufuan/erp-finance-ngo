@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
-/** Step 15 — loan masters: MRA cap on the effective rate, frequency setting. */
+/** Step 15 — loan masters: MRA cap on the nominal product rate, frequency setting. */
 class LoanMastersTest extends TestCase
 {
     use DatabaseTransactions;
@@ -35,16 +35,16 @@ class LoanMastersTest extends TestCase
         $this->assertSame(['D', 'W', 'M'], collect(InstallmentFrequency::enabled())->map(fn ($f) => $f->code)->all());
     }
 
-    public function test_mra_cap_rejects_25_percent_and_flat_15(): void
+    public function test_mra_cap_applies_to_nominal_rate_for_both_methods(): void
     {
+        // Client rule (2026-11-14): the cap checks the product rate itself —
+        // flat is charged per cycle on principal, so no IRR conversion.
         $guard = app(LoanRateGuard::class);
         $this->assertEqualsWithDelta(15.0, $guard->effectiveRatePercent('15', 'declining'), 0.001);
-        $flat15 = $guard->effectiveRatePercent('15', 'flat');
-        $this->assertGreaterThan(24, $flat15);          // ≈26.6% effective
-        $this->assertLessThan(28, $flat15);
-        $this->assertLessThan(24, $guard->effectiveRatePercent('12', 'flat'));
+        $this->assertEqualsWithDelta(15.0, $guard->effectiveRatePercent('15', 'flat'), 0.001);
+        $this->assertEqualsWithDelta(12.0, $guard->effectiveRatePercent('12', 'flat'), 0.001);
 
-        foreach ([['25', 'declining'], ['15', 'flat']] as [$rate, $method]) {
+        foreach ([['25', 'declining'], ['25', 'flat']] as [$rate, $method]) {
             try {
                 $guard->assertWithinCap($rate, $method);
                 $this->fail("Rate {$rate} {$method} should breach the cap.");
@@ -53,15 +53,28 @@ class LoanMastersTest extends TestCase
             }
         }
         $guard->assertWithinCap('15', 'declining');
-        $guard->assertWithinCap('12', 'flat');
-        $this->addToAssertionCount(2);
+        $guard->assertWithinCap('15', 'flat');
+        $guard->assertWithinCap('24', 'flat');
+        $this->addToAssertionCount(3);
 
-        // Same rejection through the product form.
+        // Flat 15% now saves fine through the product form (client rule).
+        $this->actingAs($this->admin)->post('/loans/products', [
+            'code' => '3998', 'name_en' => 'Flat Fifteen', 'profit_rate' => 15,
+            'rate_method' => 'flat', 'gl_mapping_prefix' => 'loan.general',
+        ])->assertSessionHasNoErrors();
+        $this->assertNotNull(LoanProduct::where('code', '3998')->first());
+
+        // 25% is still rejected through the product form, both methods.
         $this->actingAs($this->admin)->post('/loans/products', [
             'code' => '3999', 'name_en' => 'Too Dear', 'profit_rate' => 25,
             'rate_method' => 'declining', 'gl_mapping_prefix' => 'loan.general',
         ])->assertSessionHasErrors('profit_rate');
+        $this->actingAs($this->admin)->post('/loans/products', [
+            'code' => '3997', 'name_en' => 'Too Dear Flat', 'profit_rate' => 25,
+            'rate_method' => 'flat', 'gl_mapping_prefix' => 'loan.general',
+        ])->assertSessionHasErrors('profit_rate');
         $this->assertNull(LoanProduct::where('code', '3999')->first());
+        $this->assertNull(LoanProduct::where('code', '3997')->first());
     }
 
     public function test_disabling_weekly_removes_it_from_enabled_frequencies(): void

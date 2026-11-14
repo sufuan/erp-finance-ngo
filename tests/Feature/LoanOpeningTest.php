@@ -151,7 +151,7 @@ class LoanOpeningTest extends TestCase
         $this->assertSame(hash('sha256', '1234567890'), $guarantor->national_id_hash);
     }
 
-    public function test_opening_rate_cap_blocks_override_and_flat_effective(): void
+    public function test_opening_rate_cap_blocks_override_above_cap(): void
     {
         // Override to 25% on the declining product → cap breach.
         try {
@@ -160,7 +160,9 @@ class LoanOpeningTest extends TestCase
         } catch (ValidationException) {
             $this->addToAssertionCount(1);
         }
-        // Flat product at 12% opens; overriding it to 15% flat (≈26.6% eff.) blocks.
+        // Flat product at 12% opens; overriding it to 15% flat also opens
+        // (client rule: the cap checks the nominal rate, flat 15% is fine);
+        // overriding to 25% flat breaches the cap and blocks.
         $flat = LoanProduct::create([
             'code' => '3903', 'name_en' => 'Flat Twelve', 'profit_rate' => 12, 'rate_method' => 'flat',
             'min_amount' => 1000, 'max_amount' => 500000, 'min_term' => 1, 'max_term' => 100,
@@ -168,9 +170,12 @@ class LoanOpeningTest extends TestCase
         ]);
         $loan = $this->open(['loan_product_id' => $flat->id]);
         $this->assertSame('Opened', $loan->status);
+        $loan15 = $this->open(['loan_product_id' => $flat->id, 'profit_rate' => '15']);
+        $this->assertSame('Opened', $loan15->status);
+        $this->assertSame('15.00', (string) $loan15->profit_rate);
         try {
-            $this->open(['loan_product_id' => $flat->id, 'profit_rate' => '15']);
-            $this->fail('15% flat opening should be blocked.');
+            $this->open(['loan_product_id' => $flat->id, 'profit_rate' => '25']);
+            $this->fail('25% flat opening should be blocked.');
         } catch (ValidationException) {
             $this->addToAssertionCount(1);
         }

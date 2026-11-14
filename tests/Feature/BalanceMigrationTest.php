@@ -36,7 +36,7 @@ class BalanceMigrationTest extends TestCase
         $this->member = Member::query()->firstOrFail();
         $this->samity = Samity::query()->firstOrFail();
 
-        // A flat 15% product so 10,000 × 1yr = exactly 1,500 profit.
+        // A flat 15% product: profit is 15% of principal per cycle = 1,500.
         $src = LoanProduct::query()->firstOrFail();
         $attrs = collect($src->getAttributes())->except(['id', 'created_at', 'updated_at'])
             ->merge(['code' => '9001', 'name_en' => 'Migration Flat', 'name_bn' => 'মাইগ্রেশন ফ্ল্যাট', 'rate_method' => 'flat', 'profit_rate' => 15])
