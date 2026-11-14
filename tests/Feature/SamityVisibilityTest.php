@@ -10,13 +10,14 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
 /**
- * Owner's story, end to end (2026-11-14): a user given a collector-type
- * role and ticked for ONE samity on the user form must see exactly that
- * samity in Collection — visibility follows the ASSIGNMENT (samity_user)
- * only. Clarified the same evening: NO role name is special, nothing is
- * fixed — a user with no samity ticks (Field Officer included) sees all
- * samities of their branch, exactly like any other role; a user with a
- * tick (manager included) is restricted to the ticked samities.
+ * Owner's rule, end to end (2026-11-14, stated twice and strictly):
+ * a user sees EXACTLY the samities ticked for them on the user form
+ * (`samity_user`) — 1 tick → that samity only, 2 ticks → those 2, all
+ * ticked → all, and NO ticks → NOT ONE samity. This applies to every
+ * role (custom roles, Field Officer, Branch Manager alike); visibility
+ * comes only from the assignment, never from a role name. The single
+ * exemption is Super Admin (the IT-department account), which is
+ * unrestricted so the system stays administrable.
  *
  * Seeded stand-ins: 'Talgachi Samity' plays the owner's "BU" samity and
  * 'Talgachi Mohila Samity' is the other samity of the same branch (102).
@@ -47,6 +48,23 @@ class SamityVisibilityTest extends TestCase
         $this->withSession(['totp_passed_at' => now()->toDateTimeString()]);
 
         return $user;
+    }
+
+    /** Create the custom collector role through the real endpoint. */
+    private function makeCollectorRole(): void
+    {
+        $this->admin();
+        $this->post('/settings/roles', [
+            'name' => 'collector', 'label' => 'Collector', 'description' => 'Field collector',
+            'permissions' => [
+                'members.view', 'members.create', 'members.edit',
+                'collection.view', 'collection.collect', 'collection.sheets',
+                'collection.reports', 'collection.print',
+                'loans.view', 'loans.print', 'loans.view-schedule',
+                'deposits.view', 'deposits.receive', 'deposits.view-statement', 'deposits.print',
+                'files.view', 'files.upload',
+            ],
+        ])->assertRedirect()->assertSessionHas('success');
     }
 
     /** Create a user through the real user-store endpoint, as the picker posts it. */
@@ -87,18 +105,7 @@ class SamityVisibilityTest extends TestCase
     {
         // The role itself is custom — created through the real endpoint with
         // the field-worker permission set (collection + member work).
-        $this->admin();
-        $this->post('/settings/roles', [
-            'name' => 'collector', 'label' => 'Collector', 'description' => 'Field collector',
-            'permissions' => [
-                'members.view', 'members.create', 'members.edit',
-                'collection.view', 'collection.collect', 'collection.sheets',
-                'collection.reports', 'collection.print',
-                'loans.view', 'loans.print', 'loans.view-schedule',
-                'deposits.view', 'deposits.receive', 'deposits.view-statement', 'deposits.print',
-                'files.view', 'files.upload',
-            ],
-        ])->assertRedirect()->assertSessionHas('success');
+        $this->makeCollectorRole();
 
         $collector = $this->createUserViaForm('bu.collector', ['collector'], [$this->bu->id]);
         $this->assertDatabaseHas('samity_user', ['user_id' => $collector->id, 'samity_id' => $this->bu->id]);
@@ -107,6 +114,17 @@ class SamityVisibilityTest extends TestCase
         $ids = $this->sheetSamityIds($collector);
         $this->assertContains($this->bu->id, $ids, 'Assigned samity must appear on the collection sheet');
         $this->assertNotContains($this->other->id, $ids, 'Unassigned samity of the same branch must not appear');
+    }
+
+    public function test_custom_collector_with_both_ticks_sees_both_samities(): void
+    {
+        $this->makeCollectorRole();
+
+        $collector = $this->createUserViaForm('both.collector', ['collector'], [$this->bu->id, $this->other->id]);
+
+        $ids = $this->sheetSamityIds($collector);
+        $this->assertContains($this->bu->id, $ids);
+        $this->assertContains($this->other->id, $ids);
     }
 
     public function test_field_officer_with_one_tick_sees_only_his_samity(): void
@@ -119,30 +137,31 @@ class SamityVisibilityTest extends TestCase
         $this->assertNotContains($this->other->id, $ids);
     }
 
-    public function test_field_officer_without_ticks_sees_all_branch_samities(): void
+    public function test_field_officer_without_ticks_sees_not_one_samity(): void
     {
-        // Owner rule (2026-11-14): the 'field-officer' role name alone
-        // restricts NOTHING — with no samity assignment the officer sees
-        // the whole branch, same as any other role.
+        // Strict owner rule: NO assignment → NOT ONE samity, even for the
+        // Field Officer role. (This reverses the #76/#77 default, where
+        // an unticked user saw the whole branch.)
         $officer = $this->createUserViaForm('free.officer', ['field-officer'], []);
-        $this->assertFalse(app(SamityAccessService::class)->isRestricted($officer));
+        $this->assertTrue(app(SamityAccessService::class)->isRestricted($officer));
+        $this->assertSame([], app(SamityAccessService::class)->assignedSamityIds($officer));
 
-        $ids = $this->sheetSamityIds($officer);
-        $this->assertContains($this->bu->id, $ids);
-        $this->assertContains($this->other->id, $ids);
+        $this->assertSame([], $this->sheetSamityIds($officer));
     }
 
-    public function test_branch_manager_without_ticks_sees_all_branch_samities(): void
+    public function test_branch_manager_without_ticks_sees_not_one_samity(): void
     {
+        // Strict owner rule: the Branch Manager role name grants no
+        // samity visibility either — without ticks the sheet is EMPTY.
+        // (Renamed from the #76/#77-era 'sees all branch samities' test:
+        // the owner reversed that default on 2026-11-14 18:34.)
         $manager = $this->createUserViaForm('plain.manager', ['branch-manager'], []);
-        $this->assertFalse(app(SamityAccessService::class)->isRestricted($manager));
+        $this->assertTrue(app(SamityAccessService::class)->isRestricted($manager));
 
-        $ids = $this->sheetSamityIds($manager);
-        $this->assertContains($this->bu->id, $ids);
-        $this->assertContains($this->other->id, $ids);
+        $this->assertSame([], $this->sheetSamityIds($manager));
     }
 
-    public function test_branch_manager_with_one_tick_becomes_restricted_to_it(): void
+    public function test_branch_manager_with_one_tick_sees_only_that_samity(): void
     {
         $manager = $this->createUserViaForm('ticked.manager', ['branch-manager'], [$this->bu->id]);
         $this->assertTrue(app(SamityAccessService::class)->isRestricted($manager));
@@ -150,5 +169,17 @@ class SamityVisibilityTest extends TestCase
         $ids = $this->sheetSamityIds($manager);
         $this->assertContains($this->bu->id, $ids);
         $this->assertNotContains($this->other->id, $ids);
+    }
+
+    public function test_super_admin_is_unrestricted_and_sees_all_branch_samities(): void
+    {
+        // The one exemption: Super Admin (IT department) administers the
+        // system, so it is never samity-restricted and needs no ticks.
+        $admin = $this->admin();
+        $this->assertFalse(app(SamityAccessService::class)->isRestricted($admin));
+
+        $ids = $this->sheetSamityIds($admin);
+        $this->assertContains($this->bu->id, $ids);
+        $this->assertContains($this->other->id, $ids);
     }
 }

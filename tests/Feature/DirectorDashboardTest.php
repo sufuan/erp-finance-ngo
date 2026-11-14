@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\LoanAccount;
 use App\Models\LoanProduct;
 use App\Models\Member;
+use App\Models\Samity;
 use App\Models\User;
 use App\Services\BusinessDayService;
 use App\Services\CollectionReportService;
@@ -31,6 +32,15 @@ class DirectorDashboardTest extends CrudTestCase
         parent::setUp();
         $this->director = User::factory()->create(['must_change_password' => false]);
         $this->director->assignRole('director');
+        // Owner rule (2026-11-14): samity visibility comes ONLY from the
+        // user-form assignment, Director included — the admin ticks every
+        // samity for the Director so his combined all-branch figures show.
+        foreach (Samity::withoutGlobalScopes()->pluck('id') as $samityId) {
+            DB::table('samity_user')->insertOrIgnore([
+                'user_id' => $this->director->id, 'samity_id' => (int) $samityId,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
         $this->post('/branch/switch', ['branch_id' => $this->branch('102')->id])->assertRedirect();
     }
 

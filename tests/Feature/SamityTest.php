@@ -24,11 +24,36 @@ class SamityTest extends TestCase
     {
         $user = User::factory()->create(['must_change_password' => false]);
         $user->assignRole('branch-manager');
+        // Owner rule (2026-11-14): samity visibility comes ONLY from the
+        // user-form assignment — even a Branch Manager sees no samity
+        // until it is ticked. The admin has ticked both seeded samities
+        // for this manager, so he can work with them.
+        foreach (Samity::withoutGlobalScopes()->pluck('id') as $samityId) {
+            $this->tickSamity($user, (int) $samityId);
+        }
         $this->actingAs($user);
         // Branch Manager is a TOTP-mandatory role; simulate a passed challenge.
         $this->withSession(['totp_passed_at' => now()->toDateTimeString()]);
 
         return $user;
+    }
+
+    /** Tick a samity for a user, exactly as the user form's picker does. */
+    private function tickSamity(User $user, int $samityId): void
+    {
+        DB::table('samity_user')->insertOrIgnore([
+            'user_id' => $user->id, 'samity_id' => $samityId,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    /** Tick the named samity for the user (used right after creating it). */
+    private function tickSamityByName(User $user, string $name): void
+    {
+        $id = Samity::withoutGlobalScopes()->where('name', $name)->value('id');
+        if ($id) {
+            $this->tickSamity($user, (int) $id);
+        }
     }
 
     private function payload(array $overrides = []): array
@@ -57,8 +82,9 @@ class SamityTest extends TestCase
 
     public function test_open_samity_generates_code_and_persists_location(): void
     {
-        $this->manager();
+        $manager = $this->manager();
         $this->post('/settings/samities', $this->payload())->assertSessionHas('success');
+        $this->tickSamityByName($manager, 'New Test Samity');
         $samity = Samity::where('name', 'New Test Samity')->first();
         $this->assertNotNull($samity);
         $this->assertMatchesRegularExpression('/^\d{4}$/', $samity->samity_code);
@@ -98,8 +124,9 @@ class SamityTest extends TestCase
 
     public function test_create_weekly_samity_stores_day_and_null_date(): void
     {
-        $this->manager();
+        $manager = $this->manager();
         $this->post('/settings/samities', $this->payload())->assertSessionHas('success');
+        $this->tickSamityByName($manager, 'New Test Samity');
         $samity = Samity::where('name', 'New Test Samity')->firstOrFail();
         $this->assertSame('Monday', $samity->samity_day);
         $this->assertNull($samity->date_of_month);
@@ -107,10 +134,11 @@ class SamityTest extends TestCase
 
     public function test_create_monthly_samity_stores_date_and_null_day(): void
     {
-        $this->manager();
+        $manager = $this->manager();
         $this->post('/settings/samities', $this->payload([
             'meeting_frequency' => 'monthly', 'samity_day' => '', 'date_of_month' => 15,
         ]))->assertSessionHas('success');
+        $this->tickSamityByName($manager, 'New Test Samity');
         $samity = Samity::where('name', 'New Test Samity')->firstOrFail();
         $this->assertNull($samity->samity_day);
         $this->assertSame(15, (int) $samity->date_of_month);
@@ -118,10 +146,11 @@ class SamityTest extends TestCase
 
     public function test_create_monthly_last_day_samity_stores_zero(): void
     {
-        $this->manager();
+        $manager = $this->manager();
         $this->post('/settings/samities', $this->payload([
             'meeting_frequency' => 'monthly', 'samity_day' => '', 'date_of_month' => 0,
         ]))->assertSessionHas('success');
+        $this->tickSamityByName($manager, 'New Test Samity');
         $samity = Samity::where('name', 'New Test Samity')->firstOrFail();
         $this->assertNull($samity->samity_day);
         $this->assertSame(0, (int) $samity->date_of_month);
@@ -155,8 +184,9 @@ class SamityTest extends TestCase
 
     public function test_update_samity_to_monthly_clears_the_day(): void
     {
-        $this->manager();
+        $manager = $this->manager();
         $this->post('/settings/samities', $this->payload())->assertSessionHas('success');
+        $this->tickSamityByName($manager, 'New Test Samity');
         $samity = Samity::where('name', 'New Test Samity')->firstOrFail();
 
         $this->put("/settings/samities/{$samity->id}", $this->payload([
@@ -214,12 +244,13 @@ class SamityTest extends TestCase
 
     public function test_samity_pages_carry_monthly_schedule_values(): void
     {
-        $this->manager();
+        $manager = $this->manager();
         $branch = Branch::where('code', '102')->firstOrFail();
         $this->post('/settings/samities', $this->payload([
             'name' => 'Monthly Props Samity',
             'meeting_frequency' => 'monthly', 'samity_day' => '', 'date_of_month' => 15,
         ]))->assertSessionHas('success');
+        $this->tickSamityByName($manager, 'Monthly Props Samity');
         $samity = Samity::where('name', 'Monthly Props Samity')->firstOrFail();
 
         // Index props (branch pinned to the samity's branch).
@@ -242,10 +273,11 @@ class SamityTest extends TestCase
 
     public function test_create_daily_samity_stores_null_day_and_date(): void
     {
-        $this->manager();
+        $manager = $this->manager();
         $this->post('/settings/samities', $this->payload([
             'meeting_frequency' => 'daily', 'samity_day' => '', 'date_of_month' => '',
         ]))->assertSessionHas('success');
+        $this->tickSamityByName($manager, 'New Test Samity');
         $samity = Samity::where('name', 'New Test Samity')->firstOrFail();
         $this->assertNull($samity->samity_day);
         $this->assertNull($samity->date_of_month);
@@ -253,8 +285,9 @@ class SamityTest extends TestCase
 
     public function test_update_samity_to_daily_clears_day_and_date(): void
     {
-        $this->manager();
+        $manager = $this->manager();
         $this->post('/settings/samities', $this->payload())->assertSessionHas('success');
+        $this->tickSamityByName($manager, 'New Test Samity');
         $samity = Samity::where('name', 'New Test Samity')->firstOrFail();
 
         $this->put("/settings/samities/{$samity->id}", $this->payload([
@@ -303,11 +336,12 @@ class SamityTest extends TestCase
 
     public function test_daily_samity_is_offered_on_the_collection_sheet(): void
     {
-        $this->manager();
+        $manager = $this->manager();
         $this->post('/settings/samities', $this->payload([
             'name' => 'Daily Collection Samity',
             'meeting_frequency' => 'daily', 'samity_day' => '', 'date_of_month' => '',
         ]))->assertSessionHas('success');
+        $this->tickSamityByName($manager, 'Daily Collection Samity');
         $samity = Samity::where('name', 'Daily Collection Samity')->firstOrFail();
 
         // The collection sheet lists every active samity of the branch —
@@ -399,12 +433,16 @@ class SamityTest extends TestCase
 
     public function test_merge_across_branches_rejected(): void
     {
-        $this->manager();
+        $manager = $this->manager();
         $branch = Branch::where('code', '101')->first();
         $other = Samity::create([
             'samity_code' => '9001', 'branch_id' => $branch->id, 'name' => 'HO Samity',
             'open_date' => '2024-01-01', 'center_type' => 'All Gender', 'samity_day' => 'Sunday', 'status' => 'Active',
         ]);
+        // The cross-branch target must be ticked for the manager, or the
+        // assignment-only scope hides it (404) before the same-branch
+        // validation this test exercises can even run.
+        $this->tickSamity($manager, $other->id);
         $source = Samity::withoutGlobalScopes()->first();
         $this->post('/settings/samities/merge', [
             'source_samity_id' => $source->id, 'target_samity_id' => $other->id,

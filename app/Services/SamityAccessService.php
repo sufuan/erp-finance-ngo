@@ -9,24 +9,20 @@ use App\Models\User;
  * scoping lives in SamityScope; this service guards endpoints that take
  * an explicit samity id (change forms, future collection routes).
  *
- * Restriction follows ASSIGNMENT only, never a role name (owner rule,
- * 2026-11-14): a user is samity-restricted exactly when an admin has
- * ticked at least one samity for them on the user form (`samity_user`).
- * Restricted users see exactly their ticked samities; everyone else —
- * whatever their role — sees all samities of their branch.
+ * Visibility is ASSIGNMENT ONLY, never a role name (owner rule,
+ * 2026-11-14, stated twice): a user sees exactly the samities ticked
+ * for them on the user form (`samity_user`) — 1 tick → that samity,
+ * all ticked → all, NO ticks → not one samity. This holds for every
+ * role (custom roles, Field Officer, Branch Manager alike). The single
+ * exemption is Super Admin (the IT-department account), which is
+ * unrestricted so the system stays administrable.
  */
 class SamityAccessService
 {
-    /** Restricted ⇔ ≥1 assigned samity in `samity_user`. */
+    /** Restricted ⇔ signed-in user who is not Super Admin. */
     public function isRestricted(?User $user): bool
     {
-        if ($user === null) {
-            return false;
-        }
-
-        return \Illuminate\Support\Facades\DB::table('samity_user')
-            ->where('user_id', $user->id)
-            ->exists();
+        return $user !== null && ! $user->hasRole('super-admin');
     }
 
     /** @return int[] */

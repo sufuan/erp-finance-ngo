@@ -7,6 +7,7 @@ use App\Models\DepositProduct;
 use App\Models\LoanAccount;
 use App\Models\LoanProduct;
 use App\Models\Member;
+use App\Models\Samity;
 use App\Models\User;
 use App\Services\BusinessDayService;
 use App\Services\LoanMoneyService;
@@ -185,6 +186,14 @@ class DashboardTest extends CrudTestCase
         $manager = User::factory()->create(['must_change_password' => false]);
         $manager->assignRole('branch-manager');
         $manager->branches()->attach($b102->id);
+        // Owner rule (2026-11-14): samity-linked data shows only for
+        // ticked samities — tick branch 102's samities for this manager.
+        foreach (Samity::withoutGlobalScopes()->where('branch_id', $b102->id)->pluck('id') as $samityId) {
+            DB::table('samity_user')->insertOrIgnore([
+                'user_id' => $manager->id, 'samity_id' => (int) $samityId,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
         $this->actingAs($manager);
         $this->withSession(['totp_passed_at' => now()->toDateTimeString()]);
 

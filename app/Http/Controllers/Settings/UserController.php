@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\LoginAudit;
 use App\Models\Samity;
+use App\Models\Scopes\SamityScope;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Services\BranchAccessService;
@@ -56,7 +57,12 @@ class UserController extends Controller
             // Samities the acting user may offer for assignment, scoped to
             // the branches they can access; the form groups them under the
             // selected branch so nobody has to know a numeric samity ID.
-            'samities' => Samity::whereIn('branch_id', app(BranchAccessService::class)->accessibleIds($request->user()))
+            // SamityScope is lifted here on purpose: this list is the
+            // assignment SOURCE — a manager with users-manage permission
+            // must be able to tick samities they are not themselves
+            // assigned, otherwise nobody could ever be assigned one.
+            'samities' => Samity::withoutGlobalScope(SamityScope::class)
+                ->whereIn('branch_id', app(BranchAccessService::class)->accessibleIds($request->user()))
                 ->orderBy('samity_code')
                 ->get(['id', 'samity_code', 'name', 'branch_id'])
                 ->map(fn (Samity $s) => ['id' => $s->id, 'code' => $s->samity_code, 'name' => $s->name, 'branch_id' => $s->branch_id])
