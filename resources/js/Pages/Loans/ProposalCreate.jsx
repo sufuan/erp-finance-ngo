@@ -3,15 +3,10 @@ import { useEffect, useState } from 'react';
 import { Card, Field, PrimaryButton, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
-
-function xsrf() {
-    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : '';
-}
+import useLoanPreview from '../../lib/useLoanPreview';
 
 /** Loan proposal (Step 16) — calc fields come from the ScheduleEngine preview. */
 export default function ProposalCreate({ member, memberQuery, products, frequencies, fdrAccounts, canOverride, businessDate }) {
-    const [calc, setCalc] = useState(null);
     const [searching, setSearching] = useState(false);
     const form = useForm({
         member_id: member?.id ?? '', loan_product_id: products[0]?.id ?? '',
@@ -29,21 +24,17 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
     const product = products.find((p) => String(p.id) === String(form.data.loan_product_id));
     const allowedFreqs = frequencies.filter((f) => (product?.allowed_frequencies ?? []).includes(f.code));
 
-    const runPreview = async () => {
-        if (!form.data.loan_amount || !form.data.no_of_installments || !form.data.installment_from_date) return;
-        const response = await fetch('/loans/proposals/preview', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': xsrf(), Accept: 'application/json' },
-            body: JSON.stringify({
-                loan_product_id: form.data.loan_product_id, loan_amount: form.data.loan_amount,
-                profit_rate: form.data.profit_rate, frequency: form.data.frequency,
-                no_of_installments: form.data.no_of_installments,
-                installment_from_date: form.data.installment_from_date,
-                member_id: form.data.member_id || undefined,
-            }),
-        });
-        if (response.ok) setCalc(await response.json());
-    };
+    // Schedule preview: computed on mount and on every input change by
+    // the shared hook — no blur needed, stale figures never displayed.
+    const calc = useLoanPreview({
+        loan_product_id: form.data.loan_product_id,
+        loan_amount: form.data.loan_amount,
+        profit_rate: form.data.profit_rate,
+        frequency: form.data.frequency,
+        no_of_installments: form.data.no_of_installments,
+        installment_from_date: form.data.installment_from_date,
+        member_id: form.data.member_id,
+    });
     const addGuarantor = () => form.setData('guarantors', [...form.data.guarantors, { name: '', relation: '', phone: '', address: '', national_id: '' }]);
     const setGuarantor = (i, key, value) => {
         const rows = form.data.guarantors.map((g, j) => (j === i ? { ...g, [key]: value } : g));
@@ -87,7 +78,7 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
                                 <input className={inputCls} value={form.data.loan_purpose} onChange={(e) => form.setData('loan_purpose', e.target.value)} />
                             </Field>
                             <Field label={t('loan_amount')} required error={form.errors.loan_amount}>
-                                <input type="number" step="0.01" min="0" className={inputCls} value={form.data.loan_amount} onChange={(e) => form.setData('loan_amount', e.target.value)} onBlur={runPreview} required />
+                                <input type="number" step="0.01" min="0" className={inputCls} value={form.data.loan_amount} onChange={(e) => form.setData('loan_amount', e.target.value)} required />
                             </Field>
                             <Field label={t('fdr_account')}>
                                 <select className={inputCls} value={form.data.fdr_account_id} onChange={(e) => form.setData('fdr_account_id', e.target.value)}>
@@ -96,15 +87,15 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
                                 </select>
                             </Field>
                             <Field label={t('frequency')} required error={form.errors.frequency}>
-                                <select className={inputCls} value={form.data.frequency} onChange={(e) => form.setData('frequency', e.target.value)} onBlur={runPreview} required>
+                                <select className={inputCls} value={form.data.frequency} onChange={(e) => form.setData('frequency', e.target.value)} required>
                                     {allowedFreqs.map((f) => <option key={f.code} value={f.code}>{f.code} — {f.label_en}</option>)}
                                 </select>
                             </Field>
                             <Field label={t('no_of_installments')} required error={form.errors.no_of_installments}>
-                                <input type="number" min="1" className={inputCls} value={form.data.no_of_installments} onChange={(e) => form.setData('no_of_installments', e.target.value)} onBlur={runPreview} required />
+                                <input type="number" min="1" className={inputCls} value={form.data.no_of_installments} onChange={(e) => form.setData('no_of_installments', e.target.value)} required />
                             </Field>
                             <Field label={t('profit_rate')} error={form.errors.profit_rate}>
-                                <input type="number" step="0.01" min="0" className={inputCls} value={form.data.profit_rate} onChange={(e) => form.setData('profit_rate', e.target.value)} onBlur={runPreview} readOnly={!canOverride} />
+                                <input type="number" step="0.01" min="0" className={inputCls} value={form.data.profit_rate} onChange={(e) => form.setData('profit_rate', e.target.value)} readOnly={!canOverride} />
                             </Field>
                             <Field label={t('installment_amount')}>
                                 <input className={inputCls} value={calc?.installment_amount ?? ''} readOnly />
@@ -122,7 +113,7 @@ export default function ProposalCreate({ member, memberQuery, products, frequenc
                                 <input className={inputCls} value={calc?.total_repayment ?? ''} readOnly />
                             </Field>
                             <Field label={t('installment_from_date')} required error={form.errors.installment_from_date}>
-                                <input type="date" className={inputCls} value={form.data.installment_from_date} onChange={(e) => form.setData('installment_from_date', e.target.value)} onBlur={runPreview} required />
+                                <input type="date" className={inputCls} value={form.data.installment_from_date} onChange={(e) => form.setData('installment_from_date', e.target.value)} required />
                             </Field>
                             <Field label={t('installment_expire_date')}>
                                 <input className={inputCls} value={calc?.installment_expire_date ?? ''} readOnly />

@@ -3,15 +3,10 @@ import { useEffect, useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
-
-function xsrf() {
-    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : '';
-}
+import useLoanPreview from '../../lib/useLoanPreview';
 
 /** Loan account opening (Step 17) — member / staff / product modes. */
 export default function LoanOpening({ mode, proposal, member, memberQuery, employee, employeeQuery, products, frequencies, feeTypes, canOverride, businessDate, productLoans }) {
-    const [calc, setCalc] = useState(null);
     const [searching, setSearching] = useState(false);
     const form = useForm({
         member_id: proposal?.member_id ?? member?.id ?? '',
@@ -40,21 +35,18 @@ export default function LoanOpening({ mode, proposal, member, memberQuery, emplo
     const allowedFreqs = frequencies.filter((f) => (product?.allowed_frequencies ?? []).includes(f.code));
     const lookupMember = (e) => { e.preventDefault(); router.get('/loans/opening', { mode, member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const lookupEmployee = (e) => { e.preventDefault(); router.get('/loans/opening', { mode, employee: e.target.elements.employee.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
-    const runPreview = async () => {
-        if (!form.data.loan_amount || !form.data.no_of_installments || !form.data.installment_from_date) return;
-        const response = await fetch('/loans/proposals/preview', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': xsrf(), Accept: 'application/json' },
-            body: JSON.stringify({
-                loan_product_id: form.data.loan_product_id, loan_amount: form.data.loan_amount,
-                profit_rate: form.data.profit_rate, frequency: form.data.frequency,
-                no_of_installments: form.data.no_of_installments,
-                installment_from_date: form.data.installment_from_date,
-                member_id: form.data.member_id || undefined,
-            }),
-        });
-        if (response.ok) setCalc(await response.json());
-    };
+    // Schedule preview: computed on mount (proposal prefill shows its
+    // figures immediately) and on every input change by the shared
+    // hook — no blur needed, stale figures never displayed.
+    const calc = useLoanPreview({
+        loan_product_id: form.data.loan_product_id,
+        loan_amount: form.data.loan_amount,
+        profit_rate: form.data.profit_rate,
+        frequency: form.data.frequency,
+        no_of_installments: form.data.no_of_installments,
+        installment_from_date: form.data.installment_from_date,
+        member_id: form.data.member_id,
+    });
     const addGuarantor = () => form.setData('guarantors', [...form.data.guarantors, { name: '', relation: '', phone: '', address: '', national_id: '' }]);
     const setGuarantor = (i, key, value) => form.setData('guarantors', form.data.guarantors.map((g, j) => (j === i ? { ...g, [key]: value } : g)));
     const submit = (e) => { e.preventDefault(); form.post(`/loans/opening?mode=${mode}`); };
@@ -128,21 +120,21 @@ export default function LoanOpening({ mode, proposal, member, memberQuery, emplo
                                 <input className={inputCls} value={form.data.loan_purpose} onChange={(e) => form.setData('loan_purpose', e.target.value)} />
                             </Field>
                             <Field label={t('loan_amount')} required error={form.errors.loan_amount}>
-                                <input type="number" step="0.01" min="0" className={inputCls} value={form.data.loan_amount} onChange={(e) => form.setData('loan_amount', e.target.value)} onBlur={runPreview} required />
+                                <input type="number" step="0.01" min="0" className={inputCls} value={form.data.loan_amount} onChange={(e) => form.setData('loan_amount', e.target.value)} required />
                             </Field>
                             <Field label={t('down_payment')}>
                                 <input type="number" step="0.01" min="0" className={inputCls} value={form.data.down_payment} onChange={(e) => form.setData('down_payment', e.target.value)} />
                             </Field>
                             <Field label={t('frequency')} required error={form.errors.frequency}>
-                                <select className={inputCls} value={form.data.frequency} onChange={(e) => form.setData('frequency', e.target.value)} onBlur={runPreview} required>
+                                <select className={inputCls} value={form.data.frequency} onChange={(e) => form.setData('frequency', e.target.value)} required>
                                     {allowedFreqs.map((f) => <option key={f.code} value={f.code}>{f.code} — {f.label_en}</option>)}
                                 </select>
                             </Field>
                             <Field label={t('no_of_installments')} required error={form.errors.no_of_installments}>
-                                <input type="number" min="1" className={inputCls} value={form.data.no_of_installments} onChange={(e) => form.setData('no_of_installments', e.target.value)} onBlur={runPreview} required />
+                                <input type="number" min="1" className={inputCls} value={form.data.no_of_installments} onChange={(e) => form.setData('no_of_installments', e.target.value)} required />
                             </Field>
                             <Field label={t('profit_rate')} error={form.errors.profit_rate}>
-                                <input type="number" step="0.01" min="0" className={inputCls} value={form.data.profit_rate} onChange={(e) => form.setData('profit_rate', e.target.value)} onBlur={runPreview} readOnly={!canOverride} />
+                                <input type="number" step="0.01" min="0" className={inputCls} value={form.data.profit_rate} onChange={(e) => form.setData('profit_rate', e.target.value)} readOnly={!canOverride} />
                             </Field>
                             <Field label={t('installment_amount')}>
                                 <input className={inputCls} value={calc?.installment_amount ?? ''} readOnly />
@@ -154,7 +146,7 @@ export default function LoanOpening({ mode, proposal, member, memberQuery, emplo
                                 <input className={inputCls} value={calc?.total_repayment ?? ''} readOnly />
                             </Field>
                             <Field label={t('installment_from_date')} required error={form.errors.installment_from_date}>
-                                <input type="date" className={inputCls} value={form.data.installment_from_date} onChange={(e) => form.setData('installment_from_date', e.target.value)} onBlur={runPreview} required />
+                                <input type="date" className={inputCls} value={form.data.installment_from_date} onChange={(e) => form.setData('installment_from_date', e.target.value)} required />
                             </Field>
                             <Field label={t('installment_expire_date')}>
                                 <input className={inputCls} value={calc?.installment_expire_date ?? ''} readOnly />

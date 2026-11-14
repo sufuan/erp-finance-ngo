@@ -177,7 +177,13 @@ class CollectionController extends Controller
         ]);
         $audit->log($request->user()->id, 'collection.posted', 'collection_batches', $batch->id, null, ['total' => (string) $batch->total_receive]);
 
-        return back()->with('success', __('collection_posted'));
+        // Redirect to the sheet itself (not back()): the follow-up visit
+        // must land on this samity's freshly-computed grid with the
+        // success flash — back() depends on the session's previous URL,
+        // which the preserveState search never reliably updates, so the
+        // operator saw no confirmation and stale dues.
+        return redirect()->route('collection.sheet', ['samity_id' => $samity->id])
+            ->with('success', __('collection_posted'));
     }
 
     public function simpleForm(Request $request): Response
@@ -211,7 +217,9 @@ class CollectionController extends Controller
         ]);
         $audit->log($request->user()->id, 'collection.posted', 'collection_batches', $batch->id, null, ['total' => (string) $batch->total_receive]);
 
-        return back()->with('success', __('collection_posted'));
+        // Same explicit-redirect contract as storeSheet (see there).
+        return redirect()->route('collection.simple-sheet', ['samity_id' => $samity->id])
+            ->with('success', __('collection_posted'));
     }
 
     // --- Collection lists ------------------------------------------------------

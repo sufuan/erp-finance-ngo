@@ -160,6 +160,49 @@ class CollectionCrudTest extends CrudTestCase
         $this->assertSame('Cancelled', $batch->fresh()->status);
     }
 
+    /**
+     * Bug fix (2026-11-14, live-observed): a sheet post gave the
+     * operator no on-screen feedback — back() could land the follow-up
+     * visit anywhere, so neither the success toast nor the refreshed
+     * dues were guaranteed. The post must redirect to THIS samity's
+     * sheet carrying the standard success flash, and that sheet must
+     * serve the flash in its props together with a freshly-computed
+     * grid.
+     */
+    public function test_sheet_post_redirects_to_the_sheet_with_success_flash_and_fresh_grid(): void
+    {
+        $member = $this->makeMember();
+        $loan = $this->disbursedLoan($member);
+        $samity = $this->samity();
+        $money = app(LoanMoneyService::class);
+        $outstandingBefore = $money->outstanding($loan)['total'];
+
+        // Post exactly the way the browser grid does: samity_id in the
+        // query string (the grid's postUrl), lines only in the body.
+        $response = $this->post('/collection/sheet?samity_id='.$samity->id, [
+            'lines' => [
+                ['member_id' => $member->id, 'account_type' => 'loan', 'account_id' => $loan->id, 'amount' => '1083.10'],
+            ],
+        ]);
+        $response->assertRedirect(route('collection.sheet', ['samity_id' => $samity->id]));
+        $response->assertSessionHas('success', __('collection_posted'));
+
+        // The sheet the operator lands on carries the flash (→ toast)
+        // and the recomputed grid: the loan balance already reflects
+        // the installment just posted.
+        $props = $this->inertiaProps('/collection/sheet?samity_id='.$samity->id);
+        $this->assertSame(__('collection_posted'), $props['flash']['success'] ?? null);
+        $gridRow = collect($props['grid'] ?? [])->firstWhere('member_id', $member->id);
+        $this->assertNotNull($gridRow);
+        $loanCell = collect($gridRow['accounts'])->firstWhere('account_type', 'loan');
+        $expectedBalance = (string) (\Brick\Math\BigDecimal::of($outstandingBefore)->minus('1083.10')->toScale(2));
+        $this->assertSame($expectedBalance, $loanCell['balance']);
+
+        // A failed post surfaces its validation errors the standard way.
+        $this->post('/collection/sheet?samity_id='.$samity->id, ['lines' => []])
+            ->assertSessionHasErrors('lines');
+    }
+
     public function test_member_collection_other_and_instruments_over_http(): void
     {
         $member = $this->makeMember();

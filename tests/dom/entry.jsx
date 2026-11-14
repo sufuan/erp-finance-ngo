@@ -1040,6 +1040,163 @@ async function scenarioDirectorDashboard() {
     await unmount(m);
 }
 
+// ---- Live-observed UI bugs (2026-11-14) ----
+// Bug 1: the loan schedule preview only ran onBlur with a possibly
+// stale form snapshot — the Opening form (amount prefilled from the
+// proposal) showed BLANK computed fields until the amount was deleted
+// and re-typed, and the Proposal form flashed stale figures (11500/12
+// = 958.33) while switching to Daily/115. The preview now lives in the
+// useLoanPreview hook: it computes on mount + on every input change,
+// and clears the old figure while recalculating. The fetch stub below
+// mirrors the ScheduleEngine's known case (flat 15% per cycle:
+// 10000 → profit 1500.00, total 11500.00, split evenly) so the figures
+// asserted here are the real expected ones.
+const previewPayloadFor = (body) => {
+    const amount = parseFloat(body.loan_amount) || 0;
+    const n = parseInt(body.no_of_installments, 10) || 0;
+    const profit = amount * 0.15;
+    const total = amount + profit;
+    const per = n > 0 ? total / n : 0;
+    const f2 = (x) => (Math.round(x * 100) / 100).toFixed(2);
+    return {
+        installment_amount: f2(per), actual_installment_amount: f2(per), last_installment_amount: f2(per),
+        profit_amount: f2(profit), total_repayment: f2(total), installment_expire_date: '2027-02-21',
+    };
+};
+const stubPreviewFetch = (calls) => {
+    fetchImpl = (url, opts) => {
+        if (!url.includes('/loans/proposals/preview')) return Promise.reject(new Error(`unexpected fetch ${url}`));
+        const body = JSON.parse(opts.body);
+        calls.push(body);
+        return okJson(previewPayloadFor(body));
+    };
+};
+const fieldInput = (container, labelText) => [...container.querySelectorAll('label')]
+    .find((l) => {
+        const text = l.querySelector('span')?.textContent.trim() ?? '';
+        return text === labelText || text === `${labelText} *`;
+    })
+    ?.querySelector('input, select');
+
+async function scenarioLoanPreviewProposal() {
+    __setPage(baseProps());
+    const calls = [];
+    stubPreviewFetch(calls);
+    const Wrapped = withI18n(ProposalCreate);
+    const props = {
+        member: HARNESS_MEMBER, memberQuery: '102000004', products: LOAN_PRODUCTS, frequencies: FREQUENCIES,
+        fdrAccounts: [], canOverride: false, businessDate: '2026-10-26',
+    };
+    const m = mount(<Wrapped {...props} />);
+    check('Preview Proposal: no preview call before an amount exists', calls.length === 0);
+    // Type the live case — amount 10000, Daily, 115 installments. The
+    // harness NEVER dispatches blur/focus: the old onBlur wiring could
+    // not have produced a figure here at all.
+    await act(async () => { setValue(fieldInput(m.container, en.loan_amount), '10000'); });
+    await act(async () => { setValue(fieldInput(m.container, en.frequency), 'D', 'change'); });
+    await act(async () => { setValue(fieldInput(m.container, en.no_of_installments), '115'); });
+    await act(async () => { await sleep(700); });
+    const last = calls[calls.length - 1] ?? {};
+    check('Preview Proposal: preview fired on change (no blur) with the typed inputs',
+        calls.length >= 1 && String(last.loan_amount) === '10000' && last.frequency === 'D' && String(last.no_of_installments) === '115');
+    check('Preview Proposal: installment shows 100.00 (not the stale 958.33)',
+        fieldInput(m.container, en.installment_amount)?.value === '100.00');
+    check('Preview Proposal: profit 1500.00 and total 11500.00 shown',
+        fieldInput(m.container, en.profit_amount)?.value === '1500.00'
+        && fieldInput(m.container, en.total_repayment)?.value === '11500.00');
+    // Changing an input must clear the stale figure IMMEDIATELY (while
+    // the fresh preview is still in flight), then settle on the new one.
+    await act(async () => { setValue(fieldInput(m.container, en.no_of_installments), '50'); });
+    check('Preview Proposal: stale figure cleared while recalculating',
+        fieldInput(m.container, en.installment_amount)?.value === '');
+    await act(async () => { await sleep(700); });
+    check('Preview Proposal: settles on the new combination (11500/50 = 230.00)',
+        fieldInput(m.container, en.installment_amount)?.value === '230.00');
+    await unmount(m);
+}
+
+async function scenarioLoanPreviewOpeningPrefill() {
+    __setPage(baseProps());
+    const calls = [];
+    stubPreviewFetch(calls);
+    const Wrapped = withI18n(LoanOpening);
+    const proposal = {
+        id: 9, member_id: 4, loan_product_id: 1, loan_purpose: 'Agriculture',
+        loan_amount: '10000', frequency: 'D', no_of_installments: 115,
+        profit_rate: '15.00', installment_from_date: '2026-10-26', guarantors: [],
+    };
+    const props = {
+        mode: 'member', proposal, member: HARNESS_MEMBER, memberQuery: '102000004',
+        employee: null, employeeQuery: '', products: LOAN_PRODUCTS, frequencies: FREQUENCIES,
+        feeTypes: [], canOverride: false, businessDate: '2026-10-26', productLoans: [],
+    };
+    const m = mount(<Wrapped {...props} />);
+    // The exact live defect: the amount arrives prefilled from the
+    // proposal — no typing, no blur — yet the computed fields must fill.
+    await act(async () => { await sleep(700); });
+    check('Preview Opening: preview fired on mount with the proposal values',
+        calls.length >= 1 && String(calls[0].loan_amount) === '10000' && String(calls[0].no_of_installments) === '115');
+    check('Preview Opening: installment 100.00 shown without re-typing the amount',
+        fieldInput(m.container, en.installment_amount)?.value === '100.00');
+    check('Preview Opening: profit 1500.00 and total 11500.00 shown',
+        fieldInput(m.container, en.profit_amount)?.value === '1500.00'
+        && fieldInput(m.container, en.total_repayment)?.value === '11500.00');
+    await unmount(m);
+}
+
+// Bug 2: after "Post Transaction" succeeded server-side, the sheet
+// showed no success toast and kept the old dues on screen (Inertia's
+// router.post preserves the grid component's state, so the typed
+// amounts snapshot never refreshed). The post now redirects to the
+// sheet itself with the standard flash (pinned in CollectionCrudTest),
+// and CollectionGrid re-seeds its amounts whenever a fresh grid prop
+// arrives — this scenario models that follow-up visit on the SAME
+// mounted tree (state preserved, props replaced).
+async function scenarioCollectionSheetPostFeedback() {
+    __setPage(baseProps());
+    const accounts = (loanReceivable, loanAmount, loanBalance) => ([
+        { account_type: 'deposit', account_id: 11, label: '102000011', product_code: 'SAVINGS', product_label: 'Savings', balance: '0.00', receivable: '500.00', amount: '500.00' },
+        { account_type: 'loan', account_id: 21, label: '102000021', product_code: null, product_label: 'Loan', balance: loanBalance, receivable: loanReceivable, amount: loanAmount },
+        { account_type: 'share', account_id: 7, label: '102000007', product_code: null, product_label: 'Share', balance: '500.00', receivable: '0.00', amount: '0.00' },
+    ]);
+    const grid = [{ member_id: 7, member_no: '102000007', member_name: 'Sheet Member', accounts: accounts('1083.10', '1083.10', '12000.00') }];
+    const settledGrid = [{ member_id: 7, member_no: '102000007', member_name: 'Sheet Member', accounts: accounts('0.00', '0.00', '10916.90') }];
+    const props = {
+        samities: [{ id: 3, code: '0001', name: 'Talgachi Samity' }],
+        samityId: 3, grid, businessDate: '2026-10-27',
+    };
+    const Wrapped = withI18n(SheetPosting);
+    const m = mount(<Wrapped {...props} />);
+    const summaryRow = (label) => [...m.container.querySelectorAll('dl div')]
+        .find((d) => d.querySelector('dt')?.textContent === label);
+    const amountInputs = () => [...m.container.querySelectorAll('input[type="number"]')];
+    check('SheetPost feedback: loan receive starts at 1083.10', summaryRow(en.loan_receive)?.textContent.includes('1083.10'));
+    const gridForm = [...m.container.querySelectorAll('form')].find((f) => f.querySelector('input[type="number"]'));
+    await act(async () => { gridForm.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit = __pendingVisit();
+    check('SheetPost feedback: post fired to the sheet URL for the samity',
+        !!visit && visit.method === 'post' && visit.url === '/collection/sheet?samity_id=3');
+    check('SheetPost feedback: posted lines carry the prefilled amounts (share 0 excluded)',
+        visit?.data?.lines?.length === 2
+        && visit.data.lines.some((l) => l.account_type === 'loan' && String(l.amount) === '1083.10'));
+    // The server's answer: redirect back to this sheet with the success
+    // flash; the follow-up props carry the recomputed grid (loan settled).
+    __setPage(baseProps({ flash: { success: en.collection_posted }, errors: {} }));
+    await act(async () => { __finishVisit({}); });
+    await rerender(m, <Wrapped {...props} grid={settledGrid} />);
+    check('SheetPost feedback: success toast appears after the post',
+        m.container.textContent.includes(en.collection_posted));
+    check('SheetPost feedback: total receivable refreshes to 500.00',
+        summaryRow(en.total_receivable)?.textContent.includes('500.00'));
+    check('SheetPost feedback: loan receive refreshes to 0.00',
+        summaryRow(en.loan_receive)?.textContent.includes('0.00')
+        && !summaryRow(en.loan_receive)?.textContent.includes('1083.10'));
+    check('SheetPost feedback: the posted loan amount no longer sits in the input',
+        amountInputs()[1]?.value === '0.00');
+    await unmount(m);
+    __setPage(baseProps());
+}
+
 const scenarios = [
     scenarioPrimaryButton,
     scenarioActionButton,
@@ -1071,6 +1228,9 @@ const scenarios = [
     scenarioUserSamityPicker,
     scenarioProposalListReportAction,
     scenarioDirectorDashboard,
+    scenarioLoanPreviewProposal,
+    scenarioLoanPreviewOpeningPrefill,
+    scenarioCollectionSheetPostFeedback,
 ];
 
 for (const fn of scenarios) {

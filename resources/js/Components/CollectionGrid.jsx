@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, PrimaryButton, ResponsiveTable } from './ui';
 import { t } from '../lib/i18n';
 
@@ -8,6 +8,16 @@ const num = (v) => {
     return Number.isFinite(n) ? n : 0;
 };
 const fmt = (n) => n.toFixed(2);
+
+const amountsFromGrid = (rows) => {
+    const initial = {};
+    rows.forEach((row) => {
+        row.accounts.forEach((a) => {
+            initial[`${row.member_id}:${a.account_type}:${a.account_id}`] = a.amount ?? '0.00';
+        });
+    });
+    return initial;
+};
 
 /**
  * Collection posting grid (Step 21): one row per member, one editable
@@ -19,16 +29,17 @@ const fmt = (n) => n.toFixed(2);
  * sheet atomically through the deposit/loan engines.
  */
 export default function CollectionGrid({ grid, postUrl, submitLabel, processing: externalProcessing, errors, extra = {} }) {
-    const [amounts, setAmounts] = useState(() => {
-        const initial = {};
-        grid.forEach((row) => {
-            row.accounts.forEach((a) => {
-                initial[`${row.member_id}:${a.account_type}:${a.account_id}`] = a.amount ?? '0.00';
-            });
-        });
-        return initial;
-    });
+    const [amounts, setAmounts] = useState(() => amountsFromGrid(grid));
     const [posting, setPosting] = useState(false);
+
+    // Inertia's router.post preserves this component's state, so after a
+    // successful post (or a fresh samity search) the freshly-computed
+    // grid arrives as a NEW prop object while the typed amounts would
+    // otherwise stay on screen — leaving the Summary dues frozen at the
+    // pre-post figures. Re-seed the editable amounts whenever the grid
+    // prop is replaced; local typing never replaces the prop, so
+    // in-progress edits are untouched.
+    useEffect(() => { setAmounts(amountsFromGrid(grid)); }, [grid]);
 
     const summary = useMemo(() => {
         let receivable = 0;
