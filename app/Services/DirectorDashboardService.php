@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\DepositAccount;
 use App\Models\LoanAccount;
 use App\Models\Member;
+use App\Models\Scopes\SamityScope;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,14 @@ use Illuminate\Support\Facades\DB;
  * Director oversees every branch, like Super Admin's all-branch
  * visibility), so figures cover every ACTIVE branch regardless of the
  * viewer's branch assignments.
+ *
+ * SAMITY EXEMPTION: this page is a view-only consolidated report, so
+ * per the client spec it always covers all branches — the Member
+ * queries below run withoutGlobalScope(SamityScope::class), because
+ * the strict assignment rule (a user sees exactly their ticked
+ * samities, none when unticked) would otherwise shrink these figures
+ * to the viewing user's ticks. That rule still governs the same user
+ * on every working page; only this report is exempt.
  *
  * DEFINITIONS — deliberately identical to the existing reports, so
  * Director == Dashboard == DCR:
@@ -118,7 +127,8 @@ class DirectorDashboardService
                 'due_today' => $this->dueToday($branch->id, $biz),
                 'disbursed' => $this->m2($disbursedToday->sum('loan_amount')),
                 'disbursed_count' => (clone $disbursedToday)->count(),
-                'new_members' => Member::where('branch_id', $branch->id)->where('open_date', $biz)->count(),
+                'new_members' => Member::withoutGlobalScope(SamityScope::class)
+                    ->where('branch_id', $branch->id)->where('open_date', $biz)->count(),
                 'income' => $incomeToday['total_income'],
                 'expense' => $incomeToday['total_expense'],
             ],
@@ -127,13 +137,15 @@ class DirectorDashboardService
                 'loan_collection' => $monthSrc['loan'],
                 'disbursed' => $this->m2($disbursedMonth->sum('loan_amount')),
                 'disbursed_count' => (clone $disbursedMonth)->count(),
-                'new_members' => Member::where('branch_id', $branch->id)
+                'new_members' => Member::withoutGlobalScope(SamityScope::class)
+                    ->where('branch_id', $branch->id)
                     ->whereBetween('open_date', [$monthStart, $biz])->count(),
                 'income' => $incomeMonth['total_income'],
                 'expense' => $incomeMonth['total_expense'],
             ],
             'totals' => [
-                'members' => Member::where('branch_id', $branch->id)->where('status', 'Active')->count(),
+                'members' => Member::withoutGlobalScope(SamityScope::class)
+                    ->where('branch_id', $branch->id)->where('status', 'Active')->count(),
                 'active_loans' => $liveLoans->count(),
                 'outstanding' => $this->m2($outstanding),
                 'deposit_balance' => $this->m2(DepositAccount::where('branch_id', $branch->id)

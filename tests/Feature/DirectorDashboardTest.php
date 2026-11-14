@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\LoanAccount;
 use App\Models\LoanProduct;
 use App\Models\Member;
-use App\Models\Samity;
 use App\Models\User;
 use App\Services\BusinessDayService;
 use App\Services\CollectionReportService;
@@ -32,15 +31,11 @@ class DirectorDashboardTest extends CrudTestCase
         parent::setUp();
         $this->director = User::factory()->create(['must_change_password' => false]);
         $this->director->assignRole('director');
-        // Owner rule (2026-11-14): samity visibility comes ONLY from the
-        // user-form assignment, Director included — the admin ticks every
-        // samity for the Director so his combined all-branch figures show.
-        foreach (Samity::withoutGlobalScopes()->pluck('id') as $samityId) {
-            DB::table('samity_user')->insertOrIgnore([
-                'user_id' => $this->director->id, 'samity_id' => (int) $samityId,
-                'created_at' => now(), 'updated_at' => now(),
-            ]);
-        }
+        // The Director gets NO samity ticks on purpose: the Director page
+        // is a view-only consolidated report that always covers all
+        // branches (client spec), so DirectorDashboardService bypasses
+        // SamityScope — the strict assignment rule governs working pages,
+        // not this report.
         $this->post('/branch/switch', ['branch_id' => $this->branch('102')->id])->assertRedirect();
     }
 
@@ -73,6 +68,11 @@ class DirectorDashboardTest extends CrudTestCase
     /** DCR total row for one branch over [date, date]: [deposit, loan]. */
     private function dcrTotals(int $branchId, string $date): array
     {
+        // The reference is computed as the super admin, who is exempt
+        // from SamityScope — the DCR itself stays assignment-scoped for
+        // ordinary viewers (owner rule), so it must not be run as the
+        // unticked Director here.
+        $this->actingAs($this->admin);
         $dcr = app(CollectionReportService::class)->run('dcr_report', [
             '_branch_ids' => [$branchId], 'from_date' => $date, 'to_date' => $date,
         ]);
@@ -162,6 +162,32 @@ class DirectorDashboardTest extends CrudTestCase
         $branchSum = collect($props['branches'])
             ->reduce(fn (string $s, $r) => bcadd($s, (string) $r['today']['loan_collection'], 2), '0.00');
         $this->assertSame($branchSum, $props['today']['loan_collection']);
+    }
+
+    public function test_director_with_zero_samity_ticks_still_sees_all_branches(): void
+    {
+        // The exemption, proven directly: this Director holds no samity
+        // assignment at all (in production the user-form picker can only
+        // tick one branch's samities, so the all-branch picture could
+        // never be expressed as ticks) — yet the consolidated page must
+        // still carry every branch and the true combined figures.
+        $this->assertSame(0, DB::table('samity_user')
+            ->where('user_id', $this->director->id)->count());
+
+        $branch = $this->branch('102');
+        $biz = $this->biz($branch->id);
+        $propsBefore = $this->directorProps();
+        $before = $this->branchRow($propsBefore, '102');
+        // The other branch is present too, though he is assigned nowhere.
+        $this->branchRow($propsBefore, '101');
+
+        $this->actingAs($this->admin);
+        $this->makeMember($biz);
+
+        $props = $this->directorProps();
+        $after = $this->branchRow($props, '102');
+        $this->assertSame('1', (string) ($after['today']['new_members'] - $before['today']['new_members']));
+        $this->assertSame('1', (string) ($props['totals']['members'] - $propsBefore['totals']['members']));
     }
 
     public function test_user_without_director_view_gets_403(): void
