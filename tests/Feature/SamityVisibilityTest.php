@@ -12,9 +12,11 @@ use Tests\TestCase;
 /**
  * Owner's story, end to end (2026-11-14): a user given a collector-type
  * role and ticked for ONE samity on the user form must see exactly that
- * samity in Collection — visibility follows the ASSIGNMENT (samity_user),
- * not only the 'field-officer' role slug. A manager with no ticks keeps
- * full branch visibility; a manager with one tick becomes restricted.
+ * samity in Collection — visibility follows the ASSIGNMENT (samity_user)
+ * only. Clarified the same evening: NO role name is special, nothing is
+ * fixed — a user with no samity ticks (Field Officer included) sees all
+ * samities of their branch, exactly like any other role; a user with a
+ * tick (manager included) is restricted to the ticked samities.
  *
  * Seeded stand-ins: 'Talgachi Samity' plays the owner's "BU" samity and
  * 'Talgachi Mohila Samity' is the other samity of the same branch (102).
@@ -115,6 +117,19 @@ class SamityVisibilityTest extends TestCase
         $ids = $this->sheetSamityIds($officer);
         $this->assertContains($this->bu->id, $ids);
         $this->assertNotContains($this->other->id, $ids);
+    }
+
+    public function test_field_officer_without_ticks_sees_all_branch_samities(): void
+    {
+        // Owner rule (2026-11-14): the 'field-officer' role name alone
+        // restricts NOTHING — with no samity assignment the officer sees
+        // the whole branch, same as any other role.
+        $officer = $this->createUserViaForm('free.officer', ['field-officer'], []);
+        $this->assertFalse(app(SamityAccessService::class)->isRestricted($officer));
+
+        $ids = $this->sheetSamityIds($officer);
+        $this->assertContains($this->bu->id, $ids);
+        $this->assertContains($this->other->id, $ids);
     }
 
     public function test_branch_manager_without_ticks_sees_all_branch_samities(): void

@@ -9,15 +9,16 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Samity-level row scoping (plan Step 7 / A8): a user is samity-restricted
- * when they hold the Field Officer role OR when an admin has ticked at
- * least one samity for them on the user form (`samity_user`) — visibility
- * follows the assignment, so custom collector roles behave like Field
- * Officers once samities are ticked, and a manager with one tick becomes
- * restricted to it. Restricted users only ever see rows of their assigned
- * samities. Applies to any model whose table carries `samity_id` — and to
- * `samities` itself (via `id`). Every consumer (web, reports, the Step 42
- * API) inherits the restriction at query level. Mirrors
- * SamityAccessService::isRestricted() — keep the two in step.
+ * exactly when an admin has ticked at least one samity for them on the
+ * user form (`samity_user`) — visibility follows the assignment only,
+ * never a role name (owner rule, 2026-11-14), so any role behaves the
+ * same: ticked users see only their ticked samities, everyone else sees
+ * all samities of their branch. Restricted users only ever see rows of
+ * their assigned samities. Applies to any model whose table carries
+ * `samity_id` — and to `samities` itself (via `id`). Every consumer
+ * (web, reports, the Step 42 API) inherits the restriction at query
+ * level. Mirrors SamityAccessService::isRestricted() — keep the two in
+ * step.
  */
 class SamityScope implements Scope
 {
@@ -43,7 +44,7 @@ class SamityScope implements Scope
             ->where('user_id', $user->id)
             ->pluck('samity_id')
             ->all();
-        if (! $user->hasRole('field-officer') && $ids === []) {
+        if ($ids === []) {
             return;
         }
         $builder->whereIn($table.'.'.$column, $ids);

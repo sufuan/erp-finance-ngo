@@ -9,24 +9,24 @@ use App\Models\User;
  * scoping lives in SamityScope; this service guards endpoints that take
  * an explicit samity id (change forms, future collection routes).
  *
- * Restriction follows ASSIGNMENT, not just the role slug: a user is
- * samity-restricted when they hold the Field Officer role OR when an
- * admin has ticked at least one samity for them on the user form
- * (`samity_user`). Restricted users see exactly their ticked samities.
+ * Restriction follows ASSIGNMENT only, never a role name (owner rule,
+ * 2026-11-14): a user is samity-restricted exactly when an admin has
+ * ticked at least one samity for them on the user form (`samity_user`).
+ * Restricted users see exactly their ticked samities; everyone else —
+ * whatever their role — sees all samities of their branch.
  */
 class SamityAccessService
 {
-    /** Restricted ⇔ Field Officer role OR ≥1 assigned samity. */
+    /** Restricted ⇔ ≥1 assigned samity in `samity_user`. */
     public function isRestricted(?User $user): bool
     {
         if ($user === null) {
             return false;
         }
 
-        return $user->hasRole('field-officer')
-            || \Illuminate\Support\Facades\DB::table('samity_user')
-                ->where('user_id', $user->id)
-                ->exists();
+        return \Illuminate\Support\Facades\DB::table('samity_user')
+            ->where('user_id', $user->id)
+            ->exists();
     }
 
     /** @return int[] */
