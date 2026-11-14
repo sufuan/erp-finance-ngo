@@ -18,7 +18,10 @@ class RoleSeeder extends Seeder
 
         $readOnlyActions = ['view', 'view-statement', 'view-schedule', 'reports', 'print', 'export', 'export-excel', 'mis', 'pomis', 'balance', 'statements', 'search'];
         $auditor = array_values(array_filter($all, function (string $name) use ($readOnlyActions) {
-            return in_array(substr($name, strrpos($name, '.') + 1), $readOnlyActions, true);
+            // director.view stays with the Director role + Super Admin
+            // only (matches the live-deploy migration) — not auto-granted.
+            return $name !== 'director.view'
+                && in_array(substr($name, strrpos($name, '.') + 1), $readOnlyActions, true);
         }));
 
         $defs = [
@@ -28,7 +31,13 @@ class RoleSeeder extends Seeder
             ],
             'branch-manager' => [
                 'label' => 'Branch Manager', 'description' => 'Runs a branch; cannot manage users/roles or use break-glass.',
-                'permissions' => array_values(array_diff($all, ['settings.users-manage', 'settings.roles-manage', 'accounts.breakglass'])),
+                // director.view excluded: the Director overview is for the
+                // Director role + Super Admin only (client order).
+                'permissions' => array_values(array_diff($all, ['settings.users-manage', 'settings.roles-manage', 'accounts.breakglass', 'director.view'])),
+            ],
+            'director' => [
+                'label' => 'Director', 'description' => 'View-only consolidated overview of all branches (পরিচালক).',
+                'permissions' => ['director.view'],
             ],
             'accountant' => [
                 'label' => 'Accountant', 'description' => 'Accounting, deposits and reports for assigned branches.',

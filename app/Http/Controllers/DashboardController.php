@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\BranchAccessService;
 use App\Services\DashboardService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,9 +19,14 @@ use Inertia\Response;
  */
 class DashboardController extends Controller
 {
-    public function index(Request $request, DashboardService $dashboard, BranchAccessService $access): Response
+    public function index(Request $request, DashboardService $dashboard, BranchAccessService $access): Response|RedirectResponse
     {
         $user = $request->user();
+        // A Director-only login (director.view without dashboard.view)
+        // lands on the Director dashboard instead of the main one.
+        if ($user && $user->can('director.view') && ! $user->can('dashboard.view')) {
+            return redirect()->route('director.dashboard');
+        }
         $branchId = $request->query('branch_id') !== null ? (int) $request->query('branch_id') : null;
         if ($branchId !== null) {
             abort_unless($user && $access->canAccess($user, $branchId), 403);

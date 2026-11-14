@@ -29,6 +29,7 @@ import SamityChanges from '../../resources/js/Pages/Settings/Samities/Changes.js
 import GeneralSettings from '../../resources/js/Pages/Settings/General/Index.jsx';
 import ProposalCreate from '../../resources/js/Pages/Loans/ProposalCreate.jsx';
 import ProposalList from '../../resources/js/Pages/Loans/ProposalList.jsx';
+import DirectorDashboard from '../../resources/js/Pages/Director/Dashboard.jsx';
 import LoanOpening from '../../resources/js/Pages/Loans/Opening.jsx';
 import DepositOpening from '../../resources/js/Pages/Deposits/Opening.jsx';
 import DepositReports from '../../resources/js/Pages/Reports/DepositReports.jsx';
@@ -944,6 +945,34 @@ async function scenarioProposalListReportAction() {
     await unmount(m);
 }
 
+async function scenarioDirectorDashboard() {
+    const Wrapped = withI18n(DirectorDashboard);
+    const fig = {
+        deposit_collection: '1500.00', loan_collection: '500.00', due_today: '583.10',
+        disbursed: '12000.00', disbursed_count: 1, new_members: 2, income: '700.00', expense: '100.00',
+    };
+    const props = {
+        asOn: '2026-11-14',
+        today: fig,
+        month: { ...fig, deposit_collection: '9000.00' },
+        totals: { members: 42, active_loans: 7, outstanding: '54321.00', deposit_balance: '98765.00' },
+        branches: [{
+            id: 2, code: '102', name: 'Talgachi', business_date: '2026-11-14',
+            today: fig, month: fig,
+            totals: { members: 42, active_loans: 7, outstanding: '54321.00', deposit_balance: '98765.00' },
+        }],
+    };
+    __setPage(baseProps({ auth: { user: { id: 9, name: 'Director', username: 'director' }, can: { director: true } } }));
+    const m = mount(<Wrapped {...props} />);
+    const text = m.container.textContent;
+    check('DirectorDashboard: today cards render figures', text.includes('1,500.00') && text.includes('583.10'));
+    check('DirectorDashboard: totals cards render', text.includes('54,321.00') && text.includes('98,765.00'));
+    check('DirectorDashboard: per-branch row renders', text.includes('102') && text.includes('Talgachi'));
+    const main = m.container.querySelector('main') ?? m.container;
+    check('DirectorDashboard: view-only content (no forms, no buttons in main)', !main.querySelector('form') && !main.querySelector('button'));
+    await unmount(m);
+}
+
 const scenarios = [
     scenarioPrimaryButton,
     scenarioActionButton,
@@ -972,6 +1001,7 @@ const scenarios = [
     scenarioUsersRolesTabs,
     scenarioUserEmployeeAutofill,
     scenarioProposalListReportAction,
+    scenarioDirectorDashboard,
 ];
 
 for (const fn of scenarios) {

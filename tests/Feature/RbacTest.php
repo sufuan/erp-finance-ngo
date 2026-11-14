@@ -50,17 +50,22 @@ class RbacTest extends TestCase
         return $user;
     }
 
-    public function test_permission_catalog_is_seeded_with_141_permissions_and_6_roles(): void
+    public function test_permission_catalog_is_seeded_with_142_permissions_and_7_roles(): void
     {
-        $this->assertSame(141, count(PermissionCatalog::all()));
-        $this->assertSame(141, Permission::count());
-        $this->assertSame(6, Role::count());
+        $this->assertSame(142, count(PermissionCatalog::all()));
+        $this->assertSame(142, Permission::count());
+        $this->assertSame(7, Role::count());
         $superAdmin = Role::where('name', 'super-admin')->first();
         $this->assertTrue((bool) $superAdmin->is_system);
-        $this->assertSame(141, $superAdmin->permissions()->count());
+        $this->assertSame(142, $superAdmin->permissions()->count());
         $manager = Role::where('name', 'branch-manager')->first();
         $this->assertFalse($manager->hasPermissionTo('settings.users-manage'));
         $this->assertFalse($manager->hasPermissionTo('accounts.breakglass'));
+        // director.view belongs to the Director role + Super Admin only.
+        $this->assertFalse($manager->hasPermissionTo('director.view'));
+        $director = Role::where('name', 'director')->first();
+        $this->assertNotNull($director);
+        $this->assertSame(['director.view'], $director->permissions()->pluck('name')->all());
     }
 
     public function test_seeded_super_admin_can_log_in_and_pass_totp_enrollment(): void

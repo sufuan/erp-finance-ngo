@@ -15,6 +15,7 @@ class PermissionCatalog
         return [
             'dashboard.view' => ['dashboard', 'Dashboard — View'],
             'dashboard.export' => ['dashboard', 'Dashboard — Export'],
+            'director.view' => ['dashboard', 'Director Dashboard — View'],
             'members.view' => ['members', 'Members — View'],
             'members.create' => ['members', 'Members — Create'],
             'members.edit' => ['members', 'Members — Edit'],
