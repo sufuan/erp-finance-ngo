@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
@@ -6,6 +6,7 @@ import { t } from '../../lib/i18n';
 
 /** Installment details / receive history (Step 18) — wide audit table. */
 export default function InstallmentHistory({ member, memberQuery, loans, loanId, rows, filters }) {
+    const { props } = usePage();
     const [searching, setSearching] = useState(false);
     const lookup = (e) => { e.preventDefault(); router.get('/loans/receive/history', { member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const pickLoan = (id) => router.get('/loans/receive/history', { member: memberQuery, loan_id: id }, { preserveState: true, preserveScroll: true });
@@ -44,6 +45,11 @@ export default function InstallmentHistory({ member, memberQuery, loans, loanId,
                             </Field>
                             <PrimaryButton type="submit" loading={searching}>{t('search')}</PrimaryButton>
                         </form>
+                        {loanId && props.auth?.can?.collection && (
+                            <div className="flex items-end">
+                                <Link href={`/collection/collect-loan?loan_id=${loanId}`} className="inline-flex min-h-[44px] items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white">{t('collect_loan')}</Link>
+                            </div>
+                        )}
                     </div>
                 )}
             </Card>

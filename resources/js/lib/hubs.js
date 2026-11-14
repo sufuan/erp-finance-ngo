@@ -158,6 +158,7 @@ export const MODULES = [
         key: 'collection', titleKey: 'module_collection', icon: HandCoins, tone: 'green',
         tiles: [
             L('/collection/member', 'member_collection', HandCoins, 'green', 'collection'),
+            L('/collection/collect-loan', 'collect_loan', HandCoins, 'green', 'collection'),
             L('/collection/sheet', 'sheet_posting', ListChecks, 'teal', 'collection'),
             L('/collection/simple-sheet', 'simple_sheet_posting', ListChecks, 'cyan', 'collection'),
             L('/collection/reports?report=collection_summary', 'collection_summary_report', ScrollText, 'violet', 'collection'),
@@ -170,6 +171,7 @@ export const MODULES = [
                 titleKey: 'common_collection',
                 links: [
                     L('/collection/member', 'member_collection', HandCoins, 'green', 'collection'),
+                    L('/collection/collect-loan', 'collect_loan', HandCoins, 'green', 'collection'),
                     L('/collection/member-list', 'member_collection_list', ListChecks, 'blue', 'collection'),
                     L('/collection/sheet', 'sheet_posting', ListChecks, 'teal', 'collection'),
                     L('/collection/samity-list', 'samity_collection_list', ListChecks, 'cyan', 'collection'),

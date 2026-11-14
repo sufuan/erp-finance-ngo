@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\CollectionBatch;
 use App\Models\CollectionLine;
+use App\Models\LoanAccount;
 use App\Models\Member;
 use App\Models\OtherCollection;
 use App\Models\Samity;
@@ -219,6 +220,104 @@ class CollectionController extends Controller
 
         // Same explicit-redirect contract as storeSheet (see there).
         return redirect()->route('collection.simple-sheet', ['samity_id' => $samity->id])
+            ->with('success', __('collection_posted'));
+    }
+
+    // --- Collect Loan ---------------------------------------------------------
+
+    /**
+     * A loan the user may collect against: must exist as a live member
+     * loan (Disbursed/Active), sit in an accessible branch, and — under
+     * the assignment rule — its samity must be ticked for the user
+     * (super-admin exempt). LoanAccount carries no SamityScope, so the
+     * samity check reads the member row directly and asserts here.
+     */
+    private function findCollectableLoan(Request $request, int $id): LoanAccount
+    {
+        $loan = LoanAccount::with(['member.samity', 'product'])
+            ->whereNotNull('member_id')->whereIn('status', ['Disbursed', 'Active'])
+            ->find($id);
+        abort_unless($loan !== null, 404);
+        abort_unless($this->branches->canAccess($request->user(), $loan->branch_id), 403);
+        $samityId = (int) DB::table('members')->where('id', $loan->member_id)->value('samity_id');
+        $this->samityAccess->assertAccess($request->user(), $samityId);
+
+        return $loan;
+    }
+
+    /** @return LoanAccount[] */
+    private function searchCollectableLoans(Request $request, string $needle): array
+    {
+        $user = $request->user();
+        $branchIds = $this->branches->accessibleIds($user);
+        $active = $request->attributes->get('active_branch');
+        if ($active) {
+            $branchIds = array_values(array_intersect($branchIds, [$active->id]));
+        }
+        $query = LoanAccount::with(['member.samity', 'product'])
+            ->whereIn('branch_id', $branchIds)
+            ->whereNotNull('member_id')
+            ->whereIn('status', ['Disbursed', 'Active'])
+            ->where(function ($q) use ($needle) {
+                $q->where('loan_number', $needle)
+                    ->orWhereHas('member', fn ($m) => $m->where('member_no', $needle)
+                        ->orWhere('name', 'like', '%'.$needle.'%'));
+            });
+        if ($this->samityAccess->isRestricted($user)) {
+            $ids = $this->samityAccess->assignedSamityIds($user);
+            $query->whereHas('member', fn ($m) => $m->whereIn('samity_id', $ids));
+        }
+
+        return $query->orderByDesc('id')->limit(20)->get()->all();
+    }
+
+    public function collectLoanForm(Request $request): Response
+    {
+        $panel = null;
+        $results = [];
+        $query = (string) $request->query('loan', '');
+
+        if ($request->filled('loan_id')) {
+            $panel = $this->service->loanPanel($this->findCollectableLoan($request, $request->integer('loan_id')));
+        } elseif (trim($query) !== '') {
+            $matches = $this->searchCollectableLoans($request, trim($query));
+            if (count($matches) === 1) {
+                $panel = $this->service->loanPanel($matches[0]);
+            } else {
+                $results = collect($matches)->map(fn (LoanAccount $l) => $this->service->loanCard($l))->all();
+            }
+        }
+
+        return Inertia::render('Collections/CollectLoan', [
+            'query' => $query,
+            'results' => $results,
+            'panel' => $panel,
+            'canCollect' => $request->user()->can('collection.collect'),
+        ]);
+    }
+
+    public function storeCollectLoan(Request $request, AuditService $audit): RedirectResponse
+    {
+        $request->validate([
+            'loan_id' => ['required', 'integer'],
+            'amount' => ['required', 'numeric', 'gt:0'],
+        ]);
+        $loan = $this->findCollectableLoan($request, $request->integer('loan_id'));
+        // Same posting path as the Collection Sheet / Member Collection:
+        // one loan line in a member batch through CollectionService —
+        // allocation, DCR figures and cash-in-hand stay identical.
+        $batch = $this->service->postBatch($request->user(), [
+            'kind' => 'member', 'member_id' => $loan->member_id,
+            'lines' => [[
+                'member_id' => $loan->member_id, 'account_type' => 'loan',
+                'account_id' => $loan->id, 'amount' => (string) $request->input('amount'),
+            ]],
+        ]);
+        $audit->log($request->user()->id, 'collection.posted', 'collection_batches', $batch->id, null, ['total' => (string) $batch->total_receive]);
+
+        // Back to the refreshed panel (new due amount, updated
+        // installment table) with the standard success flash.
+        return redirect()->route('collection.collect-loan', ['loan_id' => $loan->id])
             ->with('success', __('collection_posted'));
     }
 

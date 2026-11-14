@@ -36,6 +36,7 @@ import DepositReports from '../../resources/js/Pages/Reports/DepositReports.jsx'
 import LoanReports from '../../resources/js/Pages/Reports/LoanReports.jsx';
 import RegistersIndex from '../../resources/js/Pages/Settings/Registers/Index.jsx';
 import SheetPosting from '../../resources/js/Pages/Collections/SheetPosting.jsx';
+import CollectLoan from '../../resources/js/Pages/Collections/CollectLoan.jsx';
 import CollectionReports from '../../resources/js/Pages/Collections/Reports.jsx';
 import PassbookIssue from '../../resources/js/Pages/Collections/PassbookIssue.jsx';
 import ChequeBookIssue from '../../resources/js/Pages/Collections/ChequeBookIssue.jsx';
@@ -1197,6 +1198,67 @@ async function scenarioCollectionSheetPostFeedback() {
     __setPage(baseProps());
 }
 
+async function scenarioCollectLoanPanel() {
+    __setPage(baseProps());
+    const installments = (paidFirst) => Array.from({ length: 12 }, (_, i) => ({
+        no: i + 1,
+        due_date: `2026-${String(11 + Math.floor(i / 2)).padStart(2, '0')}-01`,
+        amount: '1083.10',
+        paid: paidFirst && i === 0 ? '1083.10' : '0.00',
+        status: paidFirst && i === 0 ? 'paid' : 'due',
+    }));
+    const panelFor = (paidFirst) => ({
+        id: 21, loan_number: '102000021', member_id: 7, member_no: '102000007', member_name: 'Panel Member',
+        samity: '0001 — Talgachi Samity', product: '3001 — General Loan', frequency: 'M', status: 'Disbursed',
+        installment_amount: '1083.10',
+        outstanding: { principal: '12000.00', profit: paidFirst ? '914.10' : '997.20', penalty: '0.00', total: paidFirst ? '11914.10' : '12997.20' },
+        due_amount: '1083.10', business_date: '2026-10-28',
+        summary: {
+            total: 12, paid_count: paidFirst ? 1 : 0, remaining_count: paidFirst ? 11 : 12,
+            collected_amount: paidFirst ? '1083.10' : '0.00', remaining_amount: paidFirst ? '11914.10' : '12997.20',
+        },
+        installments: installments(paidFirst),
+    });
+    const props = { query: '', results: [], panel: panelFor(false), canCollect: true };
+    const Wrapped = withI18n(CollectLoan);
+    const m = mount(<Wrapped {...props} />);
+    const stat = (label) => [...m.container.querySelectorAll('dl div')]
+        .find((d) => d.querySelector('dt')?.textContent === label);
+    const amountInput = () => m.container.querySelector('input[type="number"]');
+    check('CollectLoan: panel shows the member and loan number',
+        m.container.textContent.includes('Panel Member') && m.container.textContent.includes('102000021'));
+    check('CollectLoan: amount is prefilled with the due amount, no typing',
+        amountInput()?.value === '1083.10');
+    check('CollectLoan: summary counts start at 12 total / 0 collected / 12 remaining',
+        stat(en.total_installments)?.textContent.includes('12')
+        && stat(en.installments_collected)?.textContent.includes('0')
+        && stat(en.installments_remaining)?.textContent.includes('12'));
+    const rows = [...m.container.querySelectorAll('tbody tr')];
+    check('CollectLoan: installment table renders 12 rows, first marked Due',
+        rows.length === 12 && rows[0].textContent.includes(en.due));
+    const collectForm = [...m.container.querySelectorAll('form')].find((f) => f.querySelector('input[type="number"]'));
+    await act(async () => { collectForm.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit = __pendingVisit();
+    check('CollectLoan: one click posts to the collect endpoint',
+        !!visit && visit.method === 'post' && visit.url === '/collection/collect-loan');
+    check('CollectLoan: the post carries the loan id and the untouched prefilled amount',
+        Number(visit?.data?.loan_id) === 21 && String(visit?.data?.amount) === '1083.10');
+    // The server redirects back to the refreshed panel with the flash.
+    __setPage(baseProps({ flash: { success: en.collection_posted }, errors: {} }));
+    await act(async () => { __finishVisit({}); });
+    await rerender(m, <Wrapped {...props} panel={panelFor(true)} />);
+    check('CollectLoan: success toast appears after the collect',
+        m.container.textContent.includes(en.collection_posted));
+    check('CollectLoan: counts move to 1 collected / 11 remaining',
+        stat(en.installments_collected)?.textContent.includes('1')
+        && stat(en.installments_remaining)?.textContent.includes('11'));
+    check('CollectLoan: first installment now marked Paid and amount re-prefilled for the next one',
+        [...m.container.querySelectorAll('tbody tr')][0].textContent.includes(en.paid)
+        && amountInput()?.value === '1083.10');
+    await unmount(m);
+    __setPage(baseProps());
+}
+
 const scenarios = [
     scenarioPrimaryButton,
     scenarioActionButton,
@@ -1231,6 +1293,7 @@ const scenarios = [
     scenarioLoanPreviewProposal,
     scenarioLoanPreviewOpeningPrefill,
     scenarioCollectionSheetPostFeedback,
+    scenarioCollectLoanPanel,
 ];
 
 for (const fn of scenarios) {

@@ -1,0 +1,1 @@
+import{i as e}from"./app-B_WgJnxj.js";import{t}from"./AppLayout-ogUKKQ6i.js";import{t as n}from"./HomeHub-Boak_L11.js";var r=e();function i(){return(0,r.jsx)(t,{children:(0,r.jsx)(n,{})})}export{i as default};

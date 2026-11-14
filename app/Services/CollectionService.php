@@ -76,6 +76,79 @@ class CollectionService
     }
 
     /**
+     * Collect Loan card for one loan: identity + money figures the
+     * collect panel (and the search result rows) render. The auto
+     * amount is loanReceivable() — the same figure the Collection
+     * Sheet prefills for this loan, so both paths always agree.
+     */
+    public function loanCard(LoanAccount $loan): array
+    {
+        $loan->loadMissing(['member.samity', 'product']);
+        $member = $loan->member;
+
+        return [
+            'id' => $loan->id,
+            'loan_number' => $loan->loan_number,
+            'member_id' => $member?->id,
+            'member_no' => $member?->member_no,
+            'member_name' => $member?->name,
+            'samity' => $member?->samity ? $member->samity->samity_code.' — '.$member->samity->name : null,
+            'product' => $loan->product ? $loan->product->code.' — '.$loan->product->name_en : null,
+            'frequency' => $loan->frequency,
+            'status' => $loan->status,
+            'installment_amount' => (string) $loan->installment_amount,
+            'outstanding' => $this->loanMoney->outstanding($loan),
+            'due_amount' => $this->loanReceivable($loan),
+            'business_date' => $this->businessDays->currentDate($loan->branch_id),
+        ];
+    }
+
+    /**
+     * Collect Loan panel: the loan card plus the installment summary
+     * (মোট কিস্তি / আদায় হয়েছে / বাকি counts and collected vs
+     * remaining amounts) and the installment-wise rows. Paid per row =
+     * paid principal + profit + penalty; a row is 'paid' when that
+     * covers its total_due, 'partial' when something was paid, else
+     * 'due'. Remaining amount is the loan's total outstanding (the
+     * same figure the card shows, penalty included).
+     */
+    public function loanPanel(LoanAccount $loan): array
+    {
+        $card = $this->loanCard($loan);
+        $rows = $loan->schedules()->orderBy('installment_no')->get();
+        $installments = [];
+        $paidCount = 0;
+        $collected = BigDecimal::zero();
+        foreach ($rows as $row) {
+            $paid = BigDecimal::of((string) $row->paid_principal)
+                ->plus((string) $row->paid_profit)->plus((string) $row->paid_penalty);
+            $due = BigDecimal::of((string) $row->total_due);
+            $status = $paid->isGreaterThanOrEqualTo($due) ? 'paid' : ($paid->isPositive() ? 'partial' : 'due');
+            if ($status === 'paid') {
+                $paidCount++;
+            }
+            $collected = $collected->plus($paid);
+            $installments[] = [
+                'no' => $row->installment_no,
+                'due_date' => $row->due_date?->toDateString(),
+                'amount' => $this->money($due),
+                'paid' => $this->money($paid),
+                'status' => $status,
+            ];
+        }
+        $card['summary'] = [
+            'total' => $rows->count(),
+            'paid_count' => $paidCount,
+            'remaining_count' => $rows->count() - $paidCount,
+            'collected_amount' => $this->money($collected),
+            'remaining_amount' => $card['outstanding']['total'],
+        ];
+        $card['installments'] = $installments;
+
+        return $card;
+    }
+
+    /**
      * The collection grid for a set of members: one row per member, one
      * editable cell per account the member holds (deposit accounts, then
      * loans, then a share cell), each with its receivable prefilled.

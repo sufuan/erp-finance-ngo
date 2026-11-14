@@ -318,6 +318,8 @@ Route::middleware(['auth', 'password.changed', 'totp'])->prefix('collection')->n
     // Posting pages (Common Collection).
     Route::get('/member', [CollectionController::class, 'memberForm'])->middleware('can:collection.collect')->name('member');
     Route::post('/member', [CollectionController::class, 'storeMember'])->middleware('can:collection.collect')->name('member.store');
+    Route::get('/collect-loan', [CollectionController::class, 'collectLoanForm'])->middleware('can:collection.view')->name('collect-loan');
+    Route::post('/collect-loan', [CollectionController::class, 'storeCollectLoan'])->middleware('can:collection.collect')->name('collect-loan.store');
     Route::get('/sheet', [CollectionController::class, 'sheetForm'])->middleware('can:collection.collect')->name('sheet');
     Route::post('/sheet', [CollectionController::class, 'storeSheet'])->middleware('can:collection.collect')->name('sheet.store');
     Route::get('/simple-sheet', [CollectionController::class, 'simpleForm'])->middleware('can:collection.collect')->name('simple-sheet');

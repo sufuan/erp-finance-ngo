@@ -1,0 +1,1 @@
+import{i as e}from"./app-B_WgJnxj.js";import{t}from"./CollectionReportEngine-U43z59c7.js";var n=e();function r(e){return(0,n.jsx)(t,{basePath:`/collection/sheets`,headingKey:`collection_sheet_section`,...e})}export{r as default};
