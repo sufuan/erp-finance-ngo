@@ -882,6 +882,27 @@ async function scenarioUsersRolesTabs() {
     await unmount(m);
 }
 
+// Roles matrix (owner rule, 2026-11-14): dashboard.view is always-on for
+// every role and force-granted server-side, so the matrix must NOT offer
+// it as a tick — even when the server sends the permission in the groups.
+async function scenarioRolesDashboardAlwaysOn() {
+    const WrappedRoles = withI18n(RolesIndex);
+    __setPage(baseProps({
+        auth: { user: { id: 1, name: 'Admin', username: 'admin' }, can: { users: true, roles: true, settings: true } },
+    }));
+    const permissionGroups = [
+        { module: 'dashboard', permissions: [{ id: 1, name: 'dashboard.view', module: 'dashboard', label: 'Dashboard — View' }] },
+        { module: 'members', permissions: [{ id: 2, name: 'members.view', module: 'members', label: 'Members — View' }] },
+    ];
+    const m = mount(<WrappedRoles roles={[]} permissionGroups={permissionGroups} />);
+    const form = m.container.querySelector('form');
+    check('Roles matrix: dashboard.view tick is not offered', !form.textContent.includes(en['perm.dashboard.view']));
+    check('Roles matrix: other permissions still render', form.textContent.includes(en['perm.members.view']));
+    check('Roles matrix: only the members group checkboxes render (select-all + 1)',
+        form.querySelectorAll('input[type="checkbox"]').length === 2);
+    await unmount(m);
+}
+
 // Create-user form (owner redesign, syncs #69/#71): Employee comes
 // FIRST, then Full Name, then Username. Selecting an employee auto-fills
 // Name, generates the Username (name slug + employee id), fills the
@@ -1045,6 +1066,7 @@ const scenarios = [
     scenarioAccountsGroupSync,
     scenarioAccountsPagesMount,
     scenarioUsersRolesTabs,
+    scenarioRolesDashboardAlwaysOn,
     scenarioUserEmployeeAutofill,
     scenarioUserSamityPicker,
     scenarioProposalListReportAction,

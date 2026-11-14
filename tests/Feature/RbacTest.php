@@ -228,6 +228,54 @@ class RbacTest extends TestCase
         $this->assertNotNull(Role::find($system->id));
     }
 
+    public function test_role_store_force_merges_dashboard_view(): void
+    {
+        $admin = $this->makeUser('super-admin');
+        $this->actingAsTotpPassed($admin)->post('/settings/roles', [
+            'name' => 'always-dash', 'label' => 'Always Dash', 'description' => 'x',
+            'permissions' => ['members.view'],
+        ])->assertSessionHas('success');
+
+        $role = Role::where('name', 'always-dash')->firstOrFail();
+        $this->assertTrue($role->hasPermissionTo('members.view'));
+        $this->assertTrue($role->hasPermissionTo('dashboard.view'), 'dashboard.view is always-on: a payload without it still ends up with it');
+    }
+
+    public function test_role_update_cannot_remove_dashboard_view(): void
+    {
+        $admin = $this->makeUser('super-admin');
+        $role = Role::create(['name' => 'dash-keeper', 'label' => 'Dash Keeper']);
+        $role->syncPermissions(['members.view', 'dashboard.view']);
+
+        $this->actingAsTotpPassed($admin)->put("/settings/roles/{$role->id}", [
+            'name' => 'dash-keeper', 'label' => 'Dash Keeper', 'description' => 'x',
+            'permissions' => ['members.view'],
+        ])->assertSessionHas('success');
+        $this->assertTrue($role->fresh()->hasPermissionTo('dashboard.view'), 'Removing the tick in the payload must not remove dashboard.view');
+    }
+
+    public function test_dashboard_view_migration_grants_every_role_except_director(): void
+    {
+        // Strip the permission from two roles, then run the live-deploy
+        // migration (deploys migrate but do not seed).
+        $officer = Role::where('name', 'field-officer')->firstOrFail();
+        $officer->syncPermissions(['collection.view']);
+        $custom = Role::create(['name' => 'migration-probe', 'label' => 'Probe']);
+        $custom->syncPermissions(['members.view']);
+        $this->assertFalse($officer->fresh()->hasPermissionTo('dashboard.view'));
+        $this->assertFalse($custom->fresh()->hasPermissionTo('dashboard.view'));
+
+        $migration = require database_path('migrations/2026_11_14_130000_grant_dashboard_view_to_all_roles.php');
+        $migration->up();
+
+        $this->assertTrue($officer->fresh()->hasPermissionTo('dashboard.view'));
+        $this->assertTrue($custom->fresh()->hasPermissionTo('dashboard.view'));
+        // Director stays view-only: no dashboard.view, exactly its one permission.
+        $director = Role::where('name', 'director')->firstOrFail();
+        $this->assertFalse($director->hasPermissionTo('dashboard.view'));
+        $this->assertSame(['director.view'], $director->permissions()->pluck('name')->all());
+    }
+
     public function test_permissions_catalog_page_groups_by_module(): void
     {
         $this->actingAsTotpPassed($this->makeUser('super-admin'))->get('/settings/permissions')

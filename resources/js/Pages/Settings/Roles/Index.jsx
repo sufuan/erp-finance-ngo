@@ -29,8 +29,10 @@ export default function RolesIndex({ roles, permissionGroups }) {
     const toggleModule = (perms, on) =>
         setData('permissions', on ? [...new Set([...data.permissions, ...perms])] : data.permissions.filter((p) => !perms.includes(p)));
 
+    // dashboard.view is always-on for every role (owner rule): it is
+    // force-granted server-side, so the matrix does not offer it as a tick.
     const groups = useMemo(() => permissionGroups
-        .map((g) => ({ ...g, permissions: g.permissions.filter((p) => !filter || p.name.includes(filter) || t(`perm.${p.name}`).includes(filter)) }))
+        .map((g) => ({ ...g, permissions: g.permissions.filter((p) => p.name !== 'dashboard.view' && (!filter || p.name.includes(filter) || t(`perm.${p.name}`).includes(filter))) }))
         .filter((g) => g.permissions.length > 0), [permissionGroups, filter]);
 
     return (

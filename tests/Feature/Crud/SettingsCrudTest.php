@@ -283,7 +283,9 @@ class SettingsCrudTest extends CrudTestCase
         ])->assertRedirect()->assertSessionHas('success');
 
         $role = Role::where('name', 'crud-tester')->firstOrFail();
-        $this->assertEqualsCanonicalizing($perms, $role->permissions->pluck('name')->all());
+        // dashboard.view is always-on (owner rule): the endpoint force-merges
+        // it into every saved role, so the stored set is payload + dashboard.view.
+        $this->assertEqualsCanonicalizing([...$perms, 'dashboard.view'], $role->permissions->pluck('name')->all());
 
         $this->get('/settings/roles')->assertOk();
         $this->get('/settings/permissions')->assertOk();
@@ -293,7 +295,7 @@ class SettingsCrudTest extends CrudTestCase
             'name' => 'crud-tester', 'label' => 'CRUD Tester v2', 'description' => 'Sweep role',
             'permissions' => $reduced,
         ])->assertRedirect()->assertSessionHas('success');
-        $this->assertEqualsCanonicalizing($reduced, $role->fresh()->permissions->pluck('name')->all());
+        $this->assertEqualsCanonicalizing([...$reduced, 'dashboard.view'], $role->fresh()->permissions->pluck('name')->all());
 
         $this->delete("/settings/roles/{$role->id}")->assertRedirect()->assertSessionHas('success');
         $this->assertNull(Role::find($role->id));

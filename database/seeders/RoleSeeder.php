@@ -75,6 +75,13 @@ class RoleSeeder extends Seeder
         ];
 
         foreach ($defs as $name => $def) {
+            // dashboard.view is always-on for every role except Director
+            // (owner rule; Director stays view-only so its landing redirect
+            // to /director keeps working). Guaranteed structurally here so
+            // no future def can forget it.
+            if ($name !== 'director') {
+                $def['permissions'] = array_values(array_unique([...$def['permissions'], 'dashboard.view']));
+            }
             $role = Role::updateOrCreate(
                 ['name' => $name, 'guard_name' => 'web'],
                 ['label' => $def['label'], 'description' => $def['description'], 'is_system' => true]

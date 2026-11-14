@@ -46,7 +46,7 @@ class RoleController extends Controller
             'permissions.*' => ['string', Rule::exists('permissions', 'name')],
         ]);
         $role = Role::create(['name' => $validated['name'], 'label' => $validated['label'] ?? null, 'description' => $validated['description'] ?? null, 'is_system' => false]);
-        $role->syncPermissions($validated['permissions'] ?? []);
+        $role->syncPermissions($this->withDashboardView($validated['permissions'] ?? []));
         $this->audit->log($request->user()->id, 'role.created', 'roles', $role->id, null, ['name' => $role->name]);
 
         return back()->with('success', __('saved'));
@@ -64,10 +64,29 @@ class RoleController extends Controller
         ]);
         $old = ['permissions' => $role->permissions->pluck('name')->all()];
         $role->update(['name' => $validated['name'], 'label' => $validated['label'] ?? null, 'description' => $validated['description'] ?? null]);
-        $role->syncPermissions($validated['permissions'] ?? []);
-        $this->audit->log($request->user()->id, 'role.updated', 'roles', $role->id, $old, ['permissions' => $validated['permissions'] ?? []]);
+        // The Director role is view-only by the client's spec and its
+        // landing redirect depends on NOT holding dashboard.view — every
+        // other role gets the permission force-merged (see withDashboardView).
+        $permissions = $role->name === 'director'
+            ? ($validated['permissions'] ?? [])
+            : $this->withDashboardView($validated['permissions'] ?? []);
+        $role->syncPermissions($permissions);
+        $this->audit->log($request->user()->id, 'role.updated', 'roles', $role->id, $old, ['permissions' => $permissions]);
 
         return back()->with('success', __('saved'));
+    }
+
+    /**
+     * dashboard.view is always-on (owner rule): every role must be able to
+     * see the dashboard, so the matrix no longer offers the tick and the
+     * permission is merged into every saved set regardless of the payload.
+     *
+     * @param  string[]  $permissions
+     * @return string[]
+     */
+    private function withDashboardView(array $permissions): array
+    {
+        return array_values(array_unique([...$permissions, 'dashboard.view']));
     }
 
     public function destroy(Request $request, Role $role): RedirectResponse
