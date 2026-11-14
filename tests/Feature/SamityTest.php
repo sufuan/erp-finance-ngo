@@ -240,6 +240,88 @@ class SamityTest extends TestCase
         $this->assertSame(15, (int) $row['current_date']);
     }
 
+    public function test_create_daily_samity_stores_null_day_and_date(): void
+    {
+        $this->manager();
+        $this->post('/settings/samities', $this->payload([
+            'meeting_frequency' => 'daily', 'samity_day' => '', 'date_of_month' => '',
+        ]))->assertSessionHas('success');
+        $samity = Samity::where('name', 'New Test Samity')->firstOrFail();
+        $this->assertNull($samity->samity_day);
+        $this->assertNull($samity->date_of_month);
+    }
+
+    public function test_update_samity_to_daily_clears_day_and_date(): void
+    {
+        $this->manager();
+        $this->post('/settings/samities', $this->payload())->assertSessionHas('success');
+        $samity = Samity::where('name', 'New Test Samity')->firstOrFail();
+
+        $this->put("/settings/samities/{$samity->id}", $this->payload([
+            'meeting_frequency' => 'daily', 'samity_day' => '', 'date_of_month' => '',
+        ]))->assertSessionHas('success');
+        $samity->refresh();
+        $this->assertNull($samity->samity_day);
+        $this->assertNull($samity->date_of_month);
+
+        // And back out of daily to monthly still works.
+        $this->put("/settings/samities/{$samity->id}", $this->payload([
+            'meeting_frequency' => 'monthly', 'samity_day' => '', 'date_of_month' => 5,
+        ]))->assertSessionHas('success');
+        $samity->refresh();
+        $this->assertNull($samity->samity_day);
+        $this->assertSame(5, (int) $samity->date_of_month);
+    }
+
+    public function test_day_change_to_daily_and_back_records_daily_token(): void
+    {
+        $this->manager();
+        $samity = Samity::where('name', 'Talgachi Samity')->firstOrFail();
+        $this->assertSame('Wednesday', $samity->samity_day);
+
+        $this->post('/settings/samities/changes/day', [
+            'samity_id' => $samity->id, 'meeting_frequency' => 'daily', 'samity_day' => '', 'date_of_month' => '',
+            'change_date' => '2026-10-21', 'effective_from' => '2026-10-28',
+        ])->assertSessionHas('success');
+        $samity->refresh();
+        $this->assertNull($samity->samity_day);
+        $this->assertNull($samity->date_of_month);
+        $change = SamityDayChange::where('samity_id', $samity->id)->latest('id')->firstOrFail();
+        $this->assertSame('Wednesday', $change->previous_value);
+        $this->assertSame('daily', $change->new_value);
+
+        $this->post('/settings/samities/changes/day', [
+            'samity_id' => $samity->id, 'meeting_frequency' => 'weekly', 'samity_day' => 'Friday',
+            'change_date' => '2026-10-22', 'effective_from' => '2026-11-06',
+        ])->assertSessionHas('success');
+        $samity->refresh();
+        $this->assertSame('Friday', $samity->samity_day);
+        $change = SamityDayChange::where('samity_id', $samity->id)->latest('id')->firstOrFail();
+        $this->assertSame('daily', $change->previous_value);
+        $this->assertSame('Friday', $change->new_value);
+    }
+
+    public function test_daily_samity_is_offered_on_the_collection_sheet(): void
+    {
+        $this->manager();
+        $this->post('/settings/samities', $this->payload([
+            'name' => 'Daily Collection Samity',
+            'meeting_frequency' => 'daily', 'samity_day' => '', 'date_of_month' => '',
+        ]))->assertSessionHas('success');
+        $samity = Samity::where('name', 'Daily Collection Samity')->firstOrFail();
+
+        // The collection sheet lists every active samity of the branch —
+        // a daily samity (no weekday, no monthly date) must appear too,
+        // on any day, or its members could never be collected from.
+        $admin = User::factory()->create(['must_change_password' => false]);
+        $admin->assignRole('super-admin');
+        $this->actingAs($admin);
+        $response = $this->withSession(['active_branch_id' => $samity->branch_id])->get('/collection/sheet');
+        $response->assertOk();
+        $ids = collect($response->viewData('page')['props']['samities'])->pluck('id');
+        $this->assertTrue($ids->contains($samity->id));
+    }
+
     public function test_holiday_range_creates_one_row_per_day_and_skips_existing(): void
     {
         $this->manager();

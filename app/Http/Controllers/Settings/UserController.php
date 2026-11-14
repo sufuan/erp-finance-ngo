@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\LoginAudit;
+use App\Models\Samity;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\BranchAccessService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +28,7 @@ class UserController extends Controller
 {
     public function __construct(private readonly AuditService $audit) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $users = User::with(['roles:id,name,label', 'branches:id,code,name'])
             ->orderBy('name')
@@ -51,6 +53,14 @@ class UserController extends Controller
             'roles' => Role::orderBy('name')->get(['id', 'name', 'label']),
             'branches' => Branch::orderBy('code')->get(['id', 'code', 'name']),
             'employees' => Employee::orderBy('name')->get(['id', 'name', 'email', 'branch_id']),
+            // Samities the acting user may offer for assignment, scoped to
+            // the branches they can access; the form groups them under the
+            // selected branch so nobody has to know a numeric samity ID.
+            'samities' => Samity::whereIn('branch_id', app(BranchAccessService::class)->accessibleIds($request->user()))
+                ->orderBy('samity_code')
+                ->get(['id', 'samity_code', 'name', 'branch_id'])
+                ->map(fn (Samity $s) => ['id' => $s->id, 'code' => $s->samity_code, 'name' => $s->name, 'branch_id' => $s->branch_id])
+                ->all(),
         ]);
     }
 
@@ -148,7 +158,8 @@ class UserController extends Controller
             'roles' => ['nullable', 'array'],
             'roles.*' => ['string', Rule::exists('roles', 'name')],
             'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
-            'samity_ids' => ['nullable', 'string'],
+            'samity_ids' => ['nullable', 'array'],
+            'samity_ids.*' => ['integer', Rule::exists('samities', 'id')],
         ]);
     }
 
@@ -161,11 +172,13 @@ class UserController extends Controller
         $branchId = $request->input('branch_id');
         $user->branches()->sync($branchId ? [(int) $branchId] : []);
 
-        $samityIds = collect(explode(',', (string) $request->input('samity_ids', '')))
-            ->map(fn ($v) => (int) trim($v))->filter()->unique()->values();
-        DB::table('samity_user')->where('user_id', $user->id)->delete();
-        foreach ($samityIds as $samityId) {
-            DB::table('samity_user')->insert(['user_id' => $user->id, 'samity_id' => $samityId, 'created_at' => now(), 'updated_at' => now()]);
-        }
+        // Samity assignment is a checklist in the form now: the submitted
+        // ID array IS the assignment (empty = none). IDs are validated to
+        // exist; the picker only offers the selected branch's samities,
+        // but the server contract is the same exists-check the branch
+        // dropdown uses.
+        $samityIds = collect($request->input('samity_ids', []))
+            ->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $user->samities()->sync($samityIds);
     }
 }

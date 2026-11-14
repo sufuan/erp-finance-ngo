@@ -30,8 +30,9 @@ export default function SamitiesIndex({ samities, options, businessDate, activeB
             next[k] = v;
         });
         // A stored monthly date opens the picker in Monthly mode (0 = last
-        // day); anything else is a weekly samity on its stored day.
-        next.meeting_frequency = isMonthly(s) ? 'monthly' : 'weekly';
+        // day); a stored weekday opens Weekly; neither stored means the
+        // samity meets daily.
+        next.meeting_frequency = isMonthly(s) ? 'monthly' : (next.samity_day ? 'weekly' : 'daily');
         if (next.meeting_frequency === 'weekly' && !next.samity_day) next.samity_day = 'Wednesday';
         setData(next);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -41,13 +42,14 @@ export default function SamitiesIndex({ samities, options, businessDate, activeB
         if (editing) put(`/settings/samities/${editing.id}`, { preserveScroll: true, onSuccess: startCreate });
         else post('/settings/samities', { preserveScroll: true, onSuccess: startCreate });
     };
-    // Switching frequency clears the inactive field, so the payload never
+    // Switching frequency clears the inactive fields, so the payload never
     // mixes a weekly day with a monthly date (the server rejects that too).
+    // Daily clears BOTH — a daily samity carries neither value.
     const changeFrequency = (f) => setData((d) => ({
         ...d,
         meeting_frequency: f,
-        samity_day: f === 'monthly' ? '' : (d.samity_day || 'Wednesday'),
-        date_of_month: f === 'weekly' ? '' : d.date_of_month,
+        samity_day: f === 'weekly' ? (d.samity_day || 'Wednesday') : '',
+        date_of_month: f === 'monthly' ? d.date_of_month : '',
     }));
     const useMyLocation = () => {
         if (!navigator.geolocation) return;

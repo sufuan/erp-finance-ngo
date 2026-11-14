@@ -88,16 +88,18 @@ class SamityController extends Controller
     }
 
     /**
-     * Meeting schedule: a samity meets EITHER weekly (samity_day set,
-     * date_of_month null) OR monthly (date_of_month 1–31, or 0 = last day
-     * of the month; samity_day null). The payload's meeting_frequency
-     * drives which field is required; carrying the other field's value
-     * is a mismatch and is rejected rather than silently dropped.
+     * Meeting schedule: a samity meets daily (samity_day AND date_of_month
+     * both null), weekly (samity_day set, date_of_month null) OR monthly
+     * (date_of_month 1–31, or 0 = last day of the month; samity_day null).
+     * The payload's meeting_frequency drives which field is required;
+     * carrying the other field's value is a mismatch and is rejected
+     * rather than silently dropped. A daily payload needs neither field —
+     * both are simply nulled.
      */
     private function meetingScheduleRules(): array
     {
         return [
-            'meeting_frequency' => ['required', 'in:weekly,monthly'],
+            'meeting_frequency' => ['required', 'in:weekly,monthly,daily'],
             'samity_day' => ['nullable', 'required_if:meeting_frequency,weekly', 'in:'.implode(',', self::DAYS)],
             'date_of_month' => ['nullable', 'required_if:meeting_frequency,monthly', 'integer', 'min:0', 'max:31'],
         ];
@@ -106,7 +108,12 @@ class SamityController extends Controller
     /** Reject the inactive field carrying a value; null it out; drop the frequency flag. */
     private function normalizeSchedule(array $data): array
     {
-        if ($data['meeting_frequency'] === 'weekly') {
+        if ($data['meeting_frequency'] === 'daily') {
+            // Meets every day: no weekday, no monthly date — nothing to
+            // conflict, both columns are simply cleared.
+            $data['samity_day'] = null;
+            $data['date_of_month'] = null;
+        } elseif ($data['meeting_frequency'] === 'weekly') {
             if (isset($data['date_of_month']) && $data['date_of_month'] !== null && $data['date_of_month'] !== '') {
                 throw ValidationException::withMessages(['date_of_month' => __('meeting_schedule_conflict')]);
             }
@@ -123,14 +130,17 @@ class SamityController extends Controller
         return $data;
     }
 
-    /** Display token for a schedule: day name, "monthly:15", or "monthly:last". */
+    /** Display token for a schedule: "daily", day name, "monthly:15", or "monthly:last". */
     private function scheduleToken(?string $day, mixed $dateOfMonth): ?string
     {
         if ($dateOfMonth !== null && $dateOfMonth !== '') {
             return (int) $dateOfMonth === 0 ? 'monthly:last' : 'monthly:'.(int) $dateOfMonth;
         }
+        if ($day !== null && $day !== '') {
+            return $day;
+        }
 
-        return $day;
+        return 'daily';
     }
 
     private function samityScheduleToken(Samity $samity): ?string
@@ -250,10 +260,11 @@ class SamityController extends Controller
         $cfg = $this->changeConfig($type);
 
         // Day changes carry the whole meeting schedule (frequency + day or
-        // monthly date), so a change can also switch weekly <-> monthly.
-        // The history row stores schedule tokens ("Wednesday", "monthly:15",
-        // "monthly:last") as previous/new values, and BOTH schedule columns
-        // are updated together so the inactive one is always null.
+        // monthly date), so a change can also switch daily <-> weekly <->
+        // monthly. The history row stores schedule tokens ("daily",
+        // "Wednesday", "monthly:15", "monthly:last") as previous/new
+        // values, and BOTH schedule columns are updated together so the
+        // inactive one is always null.
         if ($type === 'day') {
             $data = $request->validate([
                 'samity_id' => ['required', 'integer', 'exists:samities,id'],

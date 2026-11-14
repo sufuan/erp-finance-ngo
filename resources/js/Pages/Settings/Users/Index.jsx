@@ -5,9 +5,9 @@ import AppLayout from '../../../Layouts/AppLayout';
 import { t } from '../../../lib/i18n';
 import UsersRolesTabs from '../Partials/UsersRolesTabs';
 
-const empty = { name: '', username: '', email: '', employee_id: '', locale: 'bn', password: '', roles: [], branch_id: '', samity_ids: '' };
+const empty = { name: '', username: '', email: '', employee_id: '', locale: 'bn', password: '', roles: [], branch_id: '', samity_ids: [] };
 
-export default function UsersIndex({ users, roles, branches, employees }) {
+export default function UsersIndex({ users, roles, branches, employees, samities = [] }) {
     const { props } = usePage();
     const [editingId, setEditingId] = useState(null);
     const { data, setData, post, put, processing, errors, reset } = useForm(empty);
@@ -19,7 +19,10 @@ export default function UsersIndex({ users, roles, branches, employees }) {
             locale: u.locale, password: '',
             roles: u.roles,
             branch_id: u.branches[0]?.id ?? '',
-            samity_ids: (u.samity_ids ?? []).join(', '),
+            // Only the preselected branch's samities are listed (and can
+            // stay ticked); ticks from any other branch are dropped here,
+            // mirroring how the branch itself normalizes to one on save.
+            samity_ids: keepBranchSamities((u.samity_ids ?? []).map(Number), u.branches[0]?.id ?? ''),
         });
     };
     const startCreate = () => { setEditingId(null); reset(); setData(empty); };
@@ -30,6 +33,19 @@ export default function UsersIndex({ users, roles, branches, employees }) {
     };
     const toggleIn = (field, value) =>
         setData(field, data[field].includes(value) ? data[field].filter((v) => v !== value) : [...data[field], value]);
+
+    // Samity assignment follows the Branch dropdown: the checklist shows
+    // only the selected branch's samities, and switching branch drops any
+    // ticked samities that belong to another branch.
+    const samitiesOfBranch = (branchId) => samities.filter((s) => String(s.branch_id) === String(branchId ?? ''));
+    const keepBranchSamities = (ids, branchId) => {
+        const allowed = new Set(samitiesOfBranch(branchId).map((s) => s.id));
+        return (ids ?? []).filter((id) => allowed.has(Number(id)));
+    };
+    const onBranchChange = (e) => {
+        const branchId = e.target.value;
+        setData({ ...data, branch_id: branchId, samity_ids: keepBranchSamities(data.samity_ids, branchId) });
+    };
 
     // Create form only: picking an employee fills Name, generates a
     // unique Username suggestion (name slug + employee id), fills the
@@ -48,6 +64,7 @@ export default function UsersIndex({ users, roles, branches, employees }) {
             username: `${slug || 'employee'}${emp.id}`,
             email: emp.email ?? '',
             branch_id: emp.branch_id ?? '',
+            samity_ids: keepBranchSamities(data.samity_ids, emp.branch_id ?? ''),
         });
     };
 
@@ -75,7 +92,7 @@ export default function UsersIndex({ users, roles, branches, employees }) {
                         <Field label={t('password')} required error={errors.password}><input type="password" className={inputCls} value={data.password} onChange={(e) => setData('password', e.target.value)} required /></Field>
                     )}
                     <Field label={t('branch')} error={errors.branch_id}>
-                        <select className={inputCls} value={data.branch_id} onChange={(e) => setData('branch_id', e.target.value)}>
+                        <select className={inputCls} value={data.branch_id} onChange={onBranchChange}>
                             <option value="">—</option>
                             {branches.map((b) => (<option key={b.id} value={b.id}>{b.code} — {b.name}</option>))}
                         </select>
@@ -102,10 +119,24 @@ export default function UsersIndex({ users, roles, branches, employees }) {
                 </div>
 
                 <div className="mt-4">
-                    <Field label={t('assign_samities')} error={errors.samity_ids}>
-                        <input className={inputCls} value={data.samity_ids} onChange={(e) => setData('samity_ids', e.target.value)} placeholder="1, 2, 3" />
-                    </Field>
-                    <p className="mt-1 text-xs text-zinc-500">{t('samity_ids_hint')}</p>
+                    <fieldset>
+                        <legend className="mb-2 text-sm font-medium">{t('assign_samities')}</legend>
+                        {data.branch_id === '' || data.branch_id === null ? (
+                            <p className="text-sm text-zinc-500">{t('select_branch_to_assign_samities')}</p>
+                        ) : samitiesOfBranch(data.branch_id).length === 0 ? (
+                            <p className="text-sm text-zinc-500">{t('no_data_found')}</p>
+                        ) : (
+                            <div className="space-y-1">
+                                {samitiesOfBranch(data.branch_id).map((s) => (
+                                    <label key={s.id} className="flex min-h-[44px] items-center gap-2 text-sm">
+                                        <input type="checkbox" className="h-5 w-5" checked={data.samity_ids.includes(s.id)} onChange={() => toggleIn('samity_ids', s.id)} />
+                                        {s.code} — {s.name}
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+                        {errors.samity_ids && <p className="mt-1 text-sm text-red-600">{errors.samity_ids}</p>}
+                    </fieldset>
                 </div>
 
                 <div className="mt-4 flex gap-2">

@@ -2,26 +2,32 @@ import { Field } from './ui';
 import { t } from '../lib/i18n';
 
 /**
- * Samity meeting schedule picker: a samity meets EITHER weekly (a weekday)
- * OR monthly (a date 1–31, or 0 = last day of the month). One control drives
- * the meeting_frequency + samity_day + date_of_month form fields, so the
- * inactive field is always cleared and the payload can never mix both.
+ * Samity meeting schedule picker: a samity meets daily (every day),
+ * weekly (a weekday) OR monthly (a date 1–31, or 0 = last day of the
+ * month). One control drives the meeting_frequency + samity_day +
+ * date_of_month form fields, so the inactive fields are always cleared
+ * and the payload can never mix them. A daily samity carries neither a
+ * weekday nor a date — both storage columns stay null.
  */
 
-/** Storage token for a schedule: day name, "monthly:15", or "monthly:last". */
+/** Storage token for a schedule: "daily", a day name, "monthly:15", or "monthly:last". */
 export const scheduleTokenOf = (samity) => {
     if (!samity) return null;
     const date = samity.date_of_month;
     if (date !== null && date !== undefined && date !== '') {
         return Number(date) === 0 ? 'monthly:last' : `monthly:${Number(date)}`;
     }
+    if (samity.samity_day) {
+        return samity.samity_day;
+    }
 
-    return samity.samity_day ?? null;
+    return 'daily';
 };
 
 /** Human label for a schedule token (used in lists, current value, history). */
 export const scheduleLabel = (token) => {
     if (token === null || token === undefined || token === '') return '—';
+    if (token === 'daily') return t('daily');
     if (typeof token === 'string' && token.startsWith('monthly:')) {
         const v = token.slice('monthly:'.length);
 
@@ -44,7 +50,7 @@ export default function SamitySchedulePicker({ frequency, day, dateOfMonth, days
         <div>
             <Field label={t('meeting_frequency')} required error={errors.meeting_frequency}>
                 <div className="flex gap-2">
-                    {[['weekly', 'weekly'], ['monthly', 'monthly']].map(([value, key]) => (
+                    {[['daily', 'daily'], ['weekly', 'weekly'], ['monthly', 'monthly']].map(([value, key]) => (
                         <button key={value} type="button" onClick={() => onFrequency(value)}
                             className={`min-h-[44px] flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                                 frequency === value

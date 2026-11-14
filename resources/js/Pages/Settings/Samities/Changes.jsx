@@ -6,12 +6,15 @@ import { t } from '../../../lib/i18n';
 
 const scheduleOf = (s) => {
     const monthly = s?.current_date !== null && s?.current_date !== undefined && s?.current_date !== '';
+    if (monthly) {
+        return { meeting_frequency: 'monthly', samity_day: '', date_of_month: String(s.current_date) };
+    }
+    if (s?.current_day) {
+        return { meeting_frequency: 'weekly', samity_day: s.current_day, date_of_month: '' };
+    }
 
-    return {
-        meeting_frequency: monthly ? 'monthly' : 'weekly',
-        samity_day: monthly ? '' : (s?.current_day ?? 'Wednesday'),
-        date_of_month: monthly ? String(s.current_date) : '',
-    };
+    // Neither a weekday nor a monthly date stored: the samity meets daily.
+    return { meeting_frequency: 'daily', samity_day: '', date_of_month: '' };
 };
 
 /** Samity day / officer / manager change (Step 7) — one page, 3 types. */
@@ -34,8 +37,8 @@ export default function SamityChanges({ type, label, field, samities, history, o
     const changeFrequency = (f) => setData((d) => ({
         ...d,
         meeting_frequency: f,
-        samity_day: f === 'monthly' ? '' : (d.samity_day || 'Wednesday'),
-        date_of_month: f === 'weekly' ? '' : d.date_of_month,
+        samity_day: f === 'weekly' ? (d.samity_day || 'Wednesday') : '',
+        date_of_month: f === 'monthly' ? d.date_of_month : '',
     }));
 
     const valueOptions = options.employees;

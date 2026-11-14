@@ -20,21 +20,24 @@ export default function SamitySplit({ samities, members, options }) {
         setSourceId(id);
         const s = samities.find((x) => String(x.id) === String(id))?.source;
         const monthly = s?.date_of_month !== null && s?.date_of_month !== undefined && s?.date_of_month !== '';
+        // No monthly date and no weekday: the source meets daily, and the
+        // split-off samity inherits that until it is edited.
+        const frequency = monthly ? 'monthly' : (s?.samity_day ? 'weekly' : 'daily');
         setData((d) => ({
             ...d, source_samity_id: id, member_ids: [],
             branch_id: s?.branch_id ?? '', working_area_id: s?.working_area_id ?? '',
             field_officer_id: s?.field_officer_id ?? '', manager_id: s?.manager_id ?? '',
-            meeting_frequency: monthly ? 'monthly' : 'weekly',
-            samity_day: monthly ? '' : (s?.samity_day ?? 'Wednesday'),
-            date_of_month: monthly ? String(s.date_of_month) : '',
+            meeting_frequency: frequency,
+            samity_day: frequency === 'weekly' ? s.samity_day : '',
+            date_of_month: frequency === 'monthly' ? String(s.date_of_month) : '',
             center_type: s?.center_type ?? 'All Gender', address: s?.address ?? '',
         }));
     };
     const changeFrequency = (f) => setData((d) => ({
         ...d,
         meeting_frequency: f,
-        samity_day: f === 'monthly' ? '' : (d.samity_day || 'Wednesday'),
-        date_of_month: f === 'weekly' ? '' : d.date_of_month,
+        samity_day: f === 'weekly' ? (d.samity_day || 'Wednesday') : '',
+        date_of_month: f === 'monthly' ? d.date_of_month : '',
     }));
     const toggleMember = (id, checked) => {
         setData('member_ids', checked ? [...data.member_ids, id] : data.member_ids.filter((m) => m !== id));

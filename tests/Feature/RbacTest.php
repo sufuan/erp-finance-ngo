@@ -174,7 +174,7 @@ class RbacTest extends TestCase
             'password' => 'temp-pass-123', 'locale' => 'bn',
             'roles' => ['field-officer'],
             'branch_id' => $branch->id,
-            'samity_ids' => implode(', ', $samityIds),
+            'samity_ids' => $samityIds,
         ])->assertRedirect()->assertSessionHas('success');
 
         $created = User::where('username', 'karim')->first();

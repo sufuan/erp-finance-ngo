@@ -109,13 +109,14 @@ class SettingsCrudTest extends CrudTestCase
             'password' => 'Password@123', 'locale' => 'en',
             'roles' => [$roleA->name],
             'branch_id' => $branch->id,
-            'samity_ids' => (string) $samity->id,
+            'samity_ids' => [$samity->id],
         ])->assertRedirect()->assertSessionHas('success');
 
         $user = User::where('username', 'crud.user')->firstOrFail();
         $this->assertTrue($user->hasRole($roleA->name));
         $this->assertTrue($user->branches->contains($branch->id));
         $this->assertTrue($user->must_change_password);
+        $this->assertDatabaseHas('samity_user', ['user_id' => $user->id, 'samity_id' => $samity->id]);
 
         $this->get('/settings/users')->assertOk()
             ->assertInertia(fn ($p) => $p->component('Settings/Users/Index'));
@@ -126,13 +127,15 @@ class SettingsCrudTest extends CrudTestCase
             'email' => 'crud.user@tpda.example', 'locale' => 'bn',
             'roles' => [$roleB->name],
             'branch_id' => $branch->id,
-            'samity_ids' => '',
+            'samity_ids' => [],
         ])->assertRedirect()->assertSessionHas('success');
 
         $user->refresh();
         $this->assertSame('CRUD User Renamed', $user->name);
         $this->assertTrue($user->hasRole($roleB->name));
         $this->assertFalse($user->hasRole($roleA->name));
+        // The update submitted an empty samity list: the pivot row is gone.
+        $this->assertDatabaseMissing('samity_user', ['user_id' => $user->id, 'samity_id' => $samity->id]);
 
         // Designed end-state actions instead of delete: deactivate/reactivate.
         $this->post("/settings/users/{$user->id}/toggle-active")->assertSessionHas('success');
@@ -153,7 +156,7 @@ class SettingsCrudTest extends CrudTestCase
         $this->post('/settings/users', [
             'name' => 'Bogus Employee User', 'username' => 'bogus.employee', 'email' => 'bogus@tpda.example',
             'password' => 'Password@123', 'locale' => 'en', 'employee_id' => $bogusId,
-            'roles' => [], 'samity_ids' => '',
+            'roles' => [], 'samity_ids' => [],
         ])->assertRedirect()->assertSessionHasErrors('employee_id');
 
         $this->assertDatabaseMissing('users', ['username' => 'bogus.employee']);
@@ -170,7 +173,7 @@ class SettingsCrudTest extends CrudTestCase
         $this->post('/settings/users', [
             'name' => 'Linked User', 'username' => 'linked.user', 'email' => 'linked@tpda.example',
             'password' => 'Password@123', 'locale' => 'en', 'employee_id' => $employee->id,
-            'roles' => [], 'samity_ids' => '',
+            'roles' => [], 'samity_ids' => [],
         ])->assertRedirect()->assertSessionHas('success');
 
         $user = User::where('username', 'linked.user')->firstOrFail();
@@ -179,7 +182,7 @@ class SettingsCrudTest extends CrudTestCase
         $this->put("/settings/users/{$user->id}", [
             'name' => 'Linked User', 'username' => 'linked.user',
             'email' => 'linked@tpda.example', 'locale' => 'en', 'employee_id' => (int) Employee::max('id') + 9999,
-            'roles' => [], 'samity_ids' => '',
+            'roles' => [], 'samity_ids' => [],
         ])->assertRedirect()->assertSessionHasErrors('employee_id');
 
         $this->assertSame($employee->id, $user->refresh()->employee_id);
@@ -195,7 +198,7 @@ class SettingsCrudTest extends CrudTestCase
         $this->post('/settings/users', [
             'name' => 'One Branch User', 'username' => 'one.branch', 'email' => 'one.branch@tpda.example',
             'password' => 'Password@123', 'locale' => 'en',
-            'roles' => [], 'branch_id' => $b102->id, 'samity_ids' => '',
+            'roles' => [], 'branch_id' => $b102->id, 'samity_ids' => [],
         ])->assertRedirect()->assertSessionHas('success');
 
         $user = User::where('username', 'one.branch')->firstOrFail();
@@ -205,7 +208,7 @@ class SettingsCrudTest extends CrudTestCase
         $this->put("/settings/users/{$user->id}", [
             'name' => 'One Branch User', 'username' => 'one.branch',
             'email' => 'one.branch@tpda.example', 'locale' => 'en',
-            'roles' => [], 'branch_id' => $b101->id, 'samity_ids' => '',
+            'roles' => [], 'branch_id' => $b101->id, 'samity_ids' => [],
         ])->assertRedirect()->assertSessionHas('success');
         $this->assertSame([$b101->id], $user->refresh()->branches->pluck('id')->all(), 'update replaces the branch');
 
@@ -213,7 +216,7 @@ class SettingsCrudTest extends CrudTestCase
         $this->post('/settings/users', [
             'name' => 'No Branch User', 'username' => 'no.branch', 'email' => 'no.branch@tpda.example',
             'password' => 'Password@123', 'locale' => 'en',
-            'roles' => [], 'samity_ids' => '',
+            'roles' => [], 'samity_ids' => [],
         ])->assertRedirect()->assertSessionHas('success');
         $this->assertSame([], User::where('username', 'no.branch')->firstOrFail()->branches->pluck('id')->all());
 
@@ -221,9 +224,52 @@ class SettingsCrudTest extends CrudTestCase
         $this->post('/settings/users', [
             'name' => 'Bogus Branch User', 'username' => 'bogus.branch', 'email' => 'bogus.branch@tpda.example',
             'password' => 'Password@123', 'locale' => 'en',
-            'roles' => [], 'branch_id' => (int) \App\Models\Branch::max('id') + 9999, 'samity_ids' => '',
+            'roles' => [], 'branch_id' => (int) \App\Models\Branch::max('id') + 9999, 'samity_ids' => [],
         ])->assertRedirect()->assertSessionHasErrors('branch_id');
         $this->assertDatabaseMissing('users', ['username' => 'bogus.branch']);
+    }
+
+    public function test_user_samity_assignment_stores_exactly_the_submitted_ids(): void
+    {
+        // The form's samity checklist submits an ID array (sync #75 — the
+        // old type-the-IDs text box is gone): create stores exactly those
+        // pivot rows, update replaces them, an unknown ID is a validation
+        // error rather than a 500. The server contract is exists-only —
+        // the picker offers just the selected branch's samities, but any
+        // existing samity ID submitted is stored as submitted.
+        $branch = $this->branch('102');
+        $samityIds = \App\Models\Samity::withoutGlobalScopes()->orderBy('id')->pluck('id')->all();
+        $this->assertGreaterThanOrEqual(2, count($samityIds));
+        [$first, $second] = $samityIds;
+        $pivot = fn (int $userId) => \Illuminate\Support\Facades\DB::table('samity_user')
+            ->where('user_id', $userId)->orderBy('samity_id')->pluck('samity_id')->all();
+
+        $this->post('/settings/users', [
+            'name' => 'Samity Picker User', 'username' => 'samity.picker', 'email' => 'samity.picker@tpda.example',
+            'password' => 'Password@123', 'locale' => 'en',
+            'roles' => [], 'branch_id' => $branch->id, 'samity_ids' => [$first, $second],
+        ])->assertRedirect()->assertSessionHas('success');
+        $user = User::where('username', 'samity.picker')->firstOrFail();
+        $this->assertSame([$first, $second], $pivot($user->id), 'create stores exactly the ticked samities');
+
+        // The users page hands the form the samities to offer as a list.
+        $this->get('/settings/users')->assertOk()
+            ->assertInertia(fn ($p) => $p->component('Settings/Users/Index')->has('samities'));
+
+        $this->put("/settings/users/{$user->id}", [
+            'name' => 'Samity Picker User', 'username' => 'samity.picker',
+            'email' => 'samity.picker@tpda.example', 'locale' => 'en',
+            'roles' => [], 'branch_id' => $branch->id, 'samity_ids' => [$second],
+        ])->assertRedirect()->assertSessionHas('success');
+        $this->assertSame([$second], $pivot($user->id), 'update replaces the assignment');
+
+        $bogusId = (int) \App\Models\Samity::withoutGlobalScopes()->max('id') + 9999;
+        $this->post('/settings/users', [
+            'name' => 'Bogus Samity User', 'username' => 'bogus.samity', 'email' => 'bogus.samity@tpda.example',
+            'password' => 'Password@123', 'locale' => 'en',
+            'roles' => [], 'branch_id' => $branch->id, 'samity_ids' => [$bogusId],
+        ])->assertRedirect()->assertSessionHasErrors('samity_ids.0');
+        $this->assertDatabaseMissing('users', ['username' => 'bogus.samity']);
     }
 
     public function test_roles_crud_and_permission_sync(): void

@@ -278,8 +278,10 @@ async function scenarioSchedulePicker() {
     check('scheduleTokenOf: date only → monthly token', scheduleTokenOf({ samity_day: null, date_of_month: 15 }) === 'monthly:15');
     check('scheduleTokenOf: legacy both set → date wins', scheduleTokenOf({ samity_day: 'Wednesday', date_of_month: 15 }) === 'monthly:15');
     check('scheduleTokenOf: date 0 → last day', scheduleTokenOf({ samity_day: null, date_of_month: 0 }) === 'monthly:last');
+    check('scheduleTokenOf: neither day nor date → daily token', scheduleTokenOf({ samity_day: null, date_of_month: null }) === 'daily');
     check('scheduleLabel: last day', scheduleLabel('monthly:last') === `${en.monthly_prefix} — ${en.last_day_of_month}`);
     check('scheduleLabel: weekday', scheduleLabel('Wednesday') === en.day_wednesday);
+    check('scheduleLabel: daily', scheduleLabel('daily') === en.daily);
     let m = mount(<SamitySchedulePicker days={DAYS} frequency="weekly" day="Wednesday" dateOfMonth="" onFrequency={() => {}} onDay={() => {}} onDate={() => {}} />);
     const wed = [...m.container.querySelectorAll('button')].find((b) => b.textContent === 'Wednesday');
     check('Picker weekly prefill: Wednesday chip pressed', wed?.getAttribute('aria-pressed') === 'true');
@@ -287,6 +289,13 @@ async function scenarioSchedulePicker() {
     m = mount(<SamitySchedulePicker days={DAYS} frequency="monthly" day="" dateOfMonth="0" onFrequency={() => {}} onDay={() => {}} onDate={() => {}} />);
     const last = [...m.container.querySelectorAll('button')].find((b) => b.textContent === en.last_day_of_month);
     check('Picker monthly prefill: Last day chip pressed', last?.getAttribute('aria-pressed') === 'true');
+    await unmount(m);
+    m = mount(<SamitySchedulePicker days={DAYS} frequency="daily" day="" dateOfMonth="" onFrequency={() => {}} onDay={() => {}} onDate={() => {}} />);
+    const dailyBtn = [...m.container.querySelectorAll('button')].find((b) => b.textContent === en.daily);
+    check('Picker: Daily option is offered and pressed in daily mode', dailyBtn?.getAttribute('aria-pressed') === 'true');
+    check('Picker daily mode: no weekday chips and no date grid',
+        ![...m.container.querySelectorAll('button')].some((b) => b.textContent === 'Wednesday')
+        && ![...m.container.querySelectorAll('button')].some((b) => b.textContent === '15'));
     await unmount(m);
 }
 
@@ -917,6 +926,43 @@ async function scenarioUserEmployeeAutofill() {
     await unmount(m);
 }
 
+// Samity assignment (sync #75): the old type-the-IDs text box is gone.
+// Under the Branch dropdown, the selected branch's samities appear as a
+// checkbox list (code + name); switching branch swaps the list and drops
+// ticks that belong to another branch.
+async function scenarioUserSamityPicker() {
+    const WrappedUsers = withI18n(UsersIndex);
+    __setPage(baseProps({
+        auth: { user: { id: 1, name: 'Admin', username: 'admin' }, can: { users: true, roles: true, settings: true } },
+    }));
+    const branches = [
+        { id: 11, code: '101', name: 'Head Office' },
+        { id: 12, code: '102', name: 'Talgachi' },
+    ];
+    const samities = [
+        { id: 5, code: '0003', name: 'BU', branch_id: 12 },
+        { id: 6, code: '0004', name: 'River Side', branch_id: 12 },
+        { id: 7, code: '0001', name: 'HO Samity', branch_id: 11 },
+    ];
+    const m = mount(<WrappedUsers users={[]} roles={[]} branches={branches} employees={[]} samities={samities} />);
+    const form = m.container.querySelector('form');
+    const samityLabel = (name) => [...form.querySelectorAll('label')].find((l) => l.textContent.includes(name) && l.querySelector('input[type="checkbox"]'));
+    check('Users form: no type-the-IDs samity input remains', !form.querySelector('input[placeholder="1, 2, 3"]'));
+    check('Users form: no samity checkboxes before a branch is chosen', !samityLabel('BU'));
+    const branchSel = [...form.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.value === '12'));
+    await act(async () => { setValue(branchSel, '12', 'change'); });
+    check('Users form: branch samities listed as checkboxes', !!samityLabel('BU') && !!samityLabel('River Side'));
+    check('Users form: other branch samities not listed', !samityLabel('HO Samity'));
+    const buBox = samityLabel('BU').querySelector('input[type="checkbox"]');
+    await act(async () => { buBox.click(); });
+    check('Users form: ticking a samity checks its box', samityLabel('BU').querySelector('input[type="checkbox"]').checked === true);
+    await act(async () => { setValue(branchSel, '11', 'change'); });
+    check('Users form: switching branch swaps the samity list', !samityLabel('BU') && !!samityLabel('HO Samity'));
+    await act(async () => { setValue(branchSel, '12', 'change'); });
+    check('Users form: ticks from another branch are dropped', samityLabel('BU').querySelector('input[type="checkbox"]').checked === false);
+    await unmount(m);
+}
+
 // Proposal list: the per-proposal Report (PDF) action is driven by the
 // shared auth.can.loansPrint hint — shown (new tab, report URL) for a
 // loans.print holder, hidden entirely without it.
@@ -1000,6 +1046,7 @@ const scenarios = [
     scenarioAccountsPagesMount,
     scenarioUsersRolesTabs,
     scenarioUserEmployeeAutofill,
+    scenarioUserSamityPicker,
     scenarioProposalListReportAction,
     scenarioDirectorDashboard,
 ];
