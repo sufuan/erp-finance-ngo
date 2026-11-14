@@ -1,4 +1,4 @@
-import { Link, router } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import {ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
@@ -6,6 +6,8 @@ import { t } from '../../lib/i18n';
 
 /** Loan proposal list + approval queue (Step 16). */
 export default function ProposalList({ proposals, samities, officers, filters, canApprove }) {
+    const { props } = usePage();
+    const canPrint = props.auth?.can?.loansPrint ?? false;
     const [searching, setSearching] = useState(false);
     const search = (e) => {
         e.preventDefault();
@@ -75,6 +77,9 @@ export default function ProposalList({ proposals, samities, officers, filters, c
                             <td className="px-3 py-2">{p.installment_expire_date}</td>
                             <td className="px-3 py-2">{t(p.status.toLowerCase())}</td>
                             <td className="px-3 py-2 whitespace-nowrap">
+                                {canPrint && (
+                                    <a href={`/loans/proposals/${p.id}/report`} target="_blank" rel="noreferrer" className="rounded-lg px-2 py-1 text-sky-700 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-900/20">{t('report')}</a>
+                                )}
                                 {p.status === 'Submitted' && canApprove && (
                                     <>
                                         <ActionButton fire={(cb) => decide(p.id, 'approve', cb)} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('approve')}</ActionButton>

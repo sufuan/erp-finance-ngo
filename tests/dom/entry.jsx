@@ -28,6 +28,7 @@ import SamitiesIndex from '../../resources/js/Pages/Settings/Samities/Index.jsx'
 import SamityChanges from '../../resources/js/Pages/Settings/Samities/Changes.jsx';
 import GeneralSettings from '../../resources/js/Pages/Settings/General/Index.jsx';
 import ProposalCreate from '../../resources/js/Pages/Loans/ProposalCreate.jsx';
+import ProposalList from '../../resources/js/Pages/Loans/ProposalList.jsx';
 import LoanOpening from '../../resources/js/Pages/Loans/Opening.jsx';
 import DepositOpening from '../../resources/js/Pages/Deposits/Opening.jsx';
 import DepositReports from '../../resources/js/Pages/Reports/DepositReports.jsx';
@@ -915,6 +916,34 @@ async function scenarioUserEmployeeAutofill() {
     await unmount(m);
 }
 
+// Proposal list: the per-proposal Report (PDF) action is driven by the
+// shared auth.can.loansPrint hint — shown (new tab, report URL) for a
+// loans.print holder, hidden entirely without it.
+async function scenarioProposalListReportAction() {
+    const Wrapped = withI18n(ProposalList);
+    const row = {
+        id: 5, branch_code: '102', samity: '0001 — Talgachi Samity', member: '102000001 — Rahim Uddin',
+        account_type: '3001 — General Loan', profit_rate: '15.00', proposal_date: '2026-10-21',
+        loan_purpose: 'Agriculture', loan_amount: '12000.00', frequency: 'M', installment_amount: '1083.10',
+        installment_from_date: '2026-11-01', no_of_installments: 12, installment_expire_date: '2027-10-01',
+        status: 'Submitted',
+    };
+    const props = { proposals: [row], samities: [], officers: [], filters: {}, canApprove: false };
+    const reportLink = (c) => [...c.querySelectorAll('a')].find((a) => a.getAttribute('href') === '/loans/proposals/5/report');
+
+    __setPage(baseProps({ auth: { user: { id: 1, name: 'Admin', username: 'admin' }, can: { loansPrint: true } } }));
+    let m = mount(<Wrapped {...props} />);
+    const link = reportLink(m.container);
+    check('ProposalList: Report action shown for loans.print holder', !!link);
+    check('ProposalList: Report opens the PDF in a new tab', link?.getAttribute('target') === '_blank');
+    await unmount(m);
+
+    __setPage(baseProps({ auth: { user: { id: 2, name: 'Viewer', username: 'viewer' }, can: { loansPrint: false } } }));
+    m = mount(<Wrapped {...props} />);
+    check('ProposalList: Report action hidden without loans.print', !reportLink(m.container));
+    await unmount(m);
+}
+
 const scenarios = [
     scenarioPrimaryButton,
     scenarioActionButton,
@@ -942,6 +971,7 @@ const scenarios = [
     scenarioAccountsPagesMount,
     scenarioUsersRolesTabs,
     scenarioUserEmployeeAutofill,
+    scenarioProposalListReportAction,
 ];
 
 for (const fn of scenarios) {

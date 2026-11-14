@@ -1,0 +1,1 @@
+import{i as e}from"./app-JQlTSreQ.js";import{t}from"./CollectionReportEngine-CVoH2-60.js";var n=e();function r(e){return(0,n.jsx)(t,{basePath:`/collection/sheets`,headingKey:`collection_sheet_section`,...e})}export{r as default};

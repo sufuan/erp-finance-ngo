@@ -5,17 +5,23 @@ namespace App\Http\Controllers\Loans;
 use App\Http\Controllers\Controller;
 use App\Models\DepositAccount;
 use App\Models\InstallmentFrequency;
+use App\Models\LoanAccount;
 use App\Models\LoanProduct;
 use App\Models\LoanProposal;
 use App\Models\Member;
+use App\Models\OrganizationProfile;
 use App\Models\Samity;
+use App\Models\User;
 use App\Services\AuditService;
+use App\Services\BranchAccessService;
 use App\Services\BusinessDayService;
 use App\Services\LoanProposalService;
+use App\Services\PdfService;
 use App\Services\ScheduleEngine;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -178,6 +184,36 @@ class LoanProposalController extends Controller
         $audit->log($request->user()->id, 'loan.proposal_rejected', 'loan_proposals', $proposal->id, null, []);
 
         return back()->with('success', __('saved'));
+    }
+
+    /**
+     * Per-proposal PDF report (owner order 2026-11-14): the printout lives
+     * on the proposal list itself, not in the Reports section. Branch-scoped
+     * like every other loan page — a user who cannot access the proposal's
+     * branch gets 403, never another branch's paperwork.
+     */
+    public function report(Request $request, LoanProposal $proposal, BranchAccessService $branches, PdfService $pdf): HttpResponse
+    {
+        abort_unless($branches->canAccess($request->user(), (int) $proposal->branch_id), 403);
+        $proposal->load(['member', 'samity', 'product', 'branch']);
+        $loan = LoanAccount::where('loan_proposal_id', $proposal->id)->latest('id')->first();
+        $org = OrganizationProfile::where('is_active', true)->first() ?? OrganizationProfile::first();
+        $frequency = collect(InstallmentFrequency::enabled())
+            ->firstWhere('code', $proposal->frequency);
+        $html = view('reports.loan-proposal', [
+            'org' => $org,
+            'proposal' => $proposal,
+            'loan' => $loan,
+            'frequencyLabel' => $frequency ? $frequency->label_en.' ('.$proposal->frequency.')' : $proposal->frequency,
+            'proposedBy' => $proposal->created_by ? User::find($proposal->created_by)?->name : null,
+            'decidedBy' => $proposal->decided_by ? User::find($proposal->decided_by)?->name : null,
+        ])->render();
+        $bytes = $pdf->renderHtmlWithFallback($html, 0);
+
+        return response($bytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="loan-proposal-'.$proposal->id.'.pdf"',
+        ]);
     }
 
     private function findMember(Request $request): ?Member

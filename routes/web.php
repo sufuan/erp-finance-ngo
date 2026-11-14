@@ -270,6 +270,7 @@ Route::middleware(['auth', 'password.changed', 'totp'])->prefix('loans')->name('
     Route::post('/proposals', [LoanProposalController::class, 'store'])->middleware('can:loans.propose')->name('proposals.store');
     Route::post('/proposals/{proposal}/approve', [LoanProposalController::class, 'approve'])->middleware('can:loans.approve')->name('proposals.approve');
     Route::post('/proposals/{proposal}/reject', [LoanProposalController::class, 'reject'])->middleware('can:loans.approve')->name('proposals.reject');
+    Route::get('/proposals/{proposal}/report', [LoanProposalController::class, 'report'])->middleware('can:loans.print')->name('proposals.report');
     Route::get('/disbursement', [LoanMoneyController::class, 'disbursementList'])->middleware('can:loans.disburse')->name('disbursement');
     Route::post('/disbursement/{loan}', [LoanMoneyController::class, 'disburse'])->middleware('can:loans.disburse')->name('disbursement.apply');
     Route::get('/receive', [LoanMoneyController::class, 'receiveForm'])->middleware('can:loans.receive')->name('receive');
