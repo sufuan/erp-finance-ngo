@@ -11,6 +11,7 @@ use App\Models\LoanReceive;
 use App\Models\LoanSchedule;
 use App\Models\Member;
 use App\Models\Samity;
+use App\Models\User;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
 use Illuminate\Support\Facades\DB;
@@ -52,6 +53,7 @@ class CollectionReportService
             'deposit_loan_collection_summary' => ['title' => 'deposit_loan_collection_summary', 'group' => 'reports', 'filters' => [...$period, 'report_group'], 'pdf_view' => 'reports.generic'],
             // Performance & monitoring (Step 22)
             'field_officers_report' => ['title' => 'field_officers_report', 'group' => 'performance', 'filters' => $period, 'pdf_view' => 'reports.generic'],
+            'collector_progress' => ['title' => 'collector_progress_report', 'group' => 'performance', 'filters' => ['user_id', 'from_date', 'to_date'], 'pdf_view' => 'reports.generic'],
             'periodical_progress' => ['title' => 'periodical_progress_report', 'group' => 'performance', 'filters' => ['from_date', 'to_date'], 'pdf_view' => 'reports.generic'],
             'target_vs_achievement' => ['title' => 'target_vs_achievement', 'group' => 'performance', 'filters' => $period, 'pdf_view' => 'reports.generic'],
             'collection_topsheet' => ['title' => 'collection_topsheet', 'group' => 'performance', 'filters' => $period, 'pdf_view' => 'reports.generic'],
@@ -91,6 +93,7 @@ class CollectionReportService
             'loan_collection_details' => $this->loanCollectionDetails($filters),
             'deposit_loan_collection_summary' => $this->depositLoanSummary($filters),
             'field_officers_report' => $this->fieldOfficers($filters),
+            'collector_progress' => $this->collectorProgress($filters),
             'periodical_progress' => $this->progress($filters, false),
             'mis_progress' => $this->progress($filters, true),
             'target_vs_achievement' => $this->targetVsAchievement($filters),
@@ -431,6 +434,166 @@ class CollectionReportService
             'columns' => ['employee_code', 'employee', 'samities', 'members', 'loan_due', 'loan_receive', 'deposit_receive', 'collection_rate'],
             'rows' => $rows,
             'total_row' => ['', __('total'), '', (string) $tMembers, $this->money($tDue), $this->money($tReceived), '', ''],
+        ];
+    }
+
+    // ---- collector progress (per collecting USER / login) ---------------------
+
+    /**
+     * The collecting users in scope: anyone who posted at least one
+     * live batch in the period (live = status 'Posted' — batch totals
+     * are recomputed from still-Posted lines on cancel, the same
+     * condition the topsheet uses), or who holds at least one ticked
+     * samity (samity_user) inside the caller's accessible branches.
+     *
+     * @return int[]
+     */
+    private function collectorUserIds(array $filters): array
+    {
+        $branchIds = $this->branchIds($filters);
+        $posters = $this->applyPeriod(
+            DB::table('collection_batches')->where('status', 'Posted')->whereIn('branch_id', $branchIds),
+            'business_date', $filters)->distinct()->pluck('entry_by');
+        $ticked = DB::table('samity_user')
+            ->join('samities', 'samities.id', '=', 'samity_user.samity_id')
+            ->whereIn('samities.branch_id', $branchIds)
+            ->distinct()->pluck('samity_user.user_id');
+
+        return $posters->merge($ticked)->map(fn ($id) => (int) $id)->unique()->values()->all();
+    }
+
+    /** @return int[] the user's ticked samities inside the caller's branches */
+    private function collectorSamityIds(int $userId, array $filters): array
+    {
+        return DB::table('samity_user')
+            ->join('samities', 'samities.id', '=', 'samity_user.samity_id')
+            ->where('samity_user.user_id', $userId)
+            ->whereIn('samities.branch_id', $this->branchIds($filters))
+            ->pluck('samity_user.samity_id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    /** Period-due schedules over the loans of the given samities' members. */
+    private function collectorDueSchedules(array $samityIds, array $filters)
+    {
+        $memberIds = Member::whereIn('samity_id', $samityIds)->pluck('id');
+        $loanIds = LoanAccount::whereIn('member_id', $memberIds)->pluck('id');
+
+        return $this->applyPeriod(LoanSchedule::whereIn('loan_account_id', $loanIds), 'due_date', $filters)->get();
+    }
+
+    /**
+     * Collector progress. Without a user filter: one summary row per
+     * collecting user — what fell due in his ticked samities, what he
+     * actually posted (his live batches), what is still missed. With a
+     * user filter: the installment-by-installment detail behind his row.
+     */
+    private function collectorProgress(array $filters): array
+    {
+        if (! empty($filters['user_id'])) {
+            return $this->collectorProgressDetail($filters);
+        }
+
+        $rows = [];
+        $tDueCount = $tCollectedCount = $tMissedCount = 0;
+        $tLoanDue = $tLoanCollected = $tDepCollected = $tTotalCollected = $tMissed = BigDecimal::zero();
+        foreach (User::whereIn('id', $this->collectorUserIds($filters))->orderBy('name')->get() as $user) {
+            $samityIds = $this->collectorSamityIds($user->id, $filters);
+            $schedules = $samityIds === [] ? collect() : $this->collectorDueSchedules($samityIds, $filters);
+            $loanDue = BigDecimal::zero();
+            $missed = BigDecimal::zero();
+            $collectedCount = 0;
+            $missedCount = 0;
+            foreach ($schedules as $schedule) {
+                $due = BigDecimal::of((string) $schedule->total_due);
+                $paid = BigDecimal::of((string) $schedule->paid_principal)->plus((string) $schedule->paid_profit);
+                $loanDue = $loanDue->plus($due);
+                if ($paid->isGreaterThanOrEqualTo($due)) {
+                    $collectedCount++;
+                } else {
+                    $missedCount++;
+                    $missed = $missed->plus($due->minus($paid));
+                }
+            }
+            $sums = $this->applyPeriod(
+                DB::table('collection_batches')->where('status', 'Posted')
+                    ->whereIn('branch_id', $this->branchIds($filters))->where('entry_by', $user->id),
+                'business_date', $filters)
+                ->selectRaw('COALESCE(SUM(loan_receive), 0) as loan_sum, COALESCE(SUM(deposit_receive), 0) as dep_sum, COALESCE(SUM(total_receive), 0) as tot_sum')
+                ->first();
+            $loanCollected = $this->money($sums->loan_sum ?? 0);
+            $rate = BigDecimal::of($this->money($loanDue))->isPositive()
+                ? (string) BigDecimal::of($loanCollected)->dividedBy($this->money($loanDue), 4, RoundingMode::HalfUp)->multipliedBy(100)->toScale(2, RoundingMode::HalfUp)
+                : '0.00';
+            $label = collect([$user->username, $user->name])->filter(fn ($v) => filled($v))->implode(' — ');
+            $rows[] = [
+                $label, (string) count($samityIds), (string) $schedules->count(),
+                $this->money($loanDue), (string) $collectedCount, $loanCollected,
+                $this->money($sums->dep_sum ?? 0), $this->money($sums->tot_sum ?? 0),
+                (string) $missedCount, $this->money($missed), $rate.'%',
+            ];
+            $tDueCount += $schedules->count();
+            $tCollectedCount += $collectedCount;
+            $tMissedCount += $missedCount;
+            $tLoanDue = $tLoanDue->plus($this->money($loanDue));
+            $tLoanCollected = $tLoanCollected->plus($loanCollected);
+            $tDepCollected = $tDepCollected->plus((string) ($sums->dep_sum ?? 0));
+            $tTotalCollected = $tTotalCollected->plus((string) ($sums->tot_sum ?? 0));
+            $tMissed = $tMissed->plus($this->money($missed));
+        }
+
+        return [
+            'columns' => ['collector', 'samities', 'due_count', 'loan_due', 'collected_count', 'loan_collected', 'deposit_collected', 'total_collected', 'missed_count', 'missed', 'progress'],
+            'rows' => $rows,
+            'total_row' => ['', __('total'), (string) $tDueCount, $this->money($tLoanDue), (string) $tCollectedCount,
+                $this->money($tLoanCollected), $this->money($tDepCollected), $this->money($tTotalCollected),
+                (string) $tMissedCount, $this->money($tMissed), ''],
+        ];
+    }
+
+    /** One row per period-due installment in the selected user's ticked samities. */
+    private function collectorProgressDetail(array $filters): array
+    {
+        $samityIds = $this->collectorSamityIds((int) $filters['user_id'], $filters);
+        $rows = [];
+        $tDue = $tCollected = $tMissed = BigDecimal::zero();
+        if ($samityIds !== []) {
+            $memberIds = Member::whereIn('samity_id', $samityIds)->pluck('id');
+            $loanIds = LoanAccount::whereIn('member_id', $memberIds)->pluck('id');
+            $schedules = $this->applyPeriod(
+                LoanSchedule::with(['loan:id,loan_number,member_id', 'loan.member:id,member_no,name'])
+                    ->whereIn('loan_account_id', $loanIds),
+                'due_date', $filters)
+                ->orderBy('due_date')->limit(500)->get()
+                ->sortBy(fn ($s) => [$s->due_date->toDateString(), $s->loan?->member?->member_no ?? ''])
+                ->values();
+            foreach ($schedules as $schedule) {
+                $due = BigDecimal::of((string) $schedule->total_due);
+                $paid = BigDecimal::of((string) $schedule->paid_principal)->plus((string) $schedule->paid_profit);
+                $missed = $due->minus($paid);
+                if ($missed->isNegative()) {
+                    $missed = BigDecimal::zero();
+                }
+                $status = $paid->isGreaterThanOrEqualTo($due)
+                    ? __('collected_status')
+                    : ($paid->isPositive() ? __('partial_status') : __('missed_status'));
+                $member = $schedule->loan?->member;
+                $rows[] = [
+                    collect([$member?->member_no, $member?->name])->filter(fn ($v) => filled($v))->implode(' — '),
+                    $schedule->loan?->loan_number ?? '',
+                    (string) $schedule->installment_no,
+                    $schedule->due_date->toDateString(),
+                    $this->money($due), $this->money($paid), $this->money($missed), $status,
+                ];
+                $tDue = $tDue->plus($due);
+                $tCollected = $tCollected->plus($paid);
+                $tMissed = $tMissed->plus($missed);
+            }
+        }
+
+        return [
+            'columns' => ['member', 'loan_number', 'installment_no', 'due_date', 'due', 'collected', 'missed', 'status'],
+            'rows' => $rows,
+            'total_row' => [__('total'), '', '', '', $this->money($tDue), $this->money($tCollected), $this->money($tMissed), ''],
         ];
     }
 

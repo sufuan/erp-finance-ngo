@@ -10,7 +10,7 @@ import { t } from '../lib/i18n';
  * (PDF). Sheets, reports and balance pages differ only by base path,
  * heading and the report list the server passes in.
  */
-export default function CollectionReportEngine({ basePath, headingKey, reportKey, reports, activeFilters, filters, columns, rows, totalRow, ran, samities, employees }) {
+export default function CollectionReportEngine({ basePath, headingKey, reportKey, reports, activeFilters, filters, columns, rows, totalRow, ran, samities, employees, users = [] }) {
     const [searching, setSearching] = useState(false);
     const [values, setValues] = useState(() => {
         const initial = {};
@@ -56,6 +56,14 @@ export default function CollectionReportEngine({ basePath, headingKey, reportKey
                             <select className={inputCls} value={values.employee_id} onChange={(e) => set('employee_id', e.target.value)}>
                                 <option value="">{t('all')}</option>
                                 {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.employee_code} — {emp.name}</option>)}
+                            </select>
+                        </Field>
+                    )}
+                    {has('user_id') && (
+                        <Field label={t('collector')}>
+                            <select className={inputCls} value={values.user_id} onChange={(e) => set('user_id', e.target.value)}>
+                                <option value="">{t('all')}</option>
+                                {users.map((u) => <option key={u.id} value={u.id}>{u.username} — {u.name}</option>)}
                             </select>
                         </Field>
                     )}

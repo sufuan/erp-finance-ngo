@@ -687,6 +687,65 @@ async function scenarioCollectionReportsMount() {
     await unmount(m);
 }
 
+async function scenarioCollectorProgressReport() {
+    // Collector Progress (2026-11-15): summary mode lists one row per
+    // collecting user with a collector dropdown; choosing the user
+    // switches to the installment detail with Collected/Partial/Missed
+    // status labels — in EN and BN.
+    const users = [{ id: 9, name: 'Progress Collector', username: 'progress.collector' }];
+    const reports = [{ key: 'collector_progress', title: 'collector_progress_report', group: 'performance', filters: ['user_id', 'from_date', 'to_date'] }];
+    const Wrapped = withI18n(CollectionReports);
+    const summaryProps = {
+        group: 'reports', reportKey: 'collector_progress', reports,
+        activeFilters: ['user_id', 'from_date', 'to_date'],
+        filters: { user_id: '', from_date: '2026-11-01', to_date: '2026-11-30' },
+        columns: ['collector', 'samities', 'due_count', 'loan_due', 'collected_count', 'loan_collected', 'deposit_collected', 'total_collected', 'missed_count', 'missed', 'progress'],
+        rows: [['progress.collector — Progress Collector', '1', '3', '3249.30', '1', '1583.10', '0.00', '1583.10', '2', '1666.20', '48.72%']],
+        totalRow: ['', 'Total', '3', '3249.30', '1', '1583.10', '0.00', '1583.10', '2', '1666.20', ''],
+        ran: true, samities: [], employees: [], users,
+    };
+    const detailProps = (labels) => ({
+        group: 'reports', reportKey: 'collector_progress', reports,
+        activeFilters: ['user_id', 'from_date', 'to_date'],
+        filters: { user_id: '9', from_date: '2026-11-01', to_date: '2026-11-30' },
+        columns: ['member', 'loan_number', 'installment_no', 'due_date', 'due', 'collected', 'missed', 'status'],
+        rows: [
+            ['102000001 — Progress Member 1', '102000001', '1', '2026-11-01', '1083.10', '500.00', '583.10', labels.partial_status],
+            ['102000002 — Progress Member 2', '102000002', '1', '2026-11-01', '1083.10', '1083.10', '0.00', labels.collected_status],
+            ['102000003 — Progress Member 3', '102000003', '1', '2026-11-01', '1083.10', '0.00', '1083.10', labels.missed_status],
+        ],
+        totalRow: ['Total', '', '', '', '3249.30', '1583.10', '1666.20', ''],
+        ran: true, samities: [], employees: [], users,
+    });
+
+    __setPage(baseProps());
+    const m = mount(<Wrapped {...summaryProps} />);
+    const text = m.container.textContent;
+    check('CollectorProgress EN: report title renders', text.includes(en.collector_progress_report));
+    check('CollectorProgress EN: collector filter label renders',
+        [...m.container.querySelectorAll('label > span')].some((s) => s.textContent === en.collector));
+    check('CollectorProgress EN: user dropdown lists the collector',
+        [...m.container.querySelectorAll('select')].some((s) => [...s.options].some((o) => o.textContent.includes('progress.collector'))));
+    check('CollectorProgress EN: summary row renders with progress', text.includes('3249.30') && text.includes('48.72%'));
+    await unmount(m);
+
+    const m2 = mount(<Wrapped {...detailProps(en)} />);
+    const text2 = m2.container.textContent;
+    check('CollectorProgress EN: detail rows render Partial/Collected/Missed labels',
+        text2.includes(en.partial_status) && text2.includes(en.collected_status) && text2.includes(en.missed_status));
+    check('CollectorProgress EN: detail missed amount renders', text2.includes('583.10'));
+    await unmount(m2);
+
+    __setPage(baseProps({ locale: 'bn', translations: bn, translations_version: 'harness-bn' }));
+    const m3 = mount(<Wrapped {...detailProps(bn)} />);
+    const text3 = m3.container.textContent;
+    check('CollectorProgress BN: report title renders', text3.includes(bn.collector_progress_report));
+    check('CollectorProgress BN: detail rows render BN status labels',
+        text3.includes(bn.partial_status) && text3.includes(bn.collected_status) && text3.includes(bn.missed_status));
+    await unmount(m3);
+    __setPage(baseProps());
+}
+
 async function scenarioDashboardMounts() {
     // Dashboard (Module 2 / Step 24): KPI cards, charts and the samity /
     // officer tables render the server-computed figures; the branch
@@ -1280,6 +1339,7 @@ const scenarios = [
     scenarioRegistersTypeManager,
     scenarioCollectionSheetPosting,
     scenarioCollectionReportsMount,
+    scenarioCollectorProgressReport,
     scenarioDashboardMounts,
     scenarioAccountsSetupSync,
     scenarioAccountsGroupSync,

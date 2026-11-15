@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\OrganizationProfile;
 use App\Models\Samity;
+use App\Models\User;
 use App\Services\BranchAccessService;
 use App\Services\BusinessDayService;
 use App\Services\CollectionReportService;
@@ -60,6 +61,8 @@ class CollectionReportController extends Controller
             ? $this->reports->run($key, [...$filters, ...$this->internals($request)])
             : ['columns' => [], 'rows' => [], 'total_row' => null];
 
+        $accessible = $this->branches->accessibleIds($request->user());
+
         return Inertia::render($component, [
             'reportKey' => $key,
             'group' => $group,
@@ -72,9 +75,12 @@ class CollectionReportController extends Controller
             'rows' => $result['rows'],
             'totalRow' => $result['total_row'],
             'ran' => $ran,
-            'samities' => Samity::whereIn('branch_id', $this->branches->accessibleIds($request->user()))
+            'samities' => Samity::whereIn('branch_id', $accessible)
                 ->orderBy('name')->get(['id', 'samity_code', 'name'])->all(),
             'employees' => Employee::orderBy('name')->get(['id', 'name', 'employee_code'])->all(),
+            'users' => User::where(fn ($q) => $q->whereHas('branches', fn ($b) => $b->whereIn('branches.id', $accessible))
+                    ->orWhereHas('samities', fn ($s) => $s->whereIn('samities.branch_id', $accessible)))
+                ->orderBy('name')->get(['id', 'name', 'username'])->all(),
         ]);
     }
 
