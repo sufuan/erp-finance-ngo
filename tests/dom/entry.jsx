@@ -1271,7 +1271,10 @@ async function scenarioCollectLoanPanel() {
         samity: '0001 — Talgachi Samity', product: '3001 — General Loan', frequency: 'M', status: 'Disbursed',
         installment_amount: '1083.10',
         outstanding: { principal: '12000.00', profit: paidFirst ? '914.10' : '997.20', penalty: '0.00', total: paidFirst ? '11914.10' : '12997.20' },
-        due_amount: '1083.10', business_date: '2026-10-28',
+        // After the collect, nothing else is due today: the next
+        // installment is future and is NOT offered as an advance
+        // (daily-collection rule, 2026-11-16).
+        due_amount: paidFirst ? '0.00' : '1083.10', business_date: '2026-10-28',
         summary: {
             total: 12, paid_count: paidFirst ? 1 : 0, remaining_count: paidFirst ? 11 : 12,
             collected_amount: paidFirst ? '1083.10' : '0.00', remaining_amount: paidFirst ? '11914.10' : '12997.20',
@@ -1311,9 +1314,19 @@ async function scenarioCollectLoanPanel() {
     check('CollectLoan: counts move to 1 collected / 11 remaining',
         stat(en.installments_collected)?.textContent.includes('1')
         && stat(en.installments_remaining)?.textContent.includes('11'));
-    check('CollectLoan: first installment now marked Paid and amount re-prefilled for the next one',
-        [...m.container.querySelectorAll('tbody tr')][0].textContent.includes(en.paid)
-        && amountInput()?.value === '1083.10');
+    check('CollectLoan: first installment now marked Paid',
+        [...m.container.querySelectorAll('tbody tr')][0].textContent.includes(en.paid));
+    const collectBtn = () => [...m.container.querySelectorAll('button')]
+        .find((b) => [en.collect, bn.collect].includes(b.textContent.trim()));
+    check('CollectLoan: already-collected message shows once nothing is due today',
+        m.container.textContent.includes(en.loan_no_due_today));
+    check('CollectLoan: amount field and Collect button are disabled when nothing is due',
+        amountInput()?.disabled === true && collectBtn()?.disabled === true);
+    // Same no-due state in Bangla: message switches, form stays locked.
+    __setPage(baseProps({ locale: 'bn', translations: bn, translations_version: 'harness-bn' }));
+    await rerender(m, <Wrapped {...props} panel={panelFor(true)} />);
+    check('CollectLoan BN: already-collected message shows in Bangla and Collect stays disabled',
+        m.container.textContent.includes(bn.loan_no_due_today) && collectBtn()?.disabled === true);
     await unmount(m);
     __setPage(baseProps());
 }

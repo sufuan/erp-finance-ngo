@@ -163,7 +163,11 @@ class CollectLoanTest extends TestCase
         $outstandingAfter = app(LoanMoneyService::class)->outstanding($loan->fresh())['total'];
         $this->assertSame('1083.10', bcsub($outstandingBefore, $outstandingAfter, 2), 'Outstanding drops by exactly the posted amount');
 
-        // The refreshed panel shows the collection immediately.
+        // The refreshed panel shows the collection immediately. Under
+        // the daily-collection rule (2026-11-16) the amount now due is
+        // 0.00: installment 1 was the only one due on the business
+        // date, and the next (future) installment is no longer offered
+        // as an advance.
         $this->get('/collection/collect-loan?loan_id='.$loan->id)->assertOk()
             ->assertInertia(fn (AssertableInertia $p) => $p
                 ->component('Collections/CollectLoan')
@@ -171,7 +175,7 @@ class CollectLoanTest extends TestCase
                 ->where('panel.summary.remaining_count', 11)
                 ->where('panel.summary.collected_amount', '1083.10')
                 ->where('panel.installments.0.status', 'paid')
-                ->where('panel.due_amount', '1083.10')
+                ->where('panel.due_amount', '0.00')
             );
     }
 

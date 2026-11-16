@@ -53,6 +53,12 @@ export default function CollectLoan({ query = '', results = [], panel = null, ca
         [t('remaining_amount'), panel.summary.remaining_amount],
     ] : [];
 
+    // Daily loan, daily collection: nothing due on/before today means
+    // there is nothing to collect — the next (future) installment is
+    // never offered as an advance. The panel explains why and the
+    // form is disabled instead of pre-filling a future amount.
+    const noDue = panel ? !(Number(panel.due_amount) > 0) : false;
+
     return (
         <AppLayout>
             <h1 className="mb-4 text-xl font-semibold">{t('collect_loan')}</h1>
@@ -99,14 +105,17 @@ export default function CollectLoan({ query = '', results = [], panel = null, ca
                                 <span className="block text-xs text-zinc-500">{t('outstanding_principal')}: {panel.outstanding.principal} · {t('outstanding_profit')}: {panel.outstanding.profit} · {t('penalty_charge')}: {panel.outstanding.penalty}</span>
                             </p>
                         </div>
+                        {canCollect && noDue && (
+                            <p className="mt-4 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">{t('loan_no_due_today')}</p>
+                        )}
                         {canCollect && (
                             <form onSubmit={collect} className="mt-4 flex flex-wrap items-end gap-3">
                                 <div className="min-w-48 flex-1 sm:max-w-xs">
                                     <Field label={t('due_amount')} error={form.errors.amount} required>
-                                        <input type="number" step="0.01" min="0" className={inputCls} value={form.data.amount} onChange={(e) => form.setData('amount', e.target.value)} required />
+                                        <input type="number" step="0.01" min="0" className={inputCls} value={form.data.amount} onChange={(e) => form.setData('amount', e.target.value)} required disabled={noDue} />
                                     </Field>
                                 </div>
-                                <PrimaryButton type="submit" loading={form.processing}>{t('collect')}</PrimaryButton>
+                                <PrimaryButton type="submit" loading={form.processing} disabled={noDue}>{t('collect')}</PrimaryButton>
                             </form>
                         )}
                         {props.errors?.lines && <p className="mt-2 text-sm text-rose-600">{props.errors.lines}</p>}

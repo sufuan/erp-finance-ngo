@@ -102,7 +102,7 @@ class CollectionTest extends TestCase
         $grid = $this->service->gridForSamity($this->samity);
         $row1 = collect($grid)->firstWhere('member_id', $m1->id);
         $loanCell = collect($row1['accounts'])->firstWhere('account_type', 'loan');
-        $this->assertSame('1083.10', $loanCell['receivable'], 'Loan receivable = installment (nothing due yet)');
+        $this->assertSame('1083.10', $loanCell['receivable'], 'Loan receivable = first installment, due on/before the business date');
 
         $batch = $this->service->postBatch($this->admin, [
             'kind' => 'sheet', 'samity_id' => $this->samity->id,

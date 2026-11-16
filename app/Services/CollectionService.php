@@ -59,20 +59,16 @@ class CollectionService
     }
 
     /**
-     * Expected collection for a loan = amount due today (overdue + due
-     * rows + penalty, from LoanMoneyService); when nothing is due yet,
-     * the regular installment capped at the total outstanding.
+     * Expected collection for a loan = amount due today ONLY (overdue +
+     * due rows + penalty, from LoanMoneyService). Daily loan, daily
+     * collection (owner rule 2026-11-16): a future installment is NEVER
+     * collectable in advance, so when nothing is due on/before the
+     * business date the receivable is 0.00 — there is deliberately no
+     * next-installment fallback.
      */
     public function loanReceivable(LoanAccount $loan): string
     {
-        $due = BigDecimal::of($this->loanMoney->todaysDue($loan));
-        if ($due->isPositive()) {
-            return $this->money($due);
-        }
-        $outstanding = BigDecimal::of($this->loanMoney->outstanding($loan)['total']);
-        $installment = BigDecimal::of((string) ($loan->installment_amount ?? 0));
-
-        return $this->money($installment->isLessThan($outstanding) ? $installment : $outstanding);
+        return $this->money(BigDecimal::of($this->loanMoney->todaysDue($loan)));
     }
 
     /**
@@ -297,6 +293,25 @@ class CollectionService
                             throw ValidationException::withMessages(['account_id' => __('account_member_mismatch')]);
                         }
                         $receivable = $this->loanReceivable($loan);
+                        // Daily loan, daily collection (owner rule
+                        // 2026-11-16): a loan line may never exceed the
+                        // amount due on/before the business date —
+                        // arrears and partial payments of a due amount
+                        // are fine, future installments are not
+                        // collectable in advance. Enforced HERE, in the
+                        // shared posting path, so Collect Loan, Sheet
+                        // Posting, Simple Sheet and Member Collection
+                        // all obey it. The receivable is recomputed per
+                        // line from fresh schedule rows, so a second
+                        // line for the same loan in one batch is capped
+                        // by what the first line left due.
+                        if (BigDecimal::of($amount)->isGreaterThan(BigDecimal::of($receivable))) {
+                            throw ValidationException::withMessages(['amount' => [
+                                BigDecimal::of($receivable)->isPositive()
+                                    ? __('loan_collection_exceeds_due')
+                                    : __('loan_no_due_today'),
+                            ]]);
+                        }
                         $receive = $this->loanMoney->receive($loan, [
                             'amount' => $amount,
                             'comments' => 'Collection batch #'.$batch->id,
