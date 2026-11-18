@@ -332,6 +332,7 @@ class CollectionController extends Controller
             'loan_id' => ['required', 'integer'],
             'amount' => ['nullable', 'numeric', 'min:0'],
             'savings_amount' => ['nullable', 'numeric', 'min:0'],
+            'savings_withdrawal_amount' => ['nullable', 'numeric', 'min:0'],
             'lts_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
         $loan = $this->findCollectableLoan($request, $request->integer('loan_id'));
@@ -340,6 +341,11 @@ class CollectionController extends Controller
         // member batch through CollectionService — allocation, the
         // compulsory-savings rule, DCR figures and cash-in-hand all
         // stay on the shared path. Zero parts are skipped by postBatch.
+        // Client round 3 (2026-11-18): beside the current-savings
+        // deposit the field worker may also pay OUT a withdrawal from
+        // the same general savings account — one more batch line,
+        // direction 'payment', on the same shared path. LTS never
+        // withdraws from this screen (office closing flow only).
         $panel = $this->service->loanPanel($loan);
         $lines = [[
             'member_id' => $loan->member_id, 'account_type' => 'loan',
@@ -349,6 +355,12 @@ class CollectionController extends Controller
             $lines[] = [
                 'member_id' => $loan->member_id, 'account_type' => 'deposit',
                 'account_id' => $panel['savings']['account_id'], 'amount' => (string) $request->input('savings_amount'),
+            ];
+        }
+        if ($panel['savings'] && $request->filled('savings_withdrawal_amount')) {
+            $lines[] = [
+                'member_id' => $loan->member_id, 'account_type' => 'deposit', 'direction' => 'payment',
+                'account_id' => $panel['savings']['account_id'], 'amount' => (string) $request->input('savings_withdrawal_amount'),
             ];
         }
         if ($panel['lts'] && $request->filled('lts_amount')) {

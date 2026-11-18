@@ -169,7 +169,10 @@ class CollectionReportService
         $receivedToday = CollectionLine::where('status', 'Posted')
             ->whereHas('batch', fn ($q) => $q->where('business_date', $date)->whereIn('branch_id', $this->branchIds($filters)))
             ->get()->groupBy(fn ($l) => $l->account_type.':'.$l->account_id)
-            ->map(fn ($g) => $g->sum(fn ($l) => (float) $l->amount));
+            // A deposit withdrawal line nets against the account's
+            // received figure — the sheet shows what the account
+            // actually gained that day (client round 3).
+            ->map(fn ($g) => $g->sum(fn ($l) => ($l->account_type === 'deposit' && $l->direction === 'payment') ? -(float) $l->amount : (float) $l->amount));
 
         foreach ($members as $member) {
             $grid = $this->collections->gridForMember($member)[0]['accounts'] ?? [];
@@ -216,17 +219,21 @@ class CollectionReportService
         $rows = [];
         $total = BigDecimal::zero();
         foreach ($lines as $line) {
+            // A field-withdrawal line shows as a NEGATIVE receive and
+            // nets out of the total — it is money handed back to the
+            // member, not collected from him (client round 3).
+            $isPayment = $line->account_type === 'deposit' && $line->direction === 'payment';
             $rows[] = [
                 $line->batch->business_date?->toDateString() ?? '',
                 $line->member->member_no, $line->member->name,
                 $line->batch->samity?->name ?? '—',
                 $line->account_type === 'deposit' ? ($line->deposit_product_code ?? 'Deposit') : ucfirst($line->account_type),
                 (string) $line->account_id, $this->money($line->receivable),
-                $line->status === 'Posted' ? $this->money($line->amount) : '0.00',
+                $line->status === 'Posted' ? ($isPayment ? '-'.$this->money($line->amount) : $this->money($line->amount)) : '0.00',
                 $line->status, $line->batch->entryBy?->name ?? '',
             ];
             if ($line->status === 'Posted') {
-                $total = $total->plus((string) $line->amount);
+                $total = $isPayment ? $total->minus((string) $line->amount) : $total->plus((string) $line->amount);
             }
         }
 
@@ -248,7 +255,9 @@ class CollectionReportService
         $tLoan = $tDep = $tShare = $tAll = BigDecimal::zero();
         foreach ($byDate->sortKeys() as $date => $lines) {
             $loan = $lines->where('account_type', 'loan')->sum(fn ($l) => (float) $l->amount);
-            $dep = $lines->where('account_type', 'deposit')->sum(fn ($l) => (float) $l->amount);
+            // Receive-direction lines only: a withdrawal line is money
+            // out, never a deposit receive (client round 3).
+            $dep = $lines->where('account_type', 'deposit')->where('direction', '!=', 'payment')->sum(fn ($l) => (float) $l->amount);
             $share = $lines->where('account_type', 'share')->sum(fn ($l) => (float) $l->amount);
             $rows[] = [$date, $this->money($loan), $this->money($dep), $this->money($share), $this->money($loan + $dep + $share)];
             $tLoan = $tLoan->plus($loan);
@@ -271,24 +280,32 @@ class CollectionReportService
             ->when(! empty($filters['employee_id']), fn ($q) => $q->where('field_officer_id', (int) $filters['employee_id']))
             ->orderBy('name')->get();
         $rows = [];
-        $tDep = $tLoan = $tAll = BigDecimal::zero();
+        $tDep = $tLoan = $tPay = $tAll = BigDecimal::zero();
         foreach ($samities as $samity) {
             $dep = DepositTransaction::where('tran_type', 'Receive')->whereNull('cancel_at')
+                ->whereIn('member_id', Member::where('samity_id', $samity->id)->pluck('id'));
+            $pay = DepositTransaction::where('tran_type', 'Payment')->whereNull('cancel_at')
                 ->whereIn('member_id', Member::where('samity_id', $samity->id)->pluck('id'));
             $loan = LoanReceive::whereNull('cancel_at')
                 ->whereIn('member_id', Member::where('samity_id', $samity->id)->pluck('id'));
             $depTotal = $this->money($this->applyPeriod($dep, 'business_date', $filters)->sum('amount'));
+            $payTotal = $this->money($this->applyPeriod($pay, 'business_date', $filters)->sum('amount'));
             $loanTotal = $this->money($this->applyPeriod($loan, 'business_date', $filters)->sum('installment_amount'));
-            $rows[] = [$samity->samity_code, $samity->name, $depTotal, $loanTotal, $this->money(BigDecimal::of($depTotal)->plus($loanTotal))];
+            // Total = NET cash collected: deposits in + installments
+            // in − withdrawals out. Field withdrawals post as Payment
+            // transactions on this same table (client round 3,
+            // 2026-11-18), so they surface here with no special case.
+            $rows[] = [$samity->samity_code, $samity->name, $depTotal, $loanTotal, $payTotal, $this->money(BigDecimal::of($depTotal)->plus($loanTotal)->minus($payTotal))];
             $tDep = $tDep->plus($depTotal);
             $tLoan = $tLoan->plus($loanTotal);
-            $tAll = $tAll->plus($depTotal)->plus($loanTotal);
+            $tPay = $tPay->plus($payTotal);
+            $tAll = $tAll->plus($depTotal)->plus($loanTotal)->minus($payTotal);
         }
 
         return [
-            'columns' => ['samity_code', 'samity', 'deposit_receive', 'loan_receive', 'total_receive'],
+            'columns' => ['samity_code', 'samity', 'deposit_receive', 'loan_receive', 'deposit_payment', 'total_receive'],
             'rows' => $rows,
-            'total_row' => ['', __('total'), $this->money($tDep), $this->money($tLoan), $this->money($tAll)],
+            'total_row' => ['', __('total'), $this->money($tDep), $this->money($tLoan), $this->money($tPay), $this->money($tAll)],
         ];
     }
 

@@ -304,28 +304,55 @@ class CollectionService
             $errors = [];
             $loanReceive = BigDecimal::zero();
             $depositReceive = BigDecimal::zero();
+            $depositPayment = BigDecimal::zero();
             $shareReceive = BigDecimal::zero();
 
             foreach ($lines as $i => $line) {
                 $amount = $this->money(BigDecimal::of((string) $line['amount']));
                 $lineMember = Member::find((int) $line['member_id']);
                 $label = ($lineMember?->member_no ?? '#'.$line['member_id']).' / '.($line['account_type'] ?? '?').' '.($line['account_id'] ?? '');
+                // Field withdrawal (client round 3, 2026-11-18): a
+                // deposit line may carry direction 'payment' — money
+                // OUT of the member's general savings, taken beside
+                // the deposit at collection time. Every other line is
+                // a receive, as before.
+                $isWithdrawal = ($line['direction'] ?? 'receive') === 'payment';
                 try {
                     $refType = null;
                     $refId = null;
                     $productCode = null;
                     $receivable = '0.00';
+                    if ($isWithdrawal && $line['account_type'] !== 'deposit') {
+                        throw ValidationException::withMessages(['account_type' => __('withdrawal_deposit_only')]);
+                    }
                     if ($line['account_type'] === 'deposit') {
                         $account = DepositAccount::with('product')->findOrFail((int) $line['account_id']);
                         if ((int) $account->member_id !== (int) $line['member_id']) {
                             throw ValidationException::withMessages(['account_id' => __('account_member_mismatch')]);
                         }
-                        $receivable = $this->depositReceivable($account);
-                        $detail = $this->depositTxns->receive($account, $amount, null, 'Collection batch #'.$batch->id, $actor);
+                        if ($isWithdrawal) {
+                            // ONLY the general savings product may be
+                            // withdrawn in the field. LTS / DPS / FDR
+                            // and every other product are refused —
+                            // their money leaves through the office
+                            // closing flow, where the maturity /
+                            // premature profit rules apply.
+                            if (($account->product?->code ?? null) !== $this->linkedSavings->productCode()) {
+                                throw ValidationException::withMessages(['account_id' => __('field_withdrawal_savings_only')]);
+                            }
+                            if (BigDecimal::of($amount)->isGreaterThan((string) $account->current_balance)) {
+                                throw ValidationException::withMessages(['amount' => __('withdrawal_exceeds_balance')]);
+                            }
+                            $detail = $this->depositTxns->payment($account, $amount, null, 'Collection batch #'.$batch->id, $actor);
+                            $depositPayment = $depositPayment->plus($amount);
+                        } else {
+                            $receivable = $this->depositReceivable($account);
+                            $detail = $this->depositTxns->receive($account, $amount, null, 'Collection batch #'.$batch->id, $actor);
+                            $depositReceive = $depositReceive->plus($amount);
+                        }
                         $refType = 'deposit_transaction';
                         $refId = $detail->id;
                         $productCode = $account->product?->code;
-                        $depositReceive = $depositReceive->plus($amount);
                     } elseif ($line['account_type'] === 'loan') {
                         $loan = LoanAccount::findOrFail((int) $line['account_id']);
                         if ((int) $loan->member_id !== (int) $line['member_id']) {
@@ -373,6 +400,7 @@ class CollectionService
                         'batch_id' => $batch->id,
                         'member_id' => (int) $line['member_id'],
                         'account_type' => $line['account_type'],
+                        'direction' => $isWithdrawal ? 'payment' : 'receive',
                         'account_id' => (int) $line['account_id'],
                         'deposit_product_code' => $productCode,
                         'receivable' => $receivable,
@@ -396,6 +424,7 @@ class CollectionService
             $batch->update([
                 'loan_receive' => $this->money($loanReceive),
                 'deposit_receive' => $this->money($depositReceive),
+                'deposit_payment' => $this->money($depositPayment),
                 'share_receive' => $this->money($shareReceive),
                 'total_receive' => $this->money($totalReceive),
                 'total_receivable' => $totalReceivable,
@@ -429,8 +458,12 @@ class CollectionService
         if ($loanMemberIds === []) {
             return;
         }
+        // Only RECEIVE lines satisfy the rule: a withdrawal out of
+        // the same account is money leaving, not the compulsory
+        // savings deposit (client round 3, 2026-11-18).
         $depositAccountIdsByMember = collect($lines)
             ->where('account_type', 'deposit')
+            ->filter(fn ($l) => ($l['direction'] ?? 'receive') !== 'payment')
             ->groupBy(fn ($l) => (int) $l['member_id'])
             ->map(fn ($group) => $group->pluck('account_id')->map(fn ($id) => (int) $id)->all());
 
@@ -532,8 +565,13 @@ class CollectionService
         $posted = $batch->lines()->where('status', 'Posted')->get();
         $loan = BigDecimal::zero();
         $deposit = BigDecimal::zero();
+        $depositPayment = BigDecimal::zero();
         $share = BigDecimal::zero();
         foreach ($posted as $l) {
+            if ($l->account_type === 'deposit' && $l->direction === 'payment') {
+                $depositPayment = $depositPayment->plus((string) $l->amount);
+                continue;
+            }
             match ($l->account_type) {
                 'loan' => $loan = $loan->plus((string) $l->amount),
                 'deposit' => $deposit = $deposit->plus((string) $l->amount),
@@ -544,6 +582,7 @@ class CollectionService
         $batch->update([
             'loan_receive' => $this->money($loan),
             'deposit_receive' => $this->money($deposit),
+            'deposit_payment' => $this->money($depositPayment),
             'share_receive' => $this->money($share),
             'total_receive' => $this->money($total),
             'total_dues' => $this->money(BigDecimal::of((string) $batch->total_receivable)->minus($total)),

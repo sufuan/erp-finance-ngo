@@ -24,16 +24,20 @@ export default function CollectLoan({ query = '', results = [], panel = null, ca
     const [memberFilter, setMemberFilter] = useState('');
     const form = useForm({
         loan_id: panel?.id ?? '', amount: panel?.due_amount ?? '',
-        savings_amount: panel?.savings?.expected ?? '', lts_amount: panel?.lts?.expected ?? '',
+        savings_amount: panel?.savings?.expected ?? '', savings_withdrawal_amount: '',
+        lts_amount: panel?.lts?.expected ?? '',
     });
 
     // A fresh panel (first open, another loan, or the post-collect
     // redirect) re-prefills all three parts with the current figures —
-    // the typed values never survive into a different panel.
+    // the typed values never survive into a different panel. The
+    // withdrawal field always starts empty: paying money OUT is a
+    // deliberate entry, never a prefilled suggestion.
     useEffect(() => {
         if (panel) form.setData({
             loan_id: panel.id, amount: panel.due_amount,
-            savings_amount: panel.savings?.expected ?? '', lts_amount: panel.lts?.expected ?? '',
+            savings_amount: panel.savings?.expected ?? '', savings_withdrawal_amount: '',
+            lts_amount: panel.lts?.expected ?? '',
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [panel?.id, panel?.due_amount, panel?.savings?.expected, panel?.lts?.expected]);
@@ -194,6 +198,14 @@ export default function CollectLoan({ query = '', results = [], panel = null, ca
                                             <input type="number" step="0.01" min="0" className={inputCls} value={form.data.savings_amount} onChange={(e) => form.setData('savings_amount', e.target.value)} />
                                         </Field>
                                         <span className="mt-1 block text-xs text-zinc-500">{t('balance')}: {panel.savings.balance}</span>
+                                    </div>
+                                )}
+                                {panel.savings && (
+                                    <div className="min-w-40 flex-1 sm:max-w-xs">
+                                        <Field label={`${t('withdrawal')} (${panel.savings.account_number})`} error={form.errors.savings_withdrawal_amount}>
+                                            <input type="number" step="0.01" min="0" className={inputCls} value={form.data.savings_withdrawal_amount} onChange={(e) => form.setData('savings_withdrawal_amount', e.target.value)} />
+                                        </Field>
+                                        <span className="mt-1 block text-xs text-zinc-500">{t('field_withdrawal_hint')}</span>
                                     </div>
                                 )}
                                 {panel.lts && (

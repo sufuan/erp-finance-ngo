@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class CollectionLine extends Model
 {
     protected $fillable = [
-        'batch_id', 'member_id', 'account_type', 'account_id',
+        'batch_id', 'member_id', 'account_type', 'account_id', 'direction',
         'deposit_product_code', 'receivable', 'amount', 'ref_type',
         'ref_id', 'status', 'cancel_by', 'cancel_at',
     ];

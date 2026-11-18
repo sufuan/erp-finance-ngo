@@ -105,6 +105,9 @@ export default function AppLayout({ children, branches: branchesProp = undefined
                 ...item('reports-deposits', '/reports/deposits', 'deposit_reports', ScrollText, 'violet', 'reports', ['/reports/deposits']),
                 ...item('reports-loans', '/reports/loans', 'loan_reports', ScrollText, 'amber', 'reports', ['/reports/loans']),
                 ...item('reports-llp', '/reports/llp', 'llp', Scale, 'orange', 'reports', ['/reports/llp']),
+                ...item('reports-manager-register', '/reports/manager-register', 'daily_office_register', ScrollText, 'teal', 'reports', ['/reports/manager-register']),
+                ...item('reports-weekly-balance', '/reports/weekly-balance', 'weekly_balance_sheet', ScrollText, 'green', 'reports', ['/reports/weekly-balance']),
+                ...item('reports-branch-registers', '/reports/branch-registers', 'branch_registers', Building2, 'rose', 'director', ['/reports/branch-registers']),
             ],
         },
         {

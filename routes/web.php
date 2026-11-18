@@ -41,6 +41,7 @@ use App\Http\Controllers\Loans\LoanProposalController;
 use App\Http\Controllers\Reports\DepositReportController;
 use App\Http\Controllers\Reports\LlpController;
 use App\Http\Controllers\Reports\LoanReportController;
+use App\Http\Controllers\Reports\RegisterController as ReportRegisterController;
 use App\Http\Controllers\Settings\RegisterController;
 use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\SamityController;
@@ -427,6 +428,15 @@ Route::prefix('reports')->name('reports.')->middleware(['auth', 'password.change
     Route::get('/loans/{key}/pdf', [LoanReportController::class, 'pdf'])->middleware('can:reports.print')->name('loans.pdf');
     Route::get('/llp', [LlpController::class, 'index'])->middleware('can:reports.view')->name('llp');
     Route::post('/llp/post', [LlpController::class, 'post'])->middleware('can:reports.view')->name('llp.post');
+    // Client round 3 registers (2026-11-18): the pages authorize
+    // reports.view OR director.view inside the controller (the
+    // Director holds only director.view); the all-branches list is
+    // Director-only, here at the route like /director itself.
+    Route::get('/manager-register', [ReportRegisterController::class, 'managerRegister'])->name('manager-register');
+    Route::get('/manager-register/pdf', [ReportRegisterController::class, 'managerRegisterPdf'])->name('manager-register.pdf');
+    Route::get('/weekly-balance', [ReportRegisterController::class, 'weeklyBalance'])->name('weekly-balance');
+    Route::get('/weekly-balance/pdf', [ReportRegisterController::class, 'weeklyBalancePdf'])->name('weekly-balance.pdf');
+    Route::get('/branch-registers', [ReportRegisterController::class, 'branchRegisters'])->middleware('can:director.view')->name('branch-registers');
 });
 
 // Private files: the controller itself requires an authenticated user.

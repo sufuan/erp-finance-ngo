@@ -12,7 +12,7 @@ class CollectionBatch extends Model
     protected $fillable = [
         'branch_id', 'samity_id', 'member_id', 'kind', 'tran_date',
         'business_date', 'total_receivable', 'loan_receive',
-        'deposit_receive', 'share_receive', 'total_receive', 'total_dues',
+        'deposit_receive', 'deposit_payment', 'share_receive', 'total_receive', 'total_dues',
         'status', 'entry_by', 'entry_at', 'cancel_by', 'cancel_at',
         'cancel_reason',
     ];
@@ -22,7 +22,7 @@ class CollectionBatch extends Model
         return [
             'tran_date' => 'date', 'business_date' => 'date',
             'total_receivable' => 'decimal:2', 'loan_receive' => 'decimal:2',
-            'deposit_receive' => 'decimal:2', 'share_receive' => 'decimal:2',
+            'deposit_receive' => 'decimal:2', 'deposit_payment' => 'decimal:2', 'share_receive' => 'decimal:2',
             'total_receive' => 'decimal:2', 'total_dues' => 'decimal:2',
             'entry_at' => 'datetime', 'cancel_at' => 'datetime',
         ];
