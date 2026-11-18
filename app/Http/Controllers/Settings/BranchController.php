@@ -15,7 +15,7 @@ class BranchController extends Controller
     public function index(): Response
     {
         return Inertia::render('Settings/Branches/Index', [
-            'branches' => Branch::with('parent:id,code,name')
+            'branches' => Branch::with('parent:id,code,name', 'manager:id,name')
                 ->orderBy('code')
                 ->paginate(25)
                 ->through(fn (Branch $b) => [
@@ -23,6 +23,7 @@ class BranchController extends Controller
                     'code' => $b->code,
                     'name' => $b->name,
                     'type' => $b->type,
+                    'manager' => $b->manager ? ['id' => $b->manager->id, 'name' => $b->manager->name] : null,
                     'parent' => $b->parent ? ['id' => $b->parent->id, 'code' => $b->parent->code, 'name' => $b->parent->name] : null,
                     'opening_date' => $b->opening_date?->toDateString(),
                     'manager_phone' => $b->manager_phone,

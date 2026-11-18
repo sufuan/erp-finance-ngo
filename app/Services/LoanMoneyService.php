@@ -39,6 +39,7 @@ class LoanMoneyService
         private BusinessDayService $businessDays,
         private SettingsService $settings,
         private DepositTransactionService $depositTransactions,
+        private LinkedSavingsService $linkedSavings,
     ) {}
 
     public function disburse(LoanAccount $loan, User $actor): LoanAccount
@@ -48,9 +49,86 @@ class LoanMoneyService
             if ($loan->status !== 'Opened') {
                 throw ValidationException::withMessages(['status' => __('loan_not_opened')]);
             }
+            $businessDate = $this->businessDays->currentDate($loan->branch_id);
+            $loanAmount = BigDecimal::of((string) $loan->loan_amount);
+
+            // Client rule (2026-11-18): at disbursement, part of the
+            // loan — setting `loan.savings_deposit_rate`, default 10% —
+            // is credited to the member's linked savings account as a
+            // real deposit receive, and the member takes the rest in
+            // cash. ONE Journal voucher carries the whole split
+            // (Dr loan portfolio full amount; Cr cash net; Cr deposit
+            // liability for the savings part), so the savings credit
+            // never posts a second cash voucher and cash is not
+            // double-counted. Rate 0 (or a non-member loan) keeps the
+            // old single-line behaviour exactly.
+            $savings = BigDecimal::zero()->toScale(2, RoundingMode::HalfUp);
+            $savingsAccount = null;
+            $rate = BigDecimal::of((string) ($this->settings->get('loan.savings_deposit_rate', 10) ?? 10));
+            if ($loan->member_id && $rate->isPositive()) {
+                $member = \App\Models\Member::findOrFail($loan->member_id);
+                $savingsAccount = $this->linkedSavings->ensureAccount($member, $businessDate, $actor->id);
+                if ($savingsAccount) {
+                    $savings = $loanAmount->multipliedBy($rate)->dividedBy(100, 2, RoundingMode::HalfUp);
+                }
+            }
+
+            if ($savings->isPositive() && $savingsAccount) {
+                $savingsAccount->loadMissing('product');
+                $cash = $loanAmount->minus($savings);
+                $detail = \App\Models\DepositTransaction::create([
+                    'branch_id' => $savingsAccount->branch_id, 'account_id' => $savingsAccount->id,
+                    'member_id' => $savingsAccount->member_id, 'tran_type' => 'Receive',
+                    'product' => $this->depositTransactions->productLabel($savingsAccount->product),
+                    'amount' => (string) $savings,
+                    'tran_date' => $businessDate, 'business_date' => $businessDate,
+                    'document_number' => null,
+                    'comments' => 'Loan-linked savings deposit — '.$loan->loan_number,
+                    'entry_by' => $actor->id,
+                ]);
+                $disbMapping = \App\Models\GlMapping::byKey('loan.disbursement');
+                $depositMapping = \App\Models\GlMapping::byKey($savingsAccount->product->gl_mapping_prefix.'.receive');
+                $lines = [[
+                    'ledger_id' => $disbMapping->debit_ledger_id,
+                    'debit' => (string) $loanAmount, 'credit' => '0.00', 'loan_account_id' => $loan->id,
+                ]];
+                if ($cash->isPositive()) {
+                    $lines[] = [
+                        'ledger_id' => $disbMapping->credit_ledger_id,
+                        'debit' => '0.00', 'credit' => (string) $cash, 'loan_account_id' => $loan->id,
+                    ];
+                }
+                $lines[] = [
+                    'ledger_id' => $depositMapping->credit_ledger_id,
+                    'debit' => '0.00', 'credit' => (string) $savings, 'deposit_account_id' => $savingsAccount->id,
+                ];
+                $movements = [
+                    ['account_type' => 'loan', 'account_id' => $loan->id, 'tran_code' => 'DISBURSE', 'amount' => (string) $loanAmount, 'ref_type' => 'loan_account', 'ref_id' => $loan->id],
+                    ['account_type' => 'deposit', 'account_id' => $savingsAccount->id, 'tran_code' => 'RECEIVE', 'amount' => (string) $savings, 'ref_type' => 'deposit_transaction', 'ref_id' => $detail->id],
+                ];
+                if ($cash->isPositive()) {
+                    $movements[] = ['account_type' => 'cash', 'account_id' => $actor->id, 'tran_code' => 'CASH_OUT', 'amount' => '-'.(string) $cash];
+                }
+                $voucher = $this->posting->post([
+                    'branch_id' => $loan->branch_id, 'voucher_type' => 'Journal', 'entry_by' => $actor->id,
+                    'transaction_date' => $businessDate,
+                    'comments' => 'Loan disbursement '.$loan->loan_number,
+                    'lines' => $lines,
+                    'movements' => $movements,
+                ]);
+                $detail->update(['voucher_id' => $voucher->id]);
+                $this->depositTransactions->resyncCache($savingsAccount);
+                $loan->update([
+                    'status' => 'Disbursed', 'disbursed_by' => $actor->id, 'disbursed_at' => now(),
+                    'savings_deposit_amount' => (string) $savings, 'savings_account_id' => $savingsAccount->id,
+                ]);
+
+                return $loan->fresh();
+            }
+
             $this->posting->post([
                 'branch_id' => $loan->branch_id, 'voucher_type' => 'Journal', 'entry_by' => $actor->id,
-                'transaction_date' => $this->businessDays->currentDate($loan->branch_id),
+                'transaction_date' => $businessDate,
                 'comments' => 'Loan disbursement '.$loan->loan_number,
                 'lines' => [['mapping_key' => 'loan.disbursement', 'amount' => (string) $loan->loan_amount, 'loan_account_id' => $loan->id]],
                 'movements' => [
@@ -145,7 +223,18 @@ class LoanMoneyService
 
             $depositVoucherId = null;
             if ($transfer) {
-                $depositAccount = DepositAccount::findOrFail($input['deposit_account_id']);
+                $depositAccount = DepositAccount::with('product')->findOrFail($input['deposit_account_id']);
+                // The funding account must be the loan member's OWN
+                // savings — never another member's account — and never
+                // a Long Term Savings account: LTS money leaves only
+                // through the closing flow, where the printed
+                // premature/maturity profit rules apply (2026-11-18).
+                if (! $loan->member_id || (int) $depositAccount->member_id !== (int) $loan->member_id) {
+                    throw ValidationException::withMessages(['deposit_account_id' => __('deposit_account_not_member')]);
+                }
+                if (($depositAccount->product?->code ?? null) === 'LTS') {
+                    throw ValidationException::withMessages(['deposit_account_id' => __('lts_not_payment_source')]);
+                }
                 $outstanding = $this->outstanding($loan);
                 if ($amount->isGreaterThan($outstanding['total'])) {
                     throw ValidationException::withMessages(['amount' => __('transfer_exceeds_outstanding')]);

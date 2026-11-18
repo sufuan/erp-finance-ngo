@@ -80,6 +80,10 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
     // Director (পরিচালক) view-only consolidated dashboard.
     Route::get('/director', [DirectorController::class, 'index'])
         ->middleware('can:director.view')->name('director.dashboard');
+    // The same figures as a printable / savable PDF (client order
+    // 2026-11-18) — gated by the same permission as the page.
+    Route::get('/director/pdf', [DirectorController::class, 'pdf'])
+        ->middleware('can:director.view')->name('director.pdf');
 
     // Module hub pages (redesign): navigation only — tiles/cards are
     // permission-filtered client-side, target routes stay authoritative.
@@ -132,22 +136,29 @@ Route::middleware(['auth', 'password.changed', 'totp'])->group(function () {
             ->middleware('can:settings.view')
             ->name('permissions.index');
 
-        // Samities, holidays, notices (Step 7).
+        // Samities, holidays, notices (Step 7). The old samity manager
+        // change & samity merge were replaced by branch-level features
+        // (client round 2026-11-18) — see BranchLifecycleController.
         Route::middleware('can:settings.view')->group(function () {
             Route::get('/samities', [SamityController::class, 'index'])->name('samities.index');
-            Route::get('/samities/changes/{type}', [SamityController::class, 'changeForm'])->whereIn('type', ['day', 'officer', 'manager'])->name('samities.changes');
-            Route::get('/samities/merge', [SamityController::class, 'mergeForm'])->name('samities.merge');
+            Route::get('/samities/changes/{type}', [SamityController::class, 'changeForm'])->whereIn('type', ['day', 'officer'])->name('samities.changes');
             Route::get('/samities/split', [SamityController::class, 'splitForm'])->name('samities.split');
             Route::get('/holidays', [SamityController::class, 'holidays'])->name('holidays.index');
             Route::get('/notices', [SamityController::class, 'notices'])->name('notices.index');
+            Route::get('/branches/manager-change', [\App\Http\Controllers\Settings\BranchLifecycleController::class, 'managerChangeForm'])->name('branches.manager-change');
+            Route::get('/branches/merge', [\App\Http\Controllers\Settings\BranchLifecycleController::class, 'mergeForm'])->name('branches.merge');
+            Route::get('/branches/split', [\App\Http\Controllers\Settings\BranchLifecycleController::class, 'splitForm'])->name('branches.split');
         });
         Route::middleware('can:settings.general')->group(function () {
             Route::post('/samities', [SamityController::class, 'store'])->name('samities.store');
             Route::put('/samities/{samity}', [SamityController::class, 'update'])->name('samities.update');
-            Route::post('/samities/changes/{type}', [SamityController::class, 'applyChange'])->whereIn('type', ['day', 'officer', 'manager'])->name('samities.changes.apply');
-            Route::post('/samities/merge', [SamityController::class, 'merge'])->name('samities.merge.apply');
+            Route::post('/samities/changes/{type}', [SamityController::class, 'applyChange'])->whereIn('type', ['day', 'officer'])->name('samities.changes.apply');
             Route::post('/samities/split', [SamityController::class, 'split'])->name('samities.split.apply');
+            Route::post('/branches/manager-change', [\App\Http\Controllers\Settings\BranchLifecycleController::class, 'applyManagerChange'])->name('branches.manager-change.apply');
+            Route::post('/branches/merge', [\App\Http\Controllers\Settings\BranchLifecycleController::class, 'merge'])->name('branches.merge.apply');
+            Route::post('/branches/split', [\App\Http\Controllers\Settings\BranchLifecycleController::class, 'split'])->name('branches.split.apply');
             Route::post('/holidays', [SamityController::class, 'storeHoliday'])->name('holidays.store');
+            Route::put('/holidays/{holiday}', [SamityController::class, 'updateHoliday'])->name('holidays.update');
             Route::delete('/holidays/{holiday}', [SamityController::class, 'destroyHoliday'])->name('holidays.destroy');
             Route::post('/notices', [SamityController::class, 'storeNotice'])->name('notices.store');
             Route::delete('/notices/{notice}', [SamityController::class, 'destroyNotice'])->name('notices.destroy');
@@ -422,3 +433,7 @@ Route::prefix('reports')->name('reports.')->middleware(['auth', 'password.change
 Route::get('/files/{path}', [FileController::class, 'show'])
     ->where('path', '.*')
     ->name('files.show');
+
+// Organization logo: public branding (login page + app shell), see
+// FileController::orgLogo for why this one file is not auth-gated.
+Route::get('/org-logo', [FileController::class, 'orgLogo'])->name('org.logo');

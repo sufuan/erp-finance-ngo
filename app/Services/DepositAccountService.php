@@ -32,6 +32,26 @@ class DepositAccountService
             ? (int) $data['term_months']
             : $product->maturity_months;
 
+        // Long Term Savings printed terms (client, 2026-11-18): the
+        // daily amount must be one of the printed slab amounts and
+        // the term one of 1–5 years — the maturity profit table is
+        // keyed on exactly those two values, so anything else could
+        // never be priced at closing.
+        $config = is_array($product->config) ? $product->config : [];
+        $isPayoutTable = ! empty($config['payout_table']) && ! empty($config['fixed_amounts']);
+        if ($isPayoutTable) {
+            $amount = isset($data['installment_amount']) && $data['installment_amount'] !== null
+                ? (float) $data['installment_amount'] : null;
+            $allowed = array_map(fn ($v) => (float) $v, $config['fixed_amounts']);
+            if ($amount === null || ! in_array($amount, $allowed, true)) {
+                throw ValidationException::withMessages(['installment_amount' => __('lts_amount_not_in_slabs')]);
+            }
+            $years = ! empty($config['terms_years']) ? array_map(fn ($v) => (int) $v, $config['terms_years']) : [];
+            if ($years !== [] && ($months === null || $months % 12 !== 0 || ! in_array(intdiv($months, 12), $years, true))) {
+                throw ValidationException::withMessages(['term_months' => __('lts_term_not_allowed')]);
+            }
+        }
+
         return DepositAccount::create([
             'account_number' => $this->numbering->nextDisplayId($member->branch_id, 'deposit_account'),
             'branch_id' => $member->branch_id,
@@ -41,7 +61,11 @@ class DepositAccountService
             'address' => $data['address'] ?? $member->present_address,
             'phone' => $data['phone'] ?? $member->mobile,
             'opening_date' => $opening->toDateString(),
-            'profit_rate' => $data['profit_rate'] ?? $product->default_profit_rate,
+            // Payout-table products (LTS) have NO flat rate: their profit
+            // comes from the printed table at closing (LtsProfitService),
+            // so the account stores 0 — never the product default (15) and
+            // never a rate typed on the opening form.
+            'profit_rate' => $isPayoutTable ? 0 : ($data['profit_rate'] ?? $product->default_profit_rate),
             'installment_amount' => $data['installment_amount'] ?? null,
             'maturity_date' => $months ? $opening->copy()->addMonths($months)->toDateString() : null,
             'nominee_id' => $data['nominee_id'] ?? $member->nominees()->orderBy('id')->value('id'),

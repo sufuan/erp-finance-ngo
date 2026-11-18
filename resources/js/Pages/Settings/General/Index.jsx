@@ -38,6 +38,7 @@ export default function GeneralSettings({ profile, settings }) {
             address: profile?.address ?? '', phone: profile?.phone ?? '', email: profile?.email ?? '',
         },
         logo: null,
+        remove_logo: false,
         settings: {
             'app.name': s['app.name'] ?? '',
             'app.locale_default': s['app.locale_default'] ?? 'bn',
@@ -50,7 +51,10 @@ export default function GeneralSettings({ profile, settings }) {
             'loan.allocation_order': normalizeAllocationOrder(s['loan.allocation_order']),
             'loan.allow_overpayment': !!s['loan.allow_overpayment'],
             'loan.enabled_frequencies': Array.isArray(s['loan.enabled_frequencies']) ? s['loan.enabled_frequencies'] : ['D', 'W', 'M'],
-            'loan.fee_defaults': { form: 0, health: 0, risk: 0, document: 0, emi_locker: 0, others: 0, ...asObject(s['loan.fee_defaults']) },
+            'loan.fee_defaults': { form: 0, health: 0, risk: 0, document: 0, emi_locker: 0, insurance: 0, others: 0, ...asObject(s['loan.fee_defaults']) },
+            'loan.linked_savings_product': s['loan.linked_savings_product'] ?? 'SAVINGS',
+            'loan.savings_deposit_rate': s['loan.savings_deposit_rate'] ?? 10,
+            'loan.insurance_rate': s['loan.insurance_rate'] ?? 1,
             'llp.rates': { standard: 1, watchlist: 5, substandard: 25, doubtful: 75, loss: 100, ...asObject(s['llp.rates']) },
             'llp.basis': s['llp.basis'] ?? 'net_outstanding',
             'profit.tax_withholding_rate': s['profit.tax_withholding_rate'] ?? 0,
@@ -191,10 +195,18 @@ export default function GeneralSettings({ profile, settings }) {
                         <Field label={t('address')} error={errors['profile.address']}><input className={inputCls} value={data.profile.address} onChange={(e) => setProfile('address', e.target.value)} /></Field>
                         <Field label={t('phone')} error={errors['profile.phone']}><input className={inputCls} value={data.profile.phone} onChange={(e) => setProfile('phone', e.target.value)} /></Field>
                         <Field label={t('email')} error={errors['profile.email']}><input type="email" className={inputCls} value={data.profile.email} onChange={(e) => setProfile('email', e.target.value)} /></Field>
-                        <Field label={t('logo')} error={errors.logo}>
-                            <input type="file" accept="image/*" className={inputCls} onChange={(e) => setData('logo', e.target.files[0] ?? null)} />
+                        <Field label={t('upload_logo')} error={errors.logo}>
+                            <input type="file" accept="image/png,image/jpeg" className={inputCls} onChange={(e) => setData('logo', e.target.files[0] ?? null)} />
                         </Field>
-                        {profile?.logo_path && <img src={`/files/${profile.logo_path}`} alt={t('logo')} className="max-h-20 rounded-lg border border-zinc-200 object-contain dark:border-zinc-700" />}
+                        {profile?.logo_path && (
+                            <div className="space-y-2">
+                                <img src={`/files/${profile.logo_path}`} alt={t('logo')} className="max-h-20 rounded-lg border border-zinc-200 object-contain dark:border-zinc-700" />
+                                <label className="flex min-h-[44px] items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+                                    <input type="checkbox" className="h-4 w-4" checked={!!data.remove_logo} onChange={(e) => setData('remove_logo', e.target.checked)} />
+                                    {t('remove_logo')}
+                                </label>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -247,10 +259,17 @@ export default function GeneralSettings({ profile, settings }) {
                         <fieldset>
                             <legend className="mb-2 text-sm font-medium">{t('fee_defaults')}</legend>
                             <div className="grid gap-4 sm:grid-cols-3">
-                                {[['form', 'fee_form'], ['health', 'fee_health'], ['risk', 'fee_risk'], ['document', 'fee_document'], ['emi_locker', 'fee_emi_locker'], ['others', 'fee_others']].map(([k, label]) =>
+                                {[['form', 'fee_form'], ['health', 'fee_health'], ['risk', 'fee_risk'], ['document', 'fee_document'], ['emi_locker', 'fee_emi_locker'], ['insurance', 'fee_insurance'], ['others', 'fee_others']].map(([k, label]) =>
                                     num(t(label), data.settings['loan.fee_defaults'][k], (v) => set('loan.fee_defaults', { ...data.settings['loan.fee_defaults'], [k]: v }), null, k))}
                             </div>
                         </fieldset>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <Field label={t('linked_savings_product')}>
+                                <input className={inputCls} value={data.settings['loan.linked_savings_product']} onChange={(e) => set('loan.linked_savings_product', e.target.value)} />
+                            </Field>
+                            {num(t('savings_deposit_rate'), data.settings['loan.savings_deposit_rate'], (v) => set('loan.savings_deposit_rate', v))}
+                            {num(t('insurance_rate'), data.settings['loan.insurance_rate'], (v) => set('loan.insurance_rate', v))}
+                        </div>
                         <fieldset>
                             <legend className="mb-2 text-sm font-medium">{t('llp_rates')}</legend>
                             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">

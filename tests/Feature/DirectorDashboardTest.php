@@ -138,11 +138,18 @@ class DirectorDashboardTest extends CrudTestCase
         $this->assertSame('1083.10', $delta($mid['today']['due_today'], $before['today']['due_today']));
 
         // A 500 loan collection on the business date (member collection).
+        // Since 2026-11-18 the installment must be accompanied by the
+        // compulsory current-savings part (the member holds the
+        // auto-opened linked savings account), so the post carries a
+        // 100 savings line as well; the DCR-consistency assertions
+        // below cover both figures.
         $this->actingAs($this->admin);
+        $linkedSavings = app(\App\Services\LinkedSavingsService::class)->activeAccount($member);
         $this->post('/collection/member', [
             'member_id' => $member->id,
             'lines' => [
                 ['member_id' => $member->id, 'account_type' => 'loan', 'account_id' => $loan->id, 'amount' => '500'],
+                ['member_id' => $member->id, 'account_type' => 'deposit', 'account_id' => $linkedSavings->id, 'amount' => '100'],
             ],
         ])->assertRedirect()->assertSessionHas('success');
 

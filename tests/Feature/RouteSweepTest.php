@@ -105,7 +105,8 @@ class RouteSweepTest extends TestCase
             '/settings/member-migrations', "/settings/member-migrations/{$memberBatch->id}",
             '/settings/notices', '/settings/permissions', '/settings/roles', '/settings/samities',
             '/settings/samities/changes/day', '/settings/samities/changes/officer',
-            '/settings/samities/changes/manager', '/settings/samities/merge', '/settings/samities/split',
+            '/settings/branches/manager-change', '/settings/branches/merge', '/settings/branches/split',
+            '/settings/samities/split',
             '/settings/users', "/settings/users/{$admin->id}/login-history",
             '/password/change',
         ];
@@ -127,6 +128,6 @@ class RouteSweepTest extends TestCase
         }
 
         $this->assertSame([], $failures, "Route sweep failures:\n".implode("\n", $failures));
-        $this->assertCount(90, $urls);
+        $this->assertCount(91, $urls);
     }
 }

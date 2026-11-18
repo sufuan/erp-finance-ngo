@@ -166,10 +166,14 @@ class CollectorProgressReportTest extends TestCase
 
         $collector = $this->makeCollector();
         $this->asCollector($collector);
-        $this->post('/collection/collect-loan', ['loan_id' => $loanA->id, 'amount' => '500'])
+        // Since 2026-11-18 an installment collection must carry the
+        // compulsory current-savings part too (each loan member holds
+        // an auto-opened linked savings account) — both posts carry
+        // 100 of savings, which the report counts as deposits.
+        $this->post('/collection/collect-loan', ['loan_id' => $loanA->id, 'amount' => '500', 'savings_amount' => '100'])
             ->assertRedirect('/collection/collect-loan?loan_id='.$loanA->id)
             ->assertSessionHas('success', __('collection_posted'));
-        $this->post('/collection/collect-loan', ['loan_id' => $loanB->id, 'amount' => '1083.10'])
+        $this->post('/collection/collect-loan', ['loan_id' => $loanB->id, 'amount' => '1083.10', 'savings_amount' => '100'])
             ->assertRedirect('/collection/collect-loan?loan_id='.$loanB->id)
             ->assertSessionHas('success', __('collection_posted'));
         $batch = CollectionBatch::where('entry_by', $collector->id)->latest('id')->firstOrFail();
@@ -196,8 +200,8 @@ class CollectorProgressReportTest extends TestCase
             '3249.30',  // 3 × 1083.10
             '1',        // fully collected (B)
             '1583.10',  // 500.00 + 1083.10 posted by him
-            '0.00',     // no deposits posted
-            '1583.10',
+            '200.00',   // the two compulsory savings parts (2 × 100)
+            '1783.10',  // 1583.10 loan + 200.00 deposits
             '2',        // missed installments (A partial, C unpaid)
             '1666.20',  // 583.10 + 1083.10
             '48.72%',   // 1583.10 / 3249.30

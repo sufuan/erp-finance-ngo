@@ -472,16 +472,12 @@ class SettingsCrudTest extends CrudTestCase
         $this->assertSame($officers[1]->id, $samity->refresh()->field_officer_id);
         $this->assertSame(1, SamityOfficerChange::where('samity_id', $samity->id)->count());
 
-        // Manager change.
-        $this->post('/settings/samities/changes/manager', [
-            'samity_id' => $samity->id, 'new_value' => $officers[1]->id,
-            'change_date' => '2026-10-21', 'effective_from' => '2026-10-22',
-        ])->assertRedirect()->assertSessionHas('success');
-        $this->assertSame($officers[1]->id, $samity->refresh()->manager_id);
-        $this->assertSame(1, SamityManagerChange::where('samity_id', $samity->id)->count());
+        // The samity manager CHANGE page was replaced by the branch-level
+        // Branch Manager Change (2026-11-18); samities.manager_id itself
+        // is still written by the samity create/update forms above.
 
         $this->get('/settings/samities/changes/day')->assertOk();
         $this->get('/settings/samities/changes/officer')->assertOk();
-        $this->get('/settings/samities/changes/manager')->assertOk();
+        $this->get('/settings/branches/manager-change')->assertOk();
     }
 }

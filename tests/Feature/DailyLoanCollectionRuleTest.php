@@ -153,7 +153,7 @@ class DailyLoanCollectionRuleTest extends TestCase
         $outstandingBefore = $this->outstanding($loan);
         $batchesBefore = CollectionBatch::count();
 
-        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => $dueToday])
+        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => $dueToday, 'savings_amount' => '50'])
             ->assertRedirect('/collection/collect-loan?loan_id='.$loan->id)
             ->assertSessionHas('success', __('collection_posted'));
         $this->assertSame('Paid', LoanSchedule::where('loan_account_id', $loan->id)
@@ -168,7 +168,7 @@ class DailyLoanCollectionRuleTest extends TestCase
 
         // A second click the same business day must NOT eat the next
         // (future) installment as an advance.
-        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => $dueToday])
+        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => $dueToday, 'savings_amount' => '50'])
             ->assertSessionHasErrors(['lines']);
         $this->assertStringContainsString(__('loan_no_due_today'), $this->linesErrorText());
         $this->assertSame(bcsub($outstandingBefore, $dueToday, 2), $this->outstanding($loan),
@@ -190,7 +190,7 @@ class DailyLoanCollectionRuleTest extends TestCase
         $this->assertSame($receivable, app(CollectionService::class)->loanReceivable($loan->fresh()),
             'Receivable = arrears + today, nothing from the future');
 
-        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => $receivable])
+        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => $receivable, 'savings_amount' => '50'])
             ->assertRedirect('/collection/collect-loan?loan_id='.$loan->id)
             ->assertSessionHas('success', __('collection_posted'));
         foreach ([1, 2, 3] as $no) {
@@ -199,7 +199,7 @@ class DailyLoanCollectionRuleTest extends TestCase
         }
         $outstandingAfter = $this->outstanding($loan);
 
-        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => '100'])
+        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => '100', 'savings_amount' => '50'])
             ->assertSessionHasErrors(['lines']);
         $this->assertStringContainsString(__('loan_no_due_today'), $this->linesErrorText());
         $this->assertSame($outstandingAfter, $this->outstanding($loan));
@@ -214,7 +214,7 @@ class DailyLoanCollectionRuleTest extends TestCase
         $partial = bcsub($dueToday, '400', 2);
         $this->assertTrue(bccomp($partial, '0', 2) === 1, 'Fixture installment must exceed 400');
 
-        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => $partial])
+        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => $partial, 'savings_amount' => '50'])
             ->assertRedirect('/collection/collect-loan?loan_id='.$loan->id)
             ->assertSessionHas('success', __('collection_posted'));
 
@@ -222,14 +222,14 @@ class DailyLoanCollectionRuleTest extends TestCase
         $this->get('/collection/collect-loan?loan_id='.$loan->id)->assertOk()
             ->assertInertia(fn ($p) => $p->component('Collections/CollectLoan')
                 ->where('panel.due_amount', '400.00'));
-        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => '400'])
+        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => '400', 'savings_amount' => '50'])
             ->assertRedirect('/collection/collect-loan?loan_id='.$loan->id)
             ->assertSessionHas('success', __('collection_posted'));
         $this->assertSame('Paid', LoanSchedule::where('loan_account_id', $loan->id)
             ->where('installment_no', 1)->value('status'));
 
         // Once the due is fully covered, the day is done for this loan.
-        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => '100'])
+        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => '100', 'savings_amount' => '50'])
             ->assertSessionHasErrors(['lines']);
         $this->assertStringContainsString(__('loan_no_due_today'), $this->linesErrorText());
         $this->assertSame(2, LoanReceive::where('loan_account_id', $loan->id)->whereNull('cancel_at')->count());
@@ -257,7 +257,7 @@ class DailyLoanCollectionRuleTest extends TestCase
         ])->assertSessionHasErrors(['lines']);
         $this->assertStringContainsString(__('loan_collection_exceeds_due'), $this->linesErrorText());
         $this->assertSame($batchesBefore, CollectionBatch::count(), 'The whole sheet rolls back');
-        $this->assertSame('0.00', (string) $savings->fresh()->current_balance, 'Deposit line rolled back too');
+        $this->assertSame('1200.00', (string) $savings->fresh()->current_balance, 'Deposit line rolled back too (only the 10% disbursement credit remains)');
         $this->assertSame(0, LoanReceive::where('loan_account_id', $loan->id)->count());
     }
 
@@ -274,6 +274,7 @@ class DailyLoanCollectionRuleTest extends TestCase
         $this->post('/collection/sheet?samity_id='.$this->samity->id, [
             'samity_id' => $this->samity->id,
             'lines' => [
+                ['member_id' => $member->id, 'account_type' => 'deposit', 'account_id' => app(\App\Services\LinkedSavingsService::class)->activeAccount($member)->id, 'amount' => '200'],
                 ['member_id' => $member->id, 'account_type' => 'loan', 'account_id' => $loan->id, 'amount' => $oneInstallment],
             ],
         ])->assertSessionHasErrors(['lines']);

@@ -57,9 +57,24 @@ class PdfService
             'fontDir' => array_merge((new \Mpdf\Config\ConfigVariables)->getDefaults()['fontDir'], [$fontDir]),
             'fontdata' => (new \Mpdf\Config\FontVariables)->getDefaults()['fontdata'] + [
                 // Self-hosted Hind Siliguri TTF (mPDF cannot embed woff2).
+                //
+                // NO 'B' variant on purpose (Bangla "????" bug, 2026-11-18):
+                // mPDF loses Bengali OTL shaping for bold runs whenever it
+                // has to switch font files mid-run — a registered 'B' file
+                // makes every bold Bengali run (<b>, <strong>, h1/h2
+                // defaults, font-weight: bold) print as "????" while regular
+                // text in the same font renders fine. Pointing 'B' at the
+                // Regular file breaks identically, so it is the switch, not
+                // the SemiBold file. With no 'B' registered, bold runs stay
+                // in the Regular face and conjuncts shape correctly.
+                // Second trigger of the same bug: a lang="bn" attribute in
+                // the document — autoLangToFont then re-fonts Bengali runs
+                // to mPDF's bundled 'freeserif' (LanguageToFont maps bn →
+                // freeserif), whose bold face lacks the shaped forms. The
+                // PDF blades therefore carry no lang attribute. Keep both
+                // conditions out or the headings break again.
                 'hindsiliguri' => [
                     'R' => 'HindSiliguri-Regular.ttf',
-                    'B' => 'HindSiliguri-SemiBold.ttf',
                     'useOTL' => 0xFF,
                 ],
             ],

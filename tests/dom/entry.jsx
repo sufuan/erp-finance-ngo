@@ -23,9 +23,16 @@ import Home from '../../resources/js/Pages/Home.jsx';
 import Dashboard from '../../resources/js/Pages/Dashboard.jsx';
 import BusinessDay from '../../resources/js/Pages/Settings/BusinessDay/Index.jsx';
 import MemberClosing from '../../resources/js/Pages/Members/Closing.jsx';
+import MemberAdmission from '../../resources/js/Pages/Members/Admission.jsx';
+import Holidays from '../../resources/js/Pages/Settings/Samities/Holidays.jsx';
+import DepositProducts from '../../resources/js/Pages/Deposits/Products.jsx';
+import MemberIndex from '../../resources/js/Pages/Members/Index.jsx';
 import MemberMigrations from '../../resources/js/Pages/Settings/MemberMigrations.jsx';
 import SamitiesIndex from '../../resources/js/Pages/Settings/Samities/Index.jsx';
 import SamityChanges from '../../resources/js/Pages/Settings/Samities/Changes.jsx';
+import BranchManagerChange from '../../resources/js/Pages/Settings/Branches/ManagerChange.jsx';
+import BranchMerge from '../../resources/js/Pages/Settings/Branches/Merge.jsx';
+import BranchSplit from '../../resources/js/Pages/Settings/Branches/Split.jsx';
 import GeneralSettings from '../../resources/js/Pages/Settings/General/Index.jsx';
 import ProposalCreate from '../../resources/js/Pages/Loans/ProposalCreate.jsx';
 import ProposalList from '../../resources/js/Pages/Loans/ProposalList.jsx';
@@ -37,6 +44,7 @@ import LoanReports from '../../resources/js/Pages/Reports/LoanReports.jsx';
 import RegistersIndex from '../../resources/js/Pages/Settings/Registers/Index.jsx';
 import SheetPosting from '../../resources/js/Pages/Collections/SheetPosting.jsx';
 import CollectLoan from '../../resources/js/Pages/Collections/CollectLoan.jsx';
+import DisbursementList from '../../resources/js/Pages/Loans/DisbursementList.jsx';
 import CollectionReports from '../../resources/js/Pages/Collections/Reports.jsx';
 import PassbookIssue from '../../resources/js/Pages/Collections/PassbookIssue.jsx';
 import ChequeBookIssue from '../../resources/js/Pages/Collections/ChequeBookIssue.jsx';
@@ -45,6 +53,7 @@ import AccountsTransactionForm from '../../resources/js/Pages/Accounts/Transacti
 import AccountsGroupTransaction from '../../resources/js/Pages/Accounts/GroupTransaction.jsx';
 import AccountsVouchers from '../../resources/js/Pages/Accounts/Vouchers.jsx';
 import AppLayout from '../../resources/js/Layouts/AppLayout.jsx';
+import AuthLayout from '../../resources/js/Layouts/AuthLayout.jsx';
 import UsersIndex from '../../resources/js/Pages/Settings/Users/Index.jsx';
 import RolesIndex from '../../resources/js/Pages/Settings/Roles/Index.jsx';
 
@@ -1331,6 +1340,417 @@ async function scenarioCollectLoanPanel() {
     __setPage(baseProps());
 }
 
+async function scenarioDirectorPrintButton() {
+    const Wrapped = withI18n(DirectorDashboard);
+    const fig = {
+        deposit_collection: '1500.00', loan_collection: '500.00', due_today: '583.10',
+        disbursed: '12000.00', disbursed_count: 1, new_members: 2, income: '700.00', expense: '100.00',
+    };
+    const props = {
+        asOn: '2026-11-14',
+        today: fig,
+        month: { ...fig, deposit_collection: '9000.00' },
+        totals: { members: 42, active_loans: 7, outstanding: '54321.00', deposit_balance: '98765.00' },
+        branches: [{
+            id: 2, code: '102', name: 'Talgachi', business_date: '2026-11-14',
+            today: fig, month: fig,
+            totals: { members: 42, active_loans: 7, outstanding: '54321.00', deposit_balance: '98765.00' },
+        }],
+    };
+    __setPage(baseProps({ auth: { user: { id: 9, name: 'Director', username: 'director' }, can: { director: true } } }));
+    const m = mount(<Wrapped {...props} />);
+    const link = m.container.querySelector('a[href="/director/pdf"]');
+    check('DirectorPrint: the print control is an anchor to /director/pdf (view-only page keeps no buttons)',
+        !!link && link.textContent.includes(en.print));
+    const main = m.container.querySelector('main') ?? m.container;
+    check('DirectorPrint: still no form or button inside main', !main.querySelector('form') && !main.querySelector('button'));
+    await unmount(m);
+    __setPage(baseProps());
+}
+
+async function scenarioCollectLoanThreePart() {
+    __setPage(baseProps());
+    const panel = {
+        id: 21, loan_number: '102000021', member_id: 7, member_no: '102000007', member_name: 'Panel Member',
+        samity: '0001 — Talgachi Samity', product: '3001 — General Loan', frequency: 'M', status: 'Disbursed',
+        installment_amount: '1083.10',
+        outstanding: { principal: '12000.00', profit: '997.20', penalty: '0.00', total: '12997.20' },
+        due_amount: '1083.10', business_date: '2026-10-28',
+        savings: { account_id: 41, account_number: '10200000701', product_code: 'SAVINGS', balance: '1200.00', expected: '100.00' },
+        lts: { account_id: 42, account_number: '10200000702', product_code: 'LTS', balance: '300.00', expected: '50.00' },
+        summary: { total: 12, paid_count: 0, remaining_count: 12, collected_amount: '0.00', remaining_amount: '12997.20' },
+        installments: Array.from({ length: 12 }, (_, i) => ({
+            no: i + 1, due_date: '2026-11-01', amount: '1083.10', paid: '0.00', status: 'due',
+        })),
+    };
+    const props = {
+        query: '', results: [], panel, canCollect: true,
+        samities: [{ id: 5, code: '0001', name: 'Talgachi Samity' }],
+        pickerSamityId: 5,
+        pickerMembers: [
+            { serial: 1, id: 7, member_no: '102000007', name: 'Panel Member', loans: [{ id: 21, loan_number: '102000021', due_amount: '1083.10', outstanding: '12997.20' }] },
+            { serial: 2, id: 8, member_no: '102000008', name: 'Second Member', loans: [] },
+        ],
+    };
+    const Wrapped = withI18n(CollectLoan);
+    const m = mount(<Wrapped {...props} />);
+    const text = m.container.textContent;
+    check('CollectLoan3Part: picker lists members serially with member numbers',
+        text.includes(en.serial_no) && text.includes('102000007') && text.includes('Second Member'));
+    const numberInputs = [...m.container.querySelectorAll('input[type="number"]')];
+    check('CollectLoan3Part: three amount fields render, installment first and prefilled',
+        numberInputs.length === 3 && numberInputs[0].value === '1083.10');
+    check('CollectLoan3Part: savings and LTS fields prefilled with their expected amounts',
+        numberInputs[1].value === '100.00' && numberInputs[2].value === '50.00');
+    check('CollectLoan3Part: savings and LTS labels show with balances',
+        text.includes(en.current_savings) && text.includes(en.long_term_savings) && text.includes('1200.00') && text.includes('300.00'));
+    const collectForm = [...m.container.querySelectorAll('form')].find((f) => f.querySelector('input[type="number"]'));
+    await act(async () => { collectForm.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit = __pendingVisit();
+    check('CollectLoan3Part: one post carries all three amounts',
+        !!visit && visit.method === 'post' && visit.url === '/collection/collect-loan'
+        && String(visit?.data?.amount) === '1083.10'
+        && String(visit?.data?.savings_amount) === '100.00'
+        && String(visit?.data?.lts_amount) === '50.00');
+    __setPage(baseProps({ flash: { success: en.collection_posted }, errors: {} }));
+    await act(async () => { __finishVisit({}); });
+    await unmount(m);
+    __setPage(baseProps());
+}
+
+async function scenarioDisbursementSplit() {
+    __setPage(baseProps());
+    const props = {
+        loans: [{
+            id: 31, samity: '0001 — Talgachi Samity', member: 'Panel Member', loan_number: '102000031',
+            loan_amount: '10000.00', total_repayment: '11500.00', profit_rate: '15.00',
+            installment_from_date: '2026-11-01', no_of_installments: 50,
+            savings_deposit: '1000.00', cash_in_hand: '9000.00',
+        }],
+        samities: [], filters: {}, savingsRate: '10',
+    };
+    const Wrapped = withI18n(DisbursementList);
+    const m = mount(<Wrapped {...props} />);
+    check('DisbursementSplit: no split shown before the disburse click',
+        !m.container.textContent.includes(en.cash_in_hand));
+    const disburseBtn = [...m.container.querySelectorAll('button')]
+        .find((b) => b.textContent.trim() === en.disburse);
+    await act(async () => { disburseBtn.click(); });
+    const text = m.container.textContent;
+    check('DisbursementSplit: confirm row shows loan amount, 10% savings deposit and cash in hand',
+        text.includes(en.savings_deposit) && text.includes('1000.00')
+        && text.includes(en.cash_in_hand) && text.includes('9000.00'));
+    const confirmBtn = [...m.container.querySelectorAll('button')]
+        .find((b) => b.textContent.trim() === en.confirm_disbursement);
+    await act(async () => { confirmBtn.click(); });
+    const visit = __pendingVisit();
+    check('DisbursementSplit: confirm posts to the disbursement endpoint',
+        !!visit && visit.method === 'post' && visit.url === '/loans/disbursement/31');
+    await act(async () => { __finishVisit({}); });
+    await unmount(m);
+    __setPage(baseProps());
+}
+
+async function scenarioMemberAdmissionCascade() {
+    // Client round 2026-11-18: Name → Branch → Samity on the admission
+    // form, samities filtered by the chosen branch, share NOT required.
+    const Wrapped = withI18n(MemberAdmission);
+    __setPage(baseProps());
+    const options = {
+        branches: [
+            { id: 1, name: '101 — Head Office' },
+            { id: 2, name: '102 — Talgachi Branch' },
+        ],
+        samities: [
+            { id: 1, branch_id: 2, name: '0001 — Talgachi Samity' },
+            { id: 2, branch_id: 2, name: '0002 — Talgachi Mohila Samity' },
+        ],
+        genders: [{ id: 'Female', name: 'Female', label_key: 'gender_female' }, { id: 'Male', name: 'Male', label_key: 'gender_male' }],
+        religions: [], bloodGroups: [], marital: [], docTypes: [], activeBranchId: 1,
+    };
+    const m = mount(<Wrapped options={options} businessDate="2026-10-21" member={null} />);
+    const form = m.container.querySelector('form');
+    const selects = [...form.querySelectorAll('select')];
+    const branchSel = selects.find((s) => [...s.options].some((o) => o.textContent.includes('Talgachi Branch')));
+    const samitySel = selects.find((s) => s !== branchSel && [...s.options].every((o) => !o.textContent.includes('Talgachi Branch')));
+    check('Admission: branch dropdown is populated', !!branchSel && branchSel.options.length === 3);
+    check('Admission: name field comes before branch, branch before samity',
+        form.querySelector('input') && (branchSel.compareDocumentPosition(samitySel) & window.Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
+    check('Admission: samity empty while Head Office (no samities) is the branch', samitySel.options.length === 1);
+    await act(async () => { setValue(branchSel, '2', 'change'); });
+    check('Admission: choosing the branch lists its samities', samitySel.options.length === 3
+        && [...samitySel.options].some((o) => o.textContent.includes('Talgachi Samity')));
+    const shareInput = form.querySelector('input[type="number"]');
+    check('Admission: share amount is NOT a required field', !!shareInput && shareInput.required === false);
+    await unmount(m);
+}
+
+async function scenarioMemberIndexCascade() {
+    // Client round 2026-11-18: member search cascades Branch → Samity
+    // → that samity's members as pickable suggestions.
+    const Wrapped = withI18n(MemberIndex);
+    __setPage(baseProps());
+    const options = {
+        branches: [
+            { id: 1, name: '101 — Head Office' },
+            { id: 2, name: '102 — Talgachi Branch' },
+        ],
+        samities: [
+            { id: 1, branch_id: 2, name: '0001 — Talgachi Samity' },
+            { id: 3, branch_id: 1, name: '0009 — HO Samity' },
+        ],
+        genders: [], religions: [], bloodGroups: [], marital: [], docTypes: [], activeBranchId: 2,
+    };
+    const members = { data: [], links: [], last_page: 1 };
+    const suggestions = [{ id: 9, member_no: '102000009', name: 'Suggestion Member' }];
+    const m = mount(<Wrapped members={members} filters={{}} options={options} suggestions={suggestions} />);
+    const form = m.container.querySelector('form');
+    const selects = [...form.querySelectorAll('select')];
+    const branchSel = selects.find((s) => [...s.options].some((o) => o.textContent.includes('Talgachi Branch')));
+    const samitySel = selects.find((s) => [...s.options].some((o) => o.textContent.includes('HO Samity')));
+    check('Member list: branch filter comes before samity filter',
+        !!branchSel && !!samitySel && (branchSel.compareDocumentPosition(samitySel) & window.Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
+    await act(async () => { setValue(branchSel, '2', 'change'); });
+    check('Member list: samity filter follows the chosen branch',
+        ![...samitySel.options].some((o) => o.textContent.includes('HO Samity'))
+        && [...samitySel.options].some((o) => o.textContent.includes('Talgachi Samity')));
+    const link = [...m.container.querySelectorAll('a')].find((a) => a.textContent.includes('102000009'));
+    check('Member list: chosen samity members show as pickable suggestions', !!link && link.getAttribute('href') === '/members/9');
+    await unmount(m);
+}
+
+async function scenarioHolidayScope() {
+    // Owner order 2026-11-18: holiday scope choice — All Branches or
+    // Branch-wise; branch picker only for branch-wise; list shows scope.
+    const Wrapped = withI18n(Holidays);
+    __setPage(baseProps());
+    const options = {
+        branches: [
+            { id: 1, name: '101 — Head Office' },
+            { id: 2, name: '102 — Talgachi Branch' },
+        ],
+    };
+    const holidays = [
+        { id: 5, branch_id: null, samity_id: null, holiday_date: '2026-12-27', details: 'Global Day', branch: null, samity: null, scope: 'all' },
+        { id: 6, branch_id: 2, samity_id: null, holiday_date: '2026-12-25', details: 'Branch Day', branch: { id: 2, code: '102', name: 'Talgachi Branch' }, samity: null, scope: 'branch' },
+    ];
+    const m = mount(<Wrapped holidays={holidays} options={options} samities={[]} activeBranchId={2} businessDate="2026-10-21" />);
+    const buttons = () => [...m.container.querySelectorAll('button')];
+    const allBtn = buttons().find((b) => b.textContent.trim() === 'All Branches');
+    const wiseBtn = buttons().find((b) => b.textContent.trim() === 'Branch-wise');
+    check('Holidays: scope choice shows All Branches and Branch-wise', !!allBtn && !!wiseBtn);
+    const branchSel = () => [...m.container.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.textContent.includes('Talgachi Branch')));
+    check('Holidays: branch picker visible in branch-wise scope (default)', !!branchSel());
+    await act(async () => { allBtn.click(); });
+    check('Holidays: branch picker hidden when All Branches is chosen', !branchSel());
+    const text = m.container.textContent;
+    check('Holidays: list labels the global row as All Branches', text.includes('Global Day') && text.includes('All Branches'));
+    check('Holidays: list shows the branch name for a branch-wise row', text.includes('Branch Day') && text.includes('Talgachi Branch'));
+    const editBtns = buttons().filter((b) => b.textContent.trim() === 'Edit');
+    check('Holidays: each row has an Edit action', editBtns.length === 2);
+    await act(async () => { editBtns[0].click(); });
+    const detailsInput = [...m.container.querySelectorAll('input')].find((i) => i.value === 'Global Day');
+    check('Holidays: editing the global row loads it with All Branches scope', !!detailsInput && !branchSel());
+    await unmount(m);
+}
+
+async function scenarioDepositProductLocalizedNames() {
+    // Owner order 2026-11-18: deposit product names follow the UI
+    // language in the opening dropdown and the products list; a product
+    // without a Bangla name falls back to its English name.
+    const Opening = withI18n(DepositOpening);
+    const Products = withI18n(DepositProducts);
+    const products = [
+        { id: 1, code: 'SAVINGS', name_en: 'General Savings', name_bn: 'সাধারণ সঞ্চয়', default_profit_rate: '0', minimum_balance: '0', minimum_opening_amount: '0', maturity_months: null, premature_penalty_rate: '0', gl_mapping_prefix: 'deposit.savings', is_active: true, config: null },
+        { id: 2, code: 'CSAV', name_en: 'Compulsory Savings', name_bn: 'বাধ্যতামূলক সঞ্চয়', default_profit_rate: '0', minimum_balance: '0', minimum_opening_amount: '0', maturity_months: null, premature_penalty_rate: '0', gl_mapping_prefix: 'deposit.savings', is_active: true, config: null },
+        { id: 3, code: 'DPS', name_en: 'Deposit Pension Scheme', name_bn: 'ডিপোজিট পেনশন স্কিম', default_profit_rate: '0', minimum_balance: '0', minimum_opening_amount: '0', maturity_months: null, premature_penalty_rate: '0', gl_mapping_prefix: 'deposit.dps', is_active: true, config: null },
+        { id: 4, code: 'FDR', name_en: 'Fixed Deposit', name_bn: 'ফিক্সড ডিপোজিট', default_profit_rate: '0', minimum_balance: '0', minimum_opening_amount: '0', maturity_months: null, premature_penalty_rate: '0', gl_mapping_prefix: 'deposit.fdr', is_active: true, config: null },
+        { id: 5, code: 'LTS', name_en: 'Long Term Savings', name_bn: 'দীর্ঘমেয়াদী সঞ্চয়', default_profit_rate: '0', minimum_balance: '0', minimum_opening_amount: '0', maturity_months: null, premature_penalty_rate: '0', gl_mapping_prefix: 'deposit.dps', is_active: true, config: null },
+        { id: 6, code: 'CUSTOM', name_en: 'Custom Only English', name_bn: '', default_profit_rate: '0', minimum_balance: '0', minimum_opening_amount: '0', maturity_months: null, premature_penalty_rate: '0', gl_mapping_prefix: 'deposit.savings', is_active: true, config: null },
+    ];
+    const optionLabels = (c) => [...c.querySelectorAll('option')].map((o) => o.textContent);
+    // The opening form (with the Account Type dropdown) renders once a
+    // member is loaded.
+    const member = { id: 1, member_no: '102000001', name: 'Test Member', samity: 'Talgachi Samity', mobile: '01700000000', present_address: 'Talgachi', share_amount: '0', photo_url: null, nominee: null };
+
+    __setPage(baseProps());
+    let m = mount(<Opening products={products} member={member} memberQuery="" businessDate="2026-10-21" />);
+    let labels = optionLabels(m.container);
+    check('Deposit opening (EN): dropdown shows English product names',
+        labels.some((l) => l.includes('SAVINGS — General Savings')) && labels.some((l) => l.includes('DPS — Deposit Pension Scheme')));
+    await unmount(m);
+
+    __setPage(baseProps({ locale: 'bn', translations: bn, translations_version: 'harness-bn' }));
+    m = mount(<Opening products={products} member={member} memberQuery="" businessDate="2026-10-21" />);
+    labels = optionLabels(m.container);
+    check('Deposit opening (BN): dropdown shows Bangla product names',
+        labels.some((l) => l.includes('SAVINGS — সাধারণ সঞ্চয়'))
+        && labels.some((l) => l.includes('CSAV — বাধ্যতামূলক সঞ্চয়'))
+        && labels.some((l) => l.includes('DPS — ডিপোজিট পেনশন স্কিম'))
+        && labels.some((l) => l.includes('FDR — ফিক্সড ডিপোজিট'))
+        && labels.some((l) => l.includes('LTS — দীর্ঘমেয়াদী সঞ্চয়')));
+    check('Deposit opening (BN): no Bangla name falls back to English',
+        labels.some((l) => l.includes('CUSTOM — Custom Only English')));
+    await unmount(m);
+
+    m = mount(<Products products={products} />);
+    check('Deposit products list (BN): primary name is Bangla',
+        m.container.textContent.includes('DPS — ডিপোজিট পেনশন স্কিম'));
+    await unmount(m);
+    __setPage(baseProps());
+}
+
+async function scenarioBranchLifecycle() {
+    // Client round 2026-11-18: branch-level family — Branch Manager
+    // Change, Branch Merge (confirm-gated, shows what will move),
+    // Branch Split (samity checkbox picker + auto code).
+    const branches = [
+        { id: 1, name: '101 — Head Office', manager_id: null, manager_name: null, samity_count: 0, member_count: 0 },
+        { id: 2, name: '102 — Talgachi Branch', manager_id: 3, manager_name: 'Md. Rofiqul Islam', samity_count: 2, member_count: 25 },
+    ];
+    const employees = [{ id: 3, name: '000003 — Md. Rofiqul Islam' }, { id: 4, name: '000004 — Mst. Sharmin Akter' }];
+
+    __setPage(baseProps());
+    const MC = withI18n(BranchManagerChange);
+    let m = mount(<MC branches={branches} employees={employees} history={[
+        { id: 1, branch: { id: 2, code: '102', name: 'Talgachi Branch' }, previous_label: null, new_label: 'Md. Rofiqul Islam', effective_from: '2026-10-22', comments: 'First' },
+    ]} businessDate="2026-10-21" />);
+    check('Branch Manager Change: page renders with title + history row',
+        m.container.textContent.includes('Branch Manager Change') && m.container.textContent.includes('Md. Rofiqul Islam'));
+    const branchSel = [...m.container.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.textContent.includes('Talgachi Branch')));
+    await act(async () => { setValue(branchSel, '2', 'change'); });
+    const currentInput = [...m.container.querySelectorAll('input')].find((i) => i.readOnly && i.value === 'Md. Rofiqul Islam');
+    check('Branch Manager Change: choosing a branch shows its current manager', !!currentInput);
+    await unmount(m);
+
+    const MG = withI18n(BranchMerge);
+    m = mount(<MG branches={branches} businessDate="2026-10-21" />);
+    const mergeForm = m.container.querySelector('form');
+    const mergeSelects = () => [...mergeForm.querySelectorAll('select')];
+    await act(async () => { setValue(mergeSelects()[0], '2', 'change'); });
+    await act(async () => { setValue(mergeSelects()[1], '1', 'change'); });
+    check('Branch Merge: summary shows what will move (samities + members)',
+        m.container.textContent.includes('What will move') && m.container.textContent.includes('25'));
+    const mergeBtn = [...mergeForm.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Merge');
+    check('Branch Merge: submit stays disabled until the confirmation is ticked', !!mergeBtn && mergeBtn.disabled);
+    const confirmBox = [...mergeForm.querySelectorAll('input[type="checkbox"]')][0];
+    await act(async () => { confirmBox.click(); });
+    check('Branch Merge: ticking the confirmation unlocks submit', !mergeBtn.disabled);
+    await unmount(m);
+
+    const SP = withI18n(BranchSplit);
+    m = mount(<SP branches={branches} nextCode="103" businessDate="2026-10-21" samities={[
+        { id: 11, name: '0001 — Talgachi Samity', branch_id: 2, member_count: 15 },
+        { id: 12, name: '0002 — Talgachi Mohila Samity', branch_id: 2, member_count: 10 },
+        { id: 13, name: '0009 — Other Samity', branch_id: 1, member_count: 3 },
+    ]} />);
+    const splitForm = m.container.querySelector('form');
+    const srcSel = [...splitForm.querySelectorAll('select')][0];
+    await act(async () => { setValue(srcSel, '2', 'change'); });
+    const boxes = [...splitForm.querySelectorAll('input[type="checkbox"]')];
+    check('Branch Split: only the source branch samities are offered', boxes.length === 2);
+    const splitBtn = [...splitForm.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Split');
+    check('Branch Split: submit disabled until a samity is ticked', !!splitBtn && splitBtn.disabled);
+    await act(async () => { boxes[0].click(); });
+    check('Branch Split: ticking a samity unlocks submit + auto code is shown',
+        !splitBtn.disabled && [...splitForm.querySelectorAll('input')].some((i) => i.readOnly && i.value === '103'));
+    await unmount(m);
+}
+
+// ---- Organization logo (2026-11-18): Settings upload UI + branding ----
+// The logo uploaded in Settings → General Settings → Organization must
+// surface in the settings preview (with a remove option), in the app
+// shell header brand, and on the login shell — and nowhere when absent.
+async function scenarioSettingsLogo() {
+    const WrappedSettings = withI18n(GeneralSettings);
+    const profileWithLogo = {
+        name_en: 'TPDA', name_bn: 'টিপিডিএ', org_type: 'NGO', registration_no: 'x',
+        mobile_app_name: 'TPDA e-Sheba', contact_person: '', address: 'Talgachi',
+        phone: '01', email: '', logo_path: 'logos/test-logo.png',
+    };
+    __setPage(baseProps());
+    let m = mount(<WrappedSettings profile={profileWithLogo} settings={{}} />);
+    const logoImg = [...m.container.querySelectorAll('img')].find((i) => i.getAttribute('src') === '/files/logos/test-logo.png');
+    check('Logo settings: current logo preview renders', !!logoImg);
+    const fileInput = m.container.querySelector('input[type="file"]');
+    check('Logo settings: upload input accepts png/jpeg only', !!fileInput && fileInput.getAttribute('accept') === 'image/png,image/jpeg');
+    const removeLabel = [...m.container.querySelectorAll('label')].find((l) => l.textContent.includes(en.remove_logo));
+    check('Logo settings: remove-logo checkbox renders when a logo exists', !!removeLabel?.querySelector('input[type="checkbox"]'));
+    await unmount(m);
+
+    __setPage(baseProps());
+    m = mount(<WrappedSettings profile={{ ...profileWithLogo, logo_path: null }} settings={{}} />);
+    const removeLabel2 = [...m.container.querySelectorAll('label')].find((l) => l.textContent.includes(en.remove_logo));
+    check('Logo settings: no remove-logo checkbox without a logo', !removeLabel2);
+    await unmount(m);
+
+    const WrappedLayout = withI18n(AppLayout);
+    __setPage(baseProps({ orgLogo: '/org-logo?v=123' }));
+    m = mount(<WrappedLayout><div>page body</div></WrappedLayout>);
+    const brandImg = [...m.container.querySelectorAll('header img')].find((i) => i.getAttribute('src') === '/org-logo?v=123');
+    check('App shell: org logo image renders in the header brand', !!brandImg);
+    await unmount(m);
+
+    __setPage(baseProps());
+    m = mount(<WrappedLayout><div>page body</div></WrappedLayout>);
+    check('App shell: no brand image without an uploaded logo', m.container.querySelectorAll('header img').length === 0);
+    await unmount(m);
+
+    const WrappedAuth = withI18n(AuthLayout);
+    __setPage(baseProps({ orgLogo: '/org-logo?v=123' }));
+    m = mount(<WrappedAuth title="Login"><div>form</div></WrappedAuth>);
+    const authImg = [...m.container.querySelectorAll('img')].find((i) => i.getAttribute('src') === '/org-logo?v=123');
+    check('Auth layout: org logo renders on login pages', !!authImg);
+    await unmount(m);
+}
+
+async function scenarioLtsOpening() {
+    __setPage(baseProps());
+    const Wrapped = withI18n(DepositOpening);
+    const products = [
+        { id: 1, code: 'SAVINGS', name_en: 'General Savings', name_bn: 'সাধারণ সঞ্চয়', default_profit_rate: '5.00', maturity_months: null, minimum_opening_amount: '0', config: null },
+        {
+            id: 5, code: 'LTS', name_en: 'Long Term Savings', name_bn: 'দীর্ঘমেয়াদী সঞ্চয়', default_profit_rate: '15.00', maturity_months: null, minimum_opening_amount: '0',
+            config: {
+                fixed_amounts: [50, 100, 200], terms_years: [1, 2, 3, 4, 5], collection_days_per_year: 260,
+                payout_table: { '100': { '3': 7774 } },
+            },
+        },
+    ];
+    const props = { products, memberQuery: '102000004', businessDate: '2026-11-18' };
+    const m = mount(<Wrapped {...props} member={HARNESS_MEMBER} />);
+    const setSelect = async (el, value) => { await act(async () => { setValue(el, value, 'change'); }); };
+    const form = [...m.container.querySelectorAll('form')].find((f) => [...f.querySelectorAll('option')].some((o) => o.textContent.includes('LTS')));
+    const labelTexts = () => [...form.querySelectorAll('label > span:first-child')].map((s) => s.textContent.replace(' *', '').trim());
+    const selectWithOption = (value) => [...form.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.value === value));
+
+    // SAVINGS first: the flat Profit Rate field is there as before.
+    await setSelect(selectWithOption('5'), '1');
+    check('LTS opening: SAVINGS shows the Profit Rate field', labelTexts().includes('Profit Rate'));
+
+    // Switch to LTS: the rate field disappears entirely.
+    await setSelect(selectWithOption('5'), '5');
+    check('LTS opening: LTS hides the Profit Rate field', !labelTexts().includes('Profit Rate'));
+    check('LTS opening: slab amount select is offered', !!selectWithOption('100'));
+    check('LTS opening: term select is offered', !!selectWithOption('36'));
+
+    // Amount + term chosen -> the printed-table preview appears:
+    // 100/day x 3y -> deposit 78,000, profit 7,774, total 85,774.
+    await setSelect(selectWithOption('100'), '100');
+    await setSelect(selectWithOption('36'), '36');
+    const preview = m.container.querySelector('[data-lts-preview]');
+    check('LTS opening: maturity preview renders from the payout table', !!preview
+        && preview.textContent.includes('78,000') && preview.textContent.includes('7,774') && preview.textContent.includes('85,774'));
+
+    // Submitting an LTS opening posts NO profit rate.
+    await act(async () => { form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit = lastPostTo('/deposits');
+    check('LTS opening submit: profit_rate posts blank for LTS', visit?.data?.profit_rate === '');
+    check('LTS opening submit: amount + term post', visit?.data?.amount === '100' && visit?.data?.term_months === '36');
+    await act(async () => { __finishVisit({}); });
+    await unmount(m);
+}
+
 const scenarios = [
     scenarioPrimaryButton,
     scenarioActionButton,
@@ -1367,6 +1787,16 @@ const scenarios = [
     scenarioLoanPreviewOpeningPrefill,
     scenarioCollectionSheetPostFeedback,
     scenarioCollectLoanPanel,
+    scenarioDirectorPrintButton,
+    scenarioCollectLoanThreePart,
+    scenarioDisbursementSplit,
+    scenarioMemberAdmissionCascade,
+    scenarioMemberIndexCascade,
+    scenarioHolidayScope,
+    scenarioDepositProductLocalizedNames,
+    scenarioBranchLifecycle,
+    scenarioSettingsLogo,
+    scenarioLtsOpening,
 ];
 
 for (const fn of scenarios) {

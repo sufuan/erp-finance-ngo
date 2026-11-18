@@ -8,9 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** Step 17 — one fee row per fee type (binding — replaces any fees JSON). */
 class LoanFee extends Model
 {
-    public const TYPES = ['form', 'health', 'risk', 'document', 'emi_locker', 'others'];
+    /** Fixed fee types + 'insurance' (rate-based) + 'custom' (named rows). */
+    public const TYPES = ['form', 'health', 'risk', 'document', 'emi_locker', 'insurance', 'others', 'custom'];
 
-    protected $fillable = ['loan_account_id', 'fee_type', 'amount', 'ledger_id', 'voucher_id'];
+    protected $fillable = ['loan_account_id', 'fee_type', 'label', 'amount', 'ledger_id', 'voucher_id'];
 
     protected function casts(): array
     {

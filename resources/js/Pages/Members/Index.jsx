@@ -5,7 +5,7 @@ import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
 const COLUMNS = [
-    ['photo_url', 'photo'], ['member_no', 'member_no'], ['name', 'full_name'], ['samity', 'samity'],
+    ['photo_url', 'photo'], ['member_no', 'member_no'], ['name', 'full_name'], ['branch', 'branch'], ['samity', 'samity'],
     ['father_name', 'father_name'], ['mother_name', 'mother_name'], ['blood_group', 'blood_group'],
     ['gender', 'gender'], ['religion', 'religion'], ['marital_status', 'marital_status'],
     ['national_id', 'national_id'], ['present_address', 'present_address'], ['permanent_address', 'permanent_address'],
@@ -14,9 +14,9 @@ const COLUMNS = [
 ];
 
 /** Member list (Step 8): filters, 20-column table, expandable rows, actions. */
-export default function MemberIndex({ members, filters, options }) {
+export default function MemberIndex({ members, filters, options, suggestions = [] }) {
     const [f, setF] = useState({
-        samity_id: filters.samity_id ?? '', search: filters.search ?? '', phone: filters.phone ?? '',
+        branch_id: filters.branch_id ?? '', samity_id: filters.samity_id ?? '', search: filters.search ?? '', phone: filters.phone ?? '',
         member_no: filters.member_no ?? '', nid: filters.nid ?? '', status: filters.status ?? 'All',
         gender: filters.gender ?? '', open_from: filters.open_from ?? '', open_to: filters.open_to ?? '',
     });
@@ -27,6 +27,11 @@ export default function MemberIndex({ members, filters, options }) {
 
     const apply = (e) => { e.preventDefault(); router.get('/members', f, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const set = (k, v) => setF((prev) => ({ ...prev, [k]: v }));
+    // Branch → Samity cascade: samity options follow the chosen branch,
+    // and changing the branch clears the samity (and with it the member
+    // suggestions, which are loaded for the chosen samity on Search).
+    const branchSamities = options.samities.filter((s) => !f.branch_id || String(s.branch_id) === String(f.branch_id));
+    const pickBranch = (v) => setF((prev) => ({ ...prev, branch_id: v, samity_id: '' }));
 
     const withGeo = (fn) => {
         if (!navigator.geolocation) { fn({}); return; }
@@ -41,6 +46,7 @@ export default function MemberIndex({ members, filters, options }) {
 
     const cell = (m, key) => {
         if (key === 'photo_url') return m.photo_url ? <img src={m.photo_url} alt="" className="h-10 w-10 rounded-full object-cover" /> : '—';
+        if (key === 'branch') return m.branch ? `${m.branch.code} — ${m.branch.name}` : '—';
         if (key === 'samity') return m.samity?.name ?? '—';
         const v = m[key];
         return v === null || v === undefined || v === '' ? '—' : String(v);
@@ -69,10 +75,16 @@ export default function MemberIndex({ members, filters, options }) {
 
             <Card className="mb-4">
                 <form onSubmit={apply} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <Field label={t('branch')}>
+                        <select className={inputCls} value={f.branch_id} onChange={(e) => pickBranch(e.target.value)}>
+                            <option value="">—</option>
+                            {options.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                    </Field>
                     <Field label={t('samity')}>
                         <select className={inputCls} value={f.samity_id} onChange={(e) => set('samity_id', e.target.value)}>
                             <option value="">—</option>
-                            {options.samities.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            {branchSamities.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                     </Field>
                     <Field label={t('full_name')}>
@@ -115,6 +127,19 @@ export default function MemberIndex({ members, filters, options }) {
                 </form>
             </Card>
 
+            {suggestions.length > 0 && (
+                <Card className="mb-4">
+                    <h2 className="mb-2 text-sm font-medium">{t('member_suggestions')}</h2>
+                    <div className="flex flex-wrap gap-2">
+                        {suggestions.map((s) => (
+                            <Link key={s.id} href={`/members/${s.id}`} className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">
+                                {s.member_no} — {s.name}
+                            </Link>
+                        ))}
+                    </div>
+                </Card>
+            )}
+
             <div className="hidden overflow-x-auto rounded-2xl bg-white shadow md:block dark:bg-zinc-900">
                 <table className="w-full min-w-[1400px] text-left text-sm">
                     <thead>
@@ -152,7 +177,7 @@ export default function MemberIndex({ members, filters, options }) {
                             <div>
                                 <div className="font-medium">{m.name}</div>
                                 <div className="text-sm text-zinc-500">{m.member_no} · {m.mobile}</div>
-                                <div className="text-sm text-zinc-500">{m.samity?.name ?? ''}</div>
+                                <div className="text-sm text-zinc-500">{m.branch ? `${m.branch.code} — ${m.branch.name}` : ''}{m.samity?.name ? ` · ${m.samity.name}` : ''}</div>
                             </div>
                         </div>
                         <div className="mt-3">{actions(m)}</div>

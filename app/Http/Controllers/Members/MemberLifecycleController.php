@@ -7,8 +7,10 @@ use App\Models\Member;
 use App\Models\MemberClosing;
 use App\Models\MemberTransfer;
 use App\Models\Samity;
+use App\Models\Scopes\SamityScope;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\BranchAccessService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,11 +50,26 @@ class MemberLifecycleController extends Controller
             ])->all();
     }
 
-    private function samityOptions(): array
+    /**
+     * Branch → Samity cascade options for the member pickers (client
+     * round, 2026-11-18): branches the user can access, and the
+     * samities under them — picker list only, SamityScope lifted and
+     * branch-scoped, same pattern as the member admission form.
+     */
+    private function cascadeOptions(Request $request): array
     {
-        return Samity::orderBy('samity_code')->get()->map(fn (Samity $s) => [
-            'id' => $s->id, 'name' => "{$s->samity_code} — {$s->name}", 'branch_id' => $s->branch_id,
-        ])->all();
+        $branches = app(BranchAccessService::class)->visibleBranches($request->user());
+
+        return [
+            'branches' => $branches->map(fn ($b) => ['id' => $b->id, 'name' => "{$b->code} — {$b->name}"])->all(),
+            'samities' => Samity::withoutGlobalScope(SamityScope::class)
+                ->whereIn('branch_id', $branches->pluck('id')->all())
+                ->orderBy('samity_code')
+                ->get()
+                ->map(fn (Samity $s) => [
+                    'id' => $s->id, 'name' => "{$s->samity_code} — {$s->name}", 'branch_id' => $s->branch_id,
+                ])->all(),
+        ];
     }
 
     /** Active or overdue loan → transfers/closings need manager approval (or are blocked). */
@@ -86,7 +103,7 @@ class MemberLifecycleController extends Controller
     {
         return Inertia::render('Members/Transfer', [
             'members' => $this->memberOptions($request),
-            'samities' => $this->samityOptions(),
+            ...$this->cascadeOptions($request),
             'businessDate' => $this->businessDate($request),
             'transfers' => MemberTransfer::with('member')->orderByDesc('id')->limit(50)->get()
                 ->map(fn (MemberTransfer $t) => [
@@ -140,6 +157,7 @@ class MemberLifecycleController extends Controller
     {
         return Inertia::render('Members/Closing', [
             'members' => $this->memberOptions($request),
+            ...$this->cascadeOptions($request),
             'reasons' => self::REASONS,
             'businessDate' => $this->businessDate($request),
             'closings' => MemberClosing::with('member')->orderByDesc('id')->limit(100)->get()

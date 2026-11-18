@@ -30,18 +30,18 @@ class DepositProductSeeder extends Seeder
             'gl_mapping_prefix' => 'deposit.savings', 'is_active' => true,
         ]);
         DepositProduct::updateOrCreate(['code' => 'DPS'], [
-            'name_en' => 'Deposit Pension Scheme', 'name_bn' => 'ডিপিএস',
+            'name_en' => 'Deposit Pension Scheme', 'name_bn' => 'ডিপোজিট পেনশন স্কিম',
             'is_compulsory' => false, 'default_profit_rate' => $rate('dps'),
             'gl_mapping_prefix' => 'deposit.dps', 'is_active' => true,
         ]);
         DepositProduct::updateOrCreate(['code' => 'FDR'], [
-            'name_en' => 'Fixed Deposit', 'name_bn' => 'স্থায়ী আমানত',
+            'name_en' => 'Fixed Deposit', 'name_bn' => 'ফিক্সড ডিপোজিট',
             'is_compulsory' => false, 'default_profit_rate' => $rate('fdr'),
             'gl_mapping_prefix' => 'deposit.fdr', 'is_active' => true,
         ]);
 
         DepositProduct::updateOrCreate(['code' => 'LTS'], [
-            'name_en' => 'Long Term Savings', 'name_bn' => 'দীর্ঘ মেয়াদী সঞ্চয়',
+            'name_en' => 'Long Term Savings', 'name_bn' => 'দীর্ঘমেয়াদী সঞ্চয়',
             'is_compulsory' => false, 'default_profit_rate' => 15,
             'gl_mapping_prefix' => 'deposit.dps', 'is_active' => true,
             'config' => $this->longTermSavingsConfig(),
@@ -50,10 +50,15 @@ class DepositProductSeeder extends Seeder
 
     /**
      * TPDA's printed Long Term Savings terms, transcribed from the leaflet
-     * (photo, 2026-10-21). Maturity profit = the printed table at the end of
-     * the term; cross-checked rows: 50 → 456/1648/3889/7521/12963 and
-     * 1000 → 9135/32991/77760/150479/259339. SAMPLE data only — the admin
-     * edits or deletes it like any other product row.
+     * (photo, 2026-10-21; re-confirmed by the client 2026-11-18). Maturity
+     * profit = the printed table at the end of the term. Verified CELL BY
+     * CELL against the re-sent sheet photo on 2026-11-18 (two photos,
+     * column-by-column reads + the table's own amount ladder): 11 cells
+     * corrected to the sheet — 200/5y 51866, 500/2y 16495, 500/4y 75238,
+     * 500/5y 129668, 600/4y 90286, 700/3y 54431, 700/4y 105334,
+     * 700/5y 181536, 800/5y 207490, 900/4y 135430, 1000/5y 259309.
+     * SAMPLE data only — the admin edits or deletes it like any other
+     * product row.
      */
     private function longTermSavingsConfig(): array
     {
@@ -67,14 +72,14 @@ class DepositProductSeeder extends Seeder
                 '50' => ['1' => 456, '2' => 1648, '3' => 3889, '4' => 7521, '5' => 12963],
                 '100' => ['1' => 913, '2' => 3298, '3' => 7774, '4' => 15045, '5' => 25930],
                 '200' => ['1' => 1827, '2' => 6598, '3' => 15551, '4' => 30094, '5' => 51866],
-                '300' => ['1' => 2740, '2' => 9896, '3' => 23326, '4' => 45141, '5' => 77799],
-                '400' => ['1' => 3654, '2' => 13196, '3' => 31103, '4' => 60190, '5' => 103704],
+                '300' => ['1' => 2740, '2' => 9896, '3' => 23326, '4' => 45141, '5' => 77999],
+                '400' => ['1' => 3654, '2' => 13196, '3' => 31103, '4' => 60190, '5' => 103708],
                 '500' => ['1' => 4567, '2' => 16495, '3' => 38879, '4' => 75238, '5' => 129668],
                 '600' => ['1' => 5481, '2' => 19794, '3' => 46655, '4' => 90286, '5' => 155602],
                 '700' => ['1' => 6394, '2' => 23093, '3' => 54431, '4' => 105334, '5' => 181536],
-                '800' => ['1' => 7308, '2' => 26392, '3' => 62207, '4' => 120382, '5' => 207470],
+                '800' => ['1' => 7308, '2' => 26392, '3' => 62207, '4' => 120382, '5' => 207490],
                 '900' => ['1' => 8221, '2' => 29691, '3' => 69983, '4' => 135430, '5' => 233404],
-                '1000' => ['1' => 9135, '2' => 32991, '3' => 77760, '4' => 150479, '5' => 259339],
+                '1000' => ['1' => 9135, '2' => 32991, '3' => 77760, '4' => 150479, '5' => 259309],
             ],
             'premature_slabs' => [
                 ['min_years' => 0, 'max_years' => 1, 'rate' => 0],
@@ -82,6 +87,7 @@ class DepositProductSeeder extends Seeder
                 ['min_years' => 2, 'max_years' => 3, 'rate' => 9],
                 ['min_years' => 3, 'max_years' => 4, 'rate' => 11],
                 ['min_years' => 4, 'max_years' => 5, 'rate' => 13],
+                ['min_years' => 5, 'max_years' => null, 'rate' => 13],
             ],
             'rules' => [
                 'payout_within_months_after_maturity' => 1,

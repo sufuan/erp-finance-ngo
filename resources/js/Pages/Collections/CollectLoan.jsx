@@ -18,22 +18,38 @@ const STATUS_TONES = {
  * batch path as the Collection Sheet; the redirect back here brings
  * the refreshed panel + installment table.
  */
-export default function CollectLoan({ query = '', results = [], panel = null, canCollect = false }) {
+export default function CollectLoan({ query = '', results = [], panel = null, canCollect = false, samities = [], pickerSamityId = null, pickerMembers = [] }) {
     const { props } = usePage();
     const [searching, setSearching] = useState(false);
-    const form = useForm({ loan_id: panel?.id ?? '', amount: panel?.due_amount ?? '' });
+    const [memberFilter, setMemberFilter] = useState('');
+    const form = useForm({
+        loan_id: panel?.id ?? '', amount: panel?.due_amount ?? '',
+        savings_amount: panel?.savings?.expected ?? '', lts_amount: panel?.lts?.expected ?? '',
+    });
 
     // A fresh panel (first open, another loan, or the post-collect
-    // redirect) re-prefills the amount with that loan's current due —
-    // the typed value never survives into a different due figure.
+    // redirect) re-prefills all three parts with the current figures —
+    // the typed values never survive into a different panel.
     useEffect(() => {
-        if (panel) form.setData({ loan_id: panel.id, amount: panel.due_amount });
+        if (panel) form.setData({
+            loan_id: panel.id, amount: panel.due_amount,
+            savings_amount: panel.savings?.expected ?? '', lts_amount: panel.lts?.expected ?? '',
+        });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [panel?.id, panel?.due_amount]);
+    }, [panel?.id, panel?.due_amount, panel?.savings?.expected, panel?.lts?.expected]);
 
     const search = (e) => {
         e.preventDefault();
         router.get('/collection/collect-loan', { loan: e.target.elements.loan.value }, {
+            preserveState: true,
+            onStart: () => setSearching(true),
+            onFinish: () => setSearching(false),
+        });
+    };
+
+    const pickSamity = (samityId) => {
+        setMemberFilter('');
+        router.get('/collection/collect-loan', samityId ? { samity_id: samityId } : {}, {
             preserveState: true,
             onStart: () => setSearching(true),
             onFinish: () => setSearching(false),
@@ -54,14 +70,71 @@ export default function CollectLoan({ query = '', results = [], panel = null, ca
     ] : [];
 
     // Daily loan, daily collection: nothing due on/before today means
-    // there is nothing to collect — the next (future) installment is
-    // never offered as an advance. The panel explains why and the
-    // form is disabled instead of pre-filling a future amount.
+    // there is no installment to collect — the next (future)
+    // installment is never offered as an advance. Savings-only
+    // collection stays possible when the member holds a savings or
+    // LTS account (the 3-part panel), so the Collect button locks
+    // only when there is genuinely nothing to collect.
     const noDue = panel ? !(Number(panel.due_amount) > 0) : false;
+    const nothingToCollect = noDue && !panel?.savings && !panel?.lts;
+
+    const visiblePickerMembers = pickerMembers.filter((m) => {
+        const needle = memberFilter.trim().toLowerCase();
+        return needle === '' || m.member_no.toLowerCase().includes(needle) || m.name.toLowerCase().includes(needle);
+    });
 
     return (
         <AppLayout>
             <h1 className="mb-4 text-xl font-semibold">{t('collect_loan')}</h1>
+            <Card className="mb-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label={t('samity')}>
+                        <select className={inputCls} value={pickerSamityId ?? ''} onChange={(e) => pickSamity(e.target.value)}>
+                            <option value="">—</option>
+                            {samities.map((s) => <option key={s.id} value={s.id}>{s.code} — {s.name}</option>)}
+                        </select>
+                    </Field>
+                    <Field label={t('search')}>
+                        <input className={inputCls} value={memberFilter} onChange={(e) => setMemberFilter(e.target.value)} placeholder={`${t('member_no')} / ${t('member_name')}`} />
+                    </Field>
+                </div>
+                {pickerSamityId && (
+                    <div className="mt-3 max-h-96 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+                        <table className="w-full text-left text-sm">
+                            <thead>
+                                <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/50">
+                                    <th className="px-3 py-2 font-medium">{t('serial_no')}</th>
+                                    <th className="px-3 py-2 font-medium">{t('member_no')}</th>
+                                    <th className="px-3 py-2 font-medium">{t('member_name')}</th>
+                                    <th className="px-3 py-2 font-medium">{t('loan_list')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {visiblePickerMembers.map((m) => (
+                                    <tr key={m.id} className="border-b border-zinc-100 dark:border-zinc-800">
+                                        <td className="px-3 py-2">{m.serial}</td>
+                                        <td className="px-3 py-2">{m.member_no}</td>
+                                        <td className="px-3 py-2">{m.name}</td>
+                                        <td className="px-3 py-2">
+                                            <span className="flex flex-wrap gap-2">
+                                                {m.loans.map((l) => (
+                                                    <Link key={l.id} href={`/collection/collect-loan?loan_id=${l.id}`} className="rounded-lg bg-emerald-50 px-2 py-1 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                                        {l.loan_number} · {t('due_amount')}: {l.due_amount}
+                                                    </Link>
+                                                ))}
+                                                {m.loans.length === 0 && <span className="text-zinc-400">—</span>}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {visiblePickerMembers.length === 0 && (
+                                    <tr><td className="px-3 py-3" colSpan={4}>{t('no_data_found')}</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </Card>
             <Card className="mb-4">
                 <form onSubmit={search} className="flex flex-wrap items-end gap-3">
                     <div className="min-w-56 flex-1">
@@ -110,12 +183,28 @@ export default function CollectLoan({ query = '', results = [], panel = null, ca
                         )}
                         {canCollect && (
                             <form onSubmit={collect} className="mt-4 flex flex-wrap items-end gap-3">
-                                <div className="min-w-48 flex-1 sm:max-w-xs">
+                                <div className="min-w-40 flex-1 sm:max-w-xs">
                                     <Field label={t('due_amount')} error={form.errors.amount} required>
                                         <input type="number" step="0.01" min="0" className={inputCls} value={form.data.amount} onChange={(e) => form.setData('amount', e.target.value)} required disabled={noDue} />
                                     </Field>
                                 </div>
-                                <PrimaryButton type="submit" loading={form.processing} disabled={noDue}>{t('collect')}</PrimaryButton>
+                                {panel.savings && (
+                                    <div className="min-w-40 flex-1 sm:max-w-xs">
+                                        <Field label={`${t('current_savings')} (${panel.savings.account_number})`} error={form.errors.savings_amount}>
+                                            <input type="number" step="0.01" min="0" className={inputCls} value={form.data.savings_amount} onChange={(e) => form.setData('savings_amount', e.target.value)} />
+                                        </Field>
+                                        <span className="mt-1 block text-xs text-zinc-500">{t('balance')}: {panel.savings.balance}</span>
+                                    </div>
+                                )}
+                                {panel.lts && (
+                                    <div className="min-w-40 flex-1 sm:max-w-xs">
+                                        <Field label={`${t('long_term_savings')} (${panel.lts.account_number})`} error={form.errors.lts_amount}>
+                                            <input type="number" step="0.01" min="0" className={inputCls} value={form.data.lts_amount} onChange={(e) => form.setData('lts_amount', e.target.value)} />
+                                        </Field>
+                                        <span className="mt-1 block text-xs text-zinc-500">{t('balance')}: {panel.lts.balance}</span>
+                                    </div>
+                                )}
+                                <PrimaryButton type="submit" loading={form.processing} disabled={nothingToCollect}>{t('collect')}</PrimaryButton>
                             </form>
                         )}
                         {props.errors?.lines && <p className="mt-2 text-sm text-rose-600">{props.errors.lines}</p>}

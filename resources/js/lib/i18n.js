@@ -39,6 +39,16 @@ export function getLocale() {
     return current.locale;
 }
 
+/**
+ * A master record's display name in the current UI language: the Bangla
+ * name when the locale is Bangla and one is set, otherwise the English
+ * name (owner order 2026-11-18, e.g. deposit product names).
+ */
+export function localizedName(item) {
+    if (!item) return '';
+    return getLocale() === 'bn' && item.name_bn ? item.name_bn : (item.name_en ?? '');
+}
+
 export function t(key, replacements = {}) {
     let value = current.translations[key] ?? key;
     for (const [name, replacement] of Object.entries(replacements)) {

@@ -50,11 +50,12 @@ export const MODULES = [
                 titleKey: 'samity_management',
                 links: [
                     L('/settings/samities', 'samity_opening', Users, 'violet', 'settings'),
-                    L('/settings/samities/changes/day', 'samity_day_change', CalendarDays, 'amber', 'settings'),
+                    L('/settings/branches/manager-change', 'branch_manager_change', ArrowLeftRight, 'cyan', 'settings'),
                     L('/settings/samities/changes/officer', 'samity_officer_change', ArrowLeftRight, 'cyan', 'settings'),
-                    L('/settings/samities/changes/manager', 'samity_manager_change', ArrowLeftRight, 'cyan', 'settings'),
-                    L('/settings/samities/merge', 'samity_merge', Users, 'slate', 'settings'),
+                    L('/settings/samities/changes/day', 'samity_day_change', CalendarDays, 'amber', 'settings'),
+                    L('/settings/branches/merge', 'branch_merge', Users, 'slate', 'settings'),
                     L('/settings/samities/split', 'samity_split', Users, 'slate', 'settings'),
+                    L('/settings/branches/split', 'branch_split', Users, 'slate', 'settings'),
                 ],
             },
             {

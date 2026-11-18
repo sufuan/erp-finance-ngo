@@ -154,7 +154,12 @@ class CollectLoanTest extends TestCase
         $outstandingBefore = app(LoanMoneyService::class)->outstanding($loan)['total'];
         $this->asCollector($collector);
 
-        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => '1083.10'])
+        // Since 2026-11-18 the loan member holds an auto-opened
+        // linked savings account, and an installment collection must
+        // carry a current-savings part too (compulsory rule) — the
+        // one-click post therefore includes the savings amount the
+        // 3-part panel offers.
+        $this->post('/collection/collect-loan', ['loan_id' => $loan->id, 'amount' => '1083.10', 'savings_amount' => '100'])
             ->assertRedirect('/collection/collect-loan?loan_id='.$loan->id)
             ->assertSessionHas('success', __('collection_posted'));
 

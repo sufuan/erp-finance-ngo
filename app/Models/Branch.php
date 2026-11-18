@@ -39,6 +39,22 @@ class Branch extends Model
         return $this->hasMany(BusinessDay::class);
     }
 
+    /** The branch's manager (branches.manager_id → employees). */
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'manager_id');
+    }
+
+    public function managerChanges(): HasMany
+    {
+        return $this->hasMany(BranchManagerChange::class);
+    }
+
+    public function samities(): HasMany
+    {
+        return $this->hasMany(Samity::class);
+    }
+
     public function scopeActive($query)
     {
         return $query->where('status', 'Active');

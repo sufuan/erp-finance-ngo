@@ -133,7 +133,9 @@ class CollectionCrudTest extends CrudTestCase
             ],
         ])->assertRedirect()->assertSessionHas('success');
 
-        $this->assertSame('200.00', (string) $savings->fresh()->current_balance);
+        // 200 from the sheet + the disbursement's 10% loan-linked
+        // credit (1,200 of the 12,000 loan) in the same account.
+        $this->assertSame('1400.00', (string) $savings->fresh()->current_balance);
         $this->assertSame('600.00', (string) $member->fresh()->share_amount);
         $batch = CollectionBatch::where('samity_id', $samity->id)->latest('id')->firstOrFail();
         $this->assertSame('1383.10', (string) $batch->total_receive);
@@ -153,7 +155,8 @@ class CollectionCrudTest extends CrudTestCase
 
         // Cancel the whole batch from the samity list → money reverses.
         $this->post('/collection/batches/'.$batch->id.'/cancel')->assertRedirect()->assertSessionHas('success');
-        $this->assertSame('0.00', (string) $savings->fresh()->current_balance);
+        // The batch reversal leaves the disbursement credit in place.
+        $this->assertSame('1200.00', (string) $savings->fresh()->current_balance);
         // Share returns to the member's admission-backed 500.00.
         $this->assertSame('500.00', (string) $member->fresh()->share_amount);
         $this->assertSame($outstandingBefore, app(LoanMoneyService::class)->outstanding($loan->fresh())['total']);
@@ -179,8 +182,14 @@ class CollectionCrudTest extends CrudTestCase
 
         // Post exactly the way the browser grid does: samity_id in the
         // query string (the grid's postUrl), lines only in the body.
+        // Since 2026-11-18 the grid's installment cell is always
+        // accompanied by the compulsory current-savings cell (the
+        // member's auto-opened linked account) — post both, exactly
+        // as the browser grid does.
+        $linkedSavings = app(\App\Services\LinkedSavingsService::class)->activeAccount($member);
         $response = $this->post('/collection/sheet?samity_id='.$samity->id, [
             'lines' => [
+                ['member_id' => $member->id, 'account_type' => 'deposit', 'account_id' => $linkedSavings->id, 'amount' => '100'],
                 ['member_id' => $member->id, 'account_type' => 'loan', 'account_id' => $loan->id, 'amount' => '1083.10'],
             ],
         ]);

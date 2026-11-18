@@ -31,9 +31,10 @@ class DepositClosingService
         private SettingsService $settings,
         private DepositAccountService $accounts,
         private DepositTransactionService $transactions,
+        private LtsProfitService $ltsProfit,
     ) {}
 
-    /** @return array{balance: string, profit_payment: string, closing_charge: string, penalty: string, payable: string, is_premature: bool} */
+    /** @return array{balance: string, profit_payment: string, closing_charge: string, penalty: string, payable: string, is_premature: bool, lts: array|null} */
     public function preview(DepositAccount $account, ?string $closingDate = null, string $profitPayment = '0'): array
     {
         $account->loadMissing('product');
@@ -42,6 +43,14 @@ class DepositClosingService
         $balance = BigDecimal::of($premature['balance']);
         $penalty = BigDecimal::of($premature['penalty']);
         $profit = BigDecimal::of($profitPayment);
+        // Long Term Savings (client terms 2026-11-18): the profit is
+        // FIXED by the printed table / premature slabs, never typed —
+        // the computed figure replaces any manual entry, here and
+        // again inside close(), so preview and posting always agree.
+        $lts = $this->ltsProfit->compute($account, $closingDate ?? $this->businessDays->currentDate($account->branch_id));
+        if ($lts !== null) {
+            $profit = BigDecimal::of($lts['profit']);
+        }
         $payable = $balance->plus($profit)->minus($charge)->minus($penalty);
         if ($payable->isNegative()) {
             $payable = BigDecimal::zero();
@@ -54,6 +63,7 @@ class DepositClosingService
             'penalty' => (string) $penalty->toScale(2, RoundingMode::HalfUp),
             'payable' => (string) $payable->toScale(2, RoundingMode::HalfUp),
             'is_premature' => $premature['is_premature'],
+            'lts' => $lts,
         ];
     }
 

@@ -1,20 +1,21 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html>
 <head>
 <meta charset="utf-8">
 <style>
     @font-face {
         font-family: 'Hind Siliguri';
-        src: url('{{ public_path('fonts/HindSiliguri-Regular.woff2') }}') format('woff2');
+        src: url('file://{{ public_path('fonts/HindSiliguri-Regular.woff2') }}') format('woff2');
         font-weight: 400;
     }
     @font-face {
         font-family: 'Hind Siliguri';
-        src: url('{{ public_path('fonts/HindSiliguri-SemiBold.woff2') }}') format('woff2');
+        src: url('file://{{ public_path('fonts/HindSiliguri-SemiBold.woff2') }}') format('woff2');
         font-weight: 600;
     }
     body { font-family: 'Hind Siliguri', sans-serif; font-size: 12px; color: #18181b; }
     .org { text-align: center; margin-bottom: 4px; }
+    .org-logo { display: block; margin: 0 auto 4px; height: 54px; max-width: 240px; }
     .org .bn { font-size: 20px; font-weight: 600; }
     .org .en { font-size: 13px; color: #3f3f46; }
     .org .meta { font-size: 11px; color: #52525b; }
@@ -31,11 +32,7 @@
 </style>
 </head>
 <body>
-    <div class="org">
-        <div class="bn">{{ $org->name_bn }}</div>
-        <div class="en">{{ $org->name_en }}</div>
-        <div class="meta">{{ $org->address }} · {{ $org->phone }} · {{ $org->registration_no }}</div>
-    </div>
+    @include('reports.partials.header')
     <h1>{{ $title }}</h1>
     @if(!empty($filter_summary))
         <div class="filters">{{ $filter_summary }}</div>

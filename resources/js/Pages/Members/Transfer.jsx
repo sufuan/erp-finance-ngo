@@ -1,25 +1,48 @@
 import { useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
 /** Member transfer (Step 8) — balances carry; blocked by active loans. */
-export default function MemberTransfer({ members, samities, businessDate, transfers }) {
+export default function MemberTransfer({ members, samities, branches = [], businessDate, transfers }) {
     const { data, setData, post, processing, errors } = useForm({
         member_id: '', to_samity_id: '', transfer_date: businessDate ?? '', reason: '', manager_approved: false,
     });
     const submit = (e) => { e.preventDefault(); post('/members/transfer', { preserveScroll: true }); };
     const selected = members.find((m) => String(m.id) === String(data.member_id));
 
+    // Branch → Samity → Member cascade for finding the member: pick a
+    // branch, then one of its samities, then that samity's members.
+    const [cascade, setCascade] = useState({ branch_id: '', samity_id: '' });
+    const cascadeSamities = samities.filter((s) => !cascade.branch_id || String(s.branch_id) === String(cascade.branch_id));
+    const pickable = members.filter((m) => m.status === 'Active'
+        && (!cascade.branch_id || String(m.branch_id) === String(cascade.branch_id))
+        && (!cascade.samity_id || String(m.samity_id) === String(cascade.samity_id)));
+    const pickBranch = (v) => { setCascade({ branch_id: v, samity_id: '' }); setData('member_id', ''); };
+    const pickSamity = (v) => { setCascade((prev) => ({ ...prev, samity_id: v })); setData('member_id', ''); };
+
     return (
         <AppLayout>
             <h1 className="mb-4 text-xl font-semibold">{t('member_transfer')}</h1>
             <Card className="mb-6">
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+                    <Field label={t('branch')}>
+                        <select className={inputCls} value={cascade.branch_id} onChange={(e) => pickBranch(e.target.value)}>
+                            <option value="">—</option>
+                            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                    </Field>
+                    <Field label={t('samity')}>
+                        <select className={inputCls} value={cascade.samity_id} onChange={(e) => pickSamity(e.target.value)}>
+                            <option value="">—</option>
+                            {cascadeSamities.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                    </Field>
                     <Field label={t('members')} required error={errors.member_id}>
                         <select className={inputCls} value={data.member_id} onChange={(e) => setData('member_id', e.target.value)} required>
                             <option value="">—</option>
-                            {members.filter((m) => m.status === 'Active').map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                            {pickable.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                         </select>
                     </Field>
                     <Field label={t('current_value')}>

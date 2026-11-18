@@ -15,6 +15,7 @@ use App\Services\BusinessDayService;
 use App\Services\ProfitDistributionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -86,6 +87,13 @@ class DepositProfitController extends Controller
             'effective_date' => ['required', 'date'],
             'profit_rate' => ['required', 'numeric', 'min:0', 'max:100'],
         ]);
+        // Payout-table products (Long Term Savings) earn profit from the
+        // printed table at closing — a flat per-account rate must never
+        // be attached to them.
+        $account = DepositAccount::with('product')->findOrFail($data['account_id']);
+        if (! empty($account->product?->config['payout_table'] ?? null)) {
+            throw ValidationException::withMessages(['profit_rate' => __('lts_profit_from_table')]);
+        }
         $serial = ProfitSetup::where('deposit_account_id', $data['account_id'])->max('serial') + 1;
         $setup = ProfitSetup::create([
             'deposit_account_id' => $data['account_id'], 'effective_date' => $data['effective_date'],

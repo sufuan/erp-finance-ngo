@@ -35,7 +35,15 @@ export default function DirectorDashboard({ asOn, today, month, totals, branches
         <AppLayout>
             <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
                 <h1 className="text-xl font-semibold">{t('director_dashboard')}</h1>
-                <p className="text-sm text-zinc-500">{t('dash.as_on')}: {asOn} · {t('dash.all_branches')}</p>
+                <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-sm text-zinc-500">{t('dash.as_on')}: {asOn} · {t('dash.all_branches')}</p>
+                    <a href="/director/pdf" target="_blank" rel="noreferrer" className="inline-flex min-h-[40px] items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+                            <path d="M6 9V2h12v7" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" rx="1" />
+                        </svg>
+                        {t('print')}
+                    </a>
+                </div>
             </div>
 
             <Section title={t('director.today')}>

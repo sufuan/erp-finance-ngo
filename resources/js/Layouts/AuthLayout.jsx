@@ -28,6 +28,11 @@ export default function AuthLayout({ title, children }) {
     return (
         <div className="flex min-h-screen items-center justify-center bg-zinc-100 px-3 py-8 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
             <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow dark:bg-zinc-900">
+                {props.orgLogo && (
+                    <div className="mb-3 flex justify-center">
+                        <img src={props.orgLogo} alt="" className="max-h-16 w-auto max-w-[220px] object-contain" />
+                    </div>
+                )}
                 <div className="mb-4 flex items-center justify-between">
                     <span className="text-lg font-semibold text-emerald-700 dark:text-emerald-400">{props.appName}</span>
                     <div className="flex overflow-hidden rounded-lg border border-zinc-300 text-sm dark:border-zinc-700">

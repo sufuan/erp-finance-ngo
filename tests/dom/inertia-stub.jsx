@@ -72,7 +72,9 @@ export function useForm(initial = {}) {
     const transformRef = useRef((d) => d);
 
     const setData = (key, value) => {
-        if (typeof key === 'object') setDataState((prev) => ({ ...prev, ...key }));
+        // Real Inertia useForm also accepts a functional updater.
+        if (typeof key === 'function') setDataState((prev) => key(prev));
+        else if (typeof key === 'object') setDataState((prev) => ({ ...prev, ...key }));
         else setDataState((prev) => ({ ...prev, [key]: value }));
     };
 

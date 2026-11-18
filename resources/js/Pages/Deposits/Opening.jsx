@@ -2,7 +2,7 @@ import { router, useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { Card, Field, PrimaryButton, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
-import { t } from '../../lib/i18n';
+import { localizedName, t } from '../../lib/i18n';
 
 /** Deposit account opening (Step 10) — member lookup + MEMBER PROFILE panel. */
 export default function DepositOpening({ products, member, memberQuery, businessDate }) {
@@ -30,10 +30,27 @@ export default function DepositOpening({ products, member, memberQuery, business
 
     const product = products.find((p) => String(p.id) === String(data.deposit_product_id));
     const termsYears = product?.config?.terms_years ?? null;
+    // Printed-terms products (Long Term Savings): the daily amount
+    // must be one of the slab amounts in the product config.
+    const fixedAmounts = product?.config?.fixed_amounts ?? null;
+    // LTS profit comes from the printed payout table (amount x term),
+    // never from a flat profit rate — the rate field is not shown at
+    // all for these products and nothing is posted for it.
+    const isLts = !!(product?.config?.payout_table);
+    const ltsYears = data.term_months ? Number(data.term_months) / 12 : null;
+    const ltsProfit = isLts && data.amount && ltsYears
+        ? product.config.payout_table?.[String(data.amount)]?.[String(ltsYears)]
+        : undefined;
+    const ltsTotalDeposit = ltsProfit !== undefined
+        ? Number(data.amount) * Number(product.config.collection_days_per_year ?? 260) * ltsYears
+        : null;
 
     const pickProduct = (id) => {
         const p = products.find((x) => String(x.id) === String(id));
-        setData((prev) => ({ ...prev, deposit_product_id: id, profit_rate: p ? p.default_profit_rate : prev.profit_rate }));
+        setData((prev) => ({
+            ...prev, deposit_product_id: id,
+            profit_rate: p?.config?.payout_table ? '' : (p ? p.default_profit_rate : prev.profit_rate),
+        }));
     };
     const lookup = (e) => { e.preventDefault(); router.get('/deposits/opening', { member: needle }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const submit = (e) => { e.preventDefault(); post('/deposits'); };
@@ -70,24 +87,43 @@ export default function DepositOpening({ products, member, memberQuery, business
                             <Field label={t('account_type')} required error={errors.deposit_product_id}>
                                 <select className={inputCls} value={data.deposit_product_id} onChange={(e) => pickProduct(e.target.value)} required>
                                     <option value="">—</option>
-                                    {products.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name_en}</option>)}
+                                    {products.map((p) => <option key={p.id} value={p.id}>{p.code} — {localizedName(p)}</option>)}
                                 </select>
                             </Field>
-                            {text('amount', 'amount', 'number')}
+                            {fixedAmounts ? (
+                                <Field label={t('amount')} required={isLts} error={errors.amount}>
+                                    <select className={inputCls} value={data.amount} onChange={(e) => setData('amount', e.target.value)} required={isLts}>
+                                        <option value="">—</option>
+                                        {fixedAmounts.map((a) => <option key={a} value={a}>{a}</option>)}
+                                    </select>
+                                </Field>
+                            ) : (
+                                text('amount', 'amount', 'number')
+                            )}
                             {text('title', 'account_title')}
                             {text('address', 'account_address')}
                             {text('phone', 'phone_number', 'text', true)}
                             {text('opening_date', 'opening_date', 'date', true)}
-                            {text('profit_rate', 'profit_rate', 'number', true)}
+                            {!isLts && text('profit_rate', 'profit_rate', 'number', true)}
                             {termsYears ? (
-                                <Field label={t('term')} error={errors.term_months}>
-                                    <select className={inputCls} value={data.term_months} onChange={(e) => setData('term_months', e.target.value)}>
+                                <Field label={t('term')} required={isLts} error={errors.term_months}>
+                                    <select className={inputCls} value={data.term_months} onChange={(e) => setData('term_months', e.target.value)} required={isLts}>
                                         <option value="">—</option>
                                         {termsYears.map((y) => <option key={y} value={y * 12}>{y} {t('years')}</option>)}
                                     </select>
                                 </Field>
                             ) : (
                                 product?.maturity_months ? text('term_months', 'maturity_months', 'number') : null
+                            )}
+                            {ltsProfit !== undefined && (
+                                <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950 sm:col-span-2" data-lts-preview>
+                                    <div className="mb-2 text-sm font-medium">{t('lts_maturity_preview')}</div>
+                                    <dl className="grid gap-2 text-sm sm:grid-cols-3">
+                                        <div><dt className="text-zinc-500">{t('total_deposit')}</dt><dd className="font-medium">{ltsTotalDeposit.toLocaleString('en-US')}</dd></div>
+                                        <div><dt className="text-zinc-500">{t('expected_profit')}</dt><dd className="font-medium">{Number(ltsProfit).toLocaleString('en-US')}</dd></div>
+                                        <div><dt className="text-zinc-500">{t('total_receivable')}</dt><dd className="font-medium">{(ltsTotalDeposit + Number(ltsProfit)).toLocaleString('en-US')}</dd></div>
+                                    </dl>
+                                </div>
                             )}
                             {text('credit_limit', 'credit_limit', 'number')}
                             <div className="sm:col-span-2">

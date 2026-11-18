@@ -1,0 +1,1 @@
+import{a as e}from"./app-aaK4zXeJ.js";import{t}from"./AppLayout-DjiHpCvH.js";import{t as n}from"./HomeHub-CVqP0hVv.js";var r=e();function i(){return(0,r.jsx)(t,{children:(0,r.jsx)(n,{})})}export{i as default};

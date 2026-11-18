@@ -154,6 +154,7 @@ class PostingService
         }
 
         return DB::transaction(function () use ($voucher, $by, $reason) {
+            $depositAccountIds = [];
             foreach ($voucher->accountTransactions()->whereNull('cancel_at')->get() as $row) {
                 if ($row->account_type === 'cash') {
                     $ledger = CashLedger::where('user_id', $row->account_id)->lockForUpdate()->first();
@@ -161,7 +162,30 @@ class PostingService
                         $ledger->update(['current_balance' => (string) BigDecimal::of($ledger->current_balance)->minus($row->amount)->toScale(2)]);
                     }
                 }
+                if ($row->account_type === 'deposit') {
+                    $depositAccountIds[] = (int) $row->account_id;
+                }
                 $row->update(['cancel_by' => $by->id, 'cancel_at' => now()]);
+            }
+
+            // Deposit sub-ledger hygiene: a voucher that moved deposit
+            // money (e.g. the loan-linked savings credit inside a
+            // disbursement voucher) must also flag its deposit
+            // transaction details cancelled and resync the account
+            // caches — otherwise the passbook keeps a credit the GL no
+            // longer has. Resolved lazily to avoid a constructor cycle
+            // (DepositTransactionService itself depends on this service).
+            if ($depositAccountIds !== []) {
+                \App\Models\DepositTransaction::where('voucher_id', $voucher->id)
+                    ->whereNull('cancel_at')
+                    ->update(['cancel_by' => $by->id, 'cancel_at' => now()]);
+                $txns = app(\App\Services\DepositTransactionService::class);
+                foreach (array_unique($depositAccountIds) as $accountId) {
+                    $account = \App\Models\DepositAccount::find($accountId);
+                    if ($account) {
+                        $txns->resyncCache($account);
+                    }
+                }
             }
 
             $voucher->update(['status' => 'Cancelled', 'cancel_by' => $by->id, 'cancel_at' => now()]);

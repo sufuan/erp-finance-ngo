@@ -41,16 +41,34 @@ class LoanMoneyController extends Controller
             $query->where('opening_date', '<=', $request->query('to_date'));
         }
 
+        $settings = app(\App\Services\SettingsService::class);
+        $savingsRate = \Brick\Math\BigDecimal::of((string) ($settings->get('loan.savings_deposit_rate', 10) ?? 10));
+
         return Inertia::render('Loans/DisbursementList', [
-            'loans' => $query->limit(100)->get()->map(fn (LoanAccount $l) => [
-                'id' => $l->id, 'loan_number' => $l->loan_number,
-                'samity' => $l->member?->samity ? $l->member->samity->samity_code.' — '.$l->member->samity->name : null,
-                'member' => $l->member ? $l->member->member_no.' — '.$l->member->name : ($l->employee?->name),
-                'loan_amount' => (string) $l->loan_amount, 'total_repayment' => (string) $l->total_repayment,
-                'profit_rate' => (string) $l->profit_rate,
-                'installment_from_date' => $l->installment_from_date?->toDateString(),
-                'no_of_installments' => $l->no_of_installments, 'status' => $l->status,
-            ])->all(),
+            'loans' => $query->limit(100)->get()->map(function (LoanAccount $l) use ($savingsRate) {
+                // The split the officer will confirm (client rule
+                // 2026-11-18): savings deposit into the member's
+                // linked account, the rest as cash in hand. Mirrors
+                // LoanMoneyService::disburse exactly.
+                $savings = '0.00';
+                if ($l->member_id && $savingsRate->isPositive()) {
+                    $savings = (string) \Brick\Math\BigDecimal::of((string) $l->loan_amount)
+                        ->multipliedBy($savingsRate)->dividedBy(100, 2, \Brick\Math\RoundingMode::HalfUp);
+                }
+                $cash = (string) \Brick\Math\BigDecimal::of((string) $l->loan_amount)->minus($savings);
+
+                return [
+                    'id' => $l->id, 'loan_number' => $l->loan_number,
+                    'samity' => $l->member?->samity ? $l->member->samity->samity_code.' — '.$l->member->samity->name : null,
+                    'member' => $l->member ? $l->member->member_no.' — '.$l->member->name : ($l->employee?->name),
+                    'loan_amount' => (string) $l->loan_amount, 'total_repayment' => (string) $l->total_repayment,
+                    'profit_rate' => (string) $l->profit_rate,
+                    'installment_from_date' => $l->installment_from_date?->toDateString(),
+                    'no_of_installments' => $l->no_of_installments, 'status' => $l->status,
+                    'savings_deposit' => $savings, 'cash_in_hand' => $cash,
+                ];
+            })->all(),
+            'savingsRate' => (string) $savingsRate,
             'samities' => Samity::orderBy('name')->get(['id', 'samity_code', 'name'])->all(),
             'filters' => $request->only(['samity_id', 'member', 'from_date', 'to_date']),
         ]);
@@ -92,8 +110,13 @@ class LoanMoneyController extends Controller
             ])->all(),
             'loanId' => $loan?->id,
             'snapshot' => $loan ? $this->snapshot($loan) : null,
+            // Payment sources for a savings-funded receive: the
+            // member's OWN active accounts, LTS excluded — long-term
+            // savings leaves only through its closing flow, never as
+            // an installment payment source (client rule 2026-11-18).
             'depositAccounts' => $member ? DepositAccount::with('product:id,code')
                 ->where('member_id', $member->id)->whereNull('closing_date')->where('is_active', true)
+                ->whereHas('product', fn ($q) => $q->where('code', '!=', 'LTS'))
                 ->get()->map(fn (DepositAccount $a) => [
                     'id' => $a->id, 'account_number' => $a->account_number,
                     'product' => $a->product?->code, 'current_balance' => (string) $a->current_balance,
@@ -237,6 +260,12 @@ class LoanMoneyController extends Controller
             'loans' => $loans->map(fn (LoanAccount $l) => ['id' => $l->id, 'loan_number' => $l->loan_number, 'status' => $l->status])->all(),
             'loanId' => $loan?->id,
             'rows' => $rows,
+            // Opening fee rows for the selected loan — custom fees
+            // carry the name the officer typed (label).
+            'fees' => $loan ? $loan->fees()->orderBy('id')->get()->map(fn ($f) => [
+                'id' => $f->id, 'fee_type' => $f->fee_type, 'label' => $f->label,
+                'amount' => (string) $f->amount,
+            ])->all() : [],
             'filters' => $request->only(['from_date', 'to_date']),
         ]);
     }

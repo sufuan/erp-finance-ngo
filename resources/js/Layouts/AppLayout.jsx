@@ -203,9 +203,15 @@ export default function AppLayout({ children, branches: branchesProp = undefined
                         >
                             <Menu className="h-6 w-6" />
                         </button>
-                        <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 sm:flex">
-                            <Landmark className="h-5 w-5" />
-                        </span>
+                        {props.orgLogo ? (
+                            <span className="hidden h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white sm:flex">
+                                <img src={props.orgLogo} alt="" className="max-h-full max-w-full object-contain" />
+                            </span>
+                        ) : (
+                            <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 sm:flex">
+                                <Landmark className="h-5 w-5" />
+                            </span>
+                        )}
                         <span className="min-w-0 leading-tight">
                             <span className="block truncate text-[17px] font-bold">{props.appName}</span>
                             {props.orgName && (

@@ -17,7 +17,8 @@ const scheduleOf = (s) => {
     return { meeting_frequency: 'daily', samity_day: '', date_of_month: '' };
 };
 
-/** Samity day / officer / manager change (Step 7) — one page, 3 types. */
+/** Samity day / officer change (Step 7) — one page, 2 types. The old
+ *  manager change moved to branch level (Branch Manager Change). */
 export default function SamityChanges({ type, label, field, samities, history, options, businessDate, selectedSamityId }) {
     const initial = samities.find((s) => String(s.id) === String(selectedSamityId ?? ''));
     const { data, setData, post, processing, errors } = useForm({
@@ -48,7 +49,7 @@ export default function SamityChanges({ type, label, field, samities, history, o
             <h1 className="mb-4 text-xl font-semibold">{t(label)}</h1>
 
             <div className="mb-4 flex gap-1 overflow-x-auto border-b border-zinc-200 dark:border-zinc-800">
-                {[['day', 'samity_day_change'], ['officer', 'samity_officer_change'], ['manager', 'samity_manager_change']].map(([tp, key]) => (
+                {[['day', 'samity_day_change'], ['officer', 'samity_officer_change']].map(([tp, key]) => (
                     <a key={tp} href={`/settings/samities/changes/${tp}`}
                         className={`min-h-[44px] whitespace-nowrap px-3 py-2 text-sm font-medium ${type === tp ? 'border-b-2 border-emerald-600 text-emerald-700 dark:text-emerald-400' : 'text-zinc-500'}`}>
                         {t(key)}

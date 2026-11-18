@@ -44,6 +44,7 @@ class ChartOfAccountsSeeder extends Seeder
             ['4033', 'Fee Income — Document', 'ফি আয় — নথি', 'Income', false],
             ['4034', 'Fee Income — EMI Locker', 'ফি আয় — ইএমআই লকার', 'Income', false],
             ['4035', 'Fee Income — Others', 'ফি আয় — অন্যান্য', 'Income', false],
+            ['4036', 'Fee Income — Insurance', 'ফি আয় — বীমা', 'Income', false],
             ['4040', 'Bank Interest Income', 'ব্যাংক সুদ আয়', 'Income', false],
             ['4050', 'Sales Income', 'বিক্রয় আয়', 'Income', false],
 

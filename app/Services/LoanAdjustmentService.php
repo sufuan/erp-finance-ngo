@@ -117,6 +117,9 @@ class LoanAdjustmentService
         $lines = [];
         $total = BigDecimal::zero();
         foreach (LoanFee::TYPES as $type) {
+            if ($type === 'custom') {
+                continue; // named custom rows exist only at opening
+            }
             $amount = (string) ($fees[$type] ?? '0');
             if (! BigDecimal::of($amount)->isPositive()) {
                 continue;

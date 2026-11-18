@@ -6,7 +6,7 @@ import { t } from '../../lib/i18n';
 import useLoanPreview from '../../lib/useLoanPreview';
 
 /** Loan account opening (Step 17) — member / staff / product modes. */
-export default function LoanOpening({ mode, proposal, member, memberQuery, employee, employeeQuery, products, frequencies, feeTypes, canOverride, businessDate, productLoans }) {
+export default function LoanOpening({ mode, proposal, member, memberQuery, employee, employeeQuery, products, frequencies, feeTypes, insuranceRate = 0, canOverride, businessDate, productLoans }) {
     const [searching, setSearching] = useState(false);
     const form = useForm({
         member_id: proposal?.member_id ?? member?.id ?? '',
@@ -22,6 +22,7 @@ export default function LoanOpening({ mode, proposal, member, memberQuery, emplo
         invoice_total_bill: '', invoice_date: '',
         installment_reminder: false, overdue_reminder: false,
         fees: Object.fromEntries(feeTypes.map((f) => [f, 0])),
+        custom_fees: [],
         guarantors: proposal?.guarantors ?? [],
     });
     // The member/employee lookups preserve form state, so useForm keeps
@@ -31,6 +32,18 @@ export default function LoanOpening({ mode, proposal, member, memberQuery, emplo
     // rejects it with an error this page never rendered (silent failure).
     useEffect(() => { if (member) form.setData('member_id', member.id); }, [member?.id]);
     useEffect(() => { if (employee) form.setData('employee_id', employee.id); }, [employee?.id]);
+    // Insurance fee (client rule 2026-11-18): pre-filled as loan
+    // amount × the insurance rate setting (default 1% = ৳100 per
+    // ৳10,000) whenever the amount changes; the officer may still
+    // edit the figure before submitting.
+    useEffect(() => {
+        if (!feeTypes.includes('insurance')) return;
+        const amount = parseFloat(form.data.loan_amount) || 0;
+        const rate = parseFloat(insuranceRate) || 0;
+        const fee = Math.round(((amount * rate) / 100) * 100) / 100;
+        form.setData('fees', { ...form.data.fees, insurance: fee });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [form.data.loan_amount, insuranceRate]);
     const product = products.find((p) => String(p.id) === String(form.data.loan_product_id));
     const allowedFreqs = frequencies.filter((f) => (product?.allowed_frequencies ?? []).includes(f.code));
     const lookupMember = (e) => { e.preventDefault(); router.get('/loans/opening', { mode, member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
@@ -166,6 +179,23 @@ export default function LoanOpening({ mode, proposal, member, memberQuery, emplo
                                         </Field>
                                     ))}
                                 </div>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <span className="mb-1 block text-sm font-medium">{t('custom_fees')}</span>
+                                {form.data.custom_fees.map((row, i) => (
+                                    <div key={i} className="mb-2 grid gap-3 sm:grid-cols-[1fr_160px_auto]">
+                                        <Field label={t('fee_name')} error={form.errors.custom_fees}>
+                                            <input className={inputCls} value={row.name} maxLength={100} onChange={(e) => form.setData('custom_fees', form.data.custom_fees.map((r, j) => (j === i ? { ...r, name: e.target.value } : r)))} />
+                                        </Field>
+                                        <Field label={t('fee_amount')}>
+                                            <input type="number" step="0.01" min="0" className={inputCls} value={row.amount} onChange={(e) => form.setData('custom_fees', form.data.custom_fees.map((r, j) => (j === i ? { ...r, amount: e.target.value } : r)))} />
+                                        </Field>
+                                        <div className="flex items-end">
+                                            <button type="button" onClick={() => form.setData('custom_fees', form.data.custom_fees.filter((_, j) => j !== i))} className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm text-red-600 dark:border-zinc-700">{t('remove')}</button>
+                                        </div>
+                                    </div>
+                                ))}
+                                <button type="button" onClick={() => form.setData('custom_fees', [...form.data.custom_fees, { name: '', amount: '' }])} className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('add_custom_fee')}</button>
                             </div>
                             <div className="flex flex-wrap gap-4 sm:col-span-2">
                                 <label className="flex min-h-[44px] items-center gap-2 text-sm">

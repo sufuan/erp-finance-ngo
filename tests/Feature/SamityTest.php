@@ -419,33 +419,7 @@ class SamityTest extends TestCase
         $this->get('/settings/samities/changes/day?samity_id='.$assigned->id)->assertOk();
     }
 
-    public function test_merge_closes_source_and_audits(): void
-    {
-        $this->manager();
-        [$source, $target] = Samity::withoutGlobalScopes()->orderBy('id')->get();
-        $this->post('/settings/samities/merge', [
-            'source_samity_id' => $source->id, 'target_samity_id' => $target->id,
-        ])->assertSessionHas('success');
-        $this->assertSame('Merged', $source->fresh()->status);
-        $this->assertNotNull($source->fresh()->closed_at);
-        $this->assertDatabaseHas('audit_logs', ['action' => 'samity.merged', 'entity' => 'samities', 'entity_id' => $source->id]);
-    }
-
-    public function test_merge_across_branches_rejected(): void
-    {
-        $manager = $this->manager();
-        $branch = Branch::where('code', '101')->first();
-        $other = Samity::create([
-            'samity_code' => '9001', 'branch_id' => $branch->id, 'name' => 'HO Samity',
-            'open_date' => '2024-01-01', 'center_type' => 'All Gender', 'samity_day' => 'Sunday', 'status' => 'Active',
-        ]);
-        // The cross-branch target must be ticked for the manager, or the
-        // assignment-only scope hides it (404) before the same-branch
-        // validation this test exercises can even run.
-        $this->tickSamity($manager, $other->id);
-        $source = Samity::withoutGlobalScopes()->first();
-        $this->post('/settings/samities/merge', [
-            'source_samity_id' => $source->id, 'target_samity_id' => $other->id,
-        ])->assertSessionHasErrors(['target_samity_id']);
-    }
+    // Samity Merge was removed 2026-11-18 (replaced by Branch Merge —
+    // see BranchLifecycleTest). samities.manager_id and the
+    // samity_manager_changes history remain in the data layer.
 }

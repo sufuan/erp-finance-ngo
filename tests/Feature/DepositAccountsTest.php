@@ -120,13 +120,13 @@ class DepositAccountsTest extends TestCase
     public function test_long_term_savings_seed_matches_printed_table_and_is_editable(): void
     {
         $lts = $this->product('LTS');
-        $this->assertSame('দীর্ঘ মেয়াদী সঞ্চয়', $lts->name_bn);
+        $this->assertSame('দীর্ঘমেয়াদী সঞ্চয়', $lts->name_bn);
         $config = $lts->config;
         $this->assertSame([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000], $config['fixed_amounts']);
         $this->assertSame(260, $config['collection_days_per_year']);
         // Printed cross-check rows (photo transcription).
         $this->assertSame([456, 1648, 3889, 7521, 12963], array_values($config['payout_table']['50']));
-        $this->assertSame([9135, 32991, 77760, 150479, 259339], array_values($config['payout_table']['1000']));
+        $this->assertSame([9135, 32991, 77760, 150479, 259309], array_values($config['payout_table']['1000']));
         $this->assertSame([913, 3298, 7774, 15045, 25930], array_values($config['payout_table']['100']));
         $this->assertSame([8221, 29691, 69983, 135430, 233404], array_values($config['payout_table']['900']));
         $this->assertSame(0, $config['premature_slabs'][0]['rate']);
@@ -146,7 +146,7 @@ class DepositAccountsTest extends TestCase
         // The admin can edit the sample's figures like any product data…
         $config['payout_table']['50']['1'] = 999;
         $this->actingAs($this->admin)->put('/deposits/products/'.$lts->id, [
-            'code' => 'LTS', 'name_en' => 'Long Term Savings', 'name_bn' => 'দীর্ঘ মেয়াদী সঞ্চয়',
+            'code' => 'LTS', 'name_en' => 'Long Term Savings', 'name_bn' => 'দীর্ঘমেয়াদী সঞ্চয়',
             'gl_mapping_prefix' => 'deposit.dps', 'default_profit_rate' => 15, 'config' => $config,
         ])->assertRedirect();
         $this->assertSame(999, $lts->fresh()->config['payout_table']['50']['1']);

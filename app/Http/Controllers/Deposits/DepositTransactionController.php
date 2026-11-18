@@ -36,7 +36,7 @@ class DepositTransactionController extends Controller
         if (! $member) {
             return [];
         }
-        $query = DepositAccount::with('product:id,code,name_en')
+        $query = DepositAccount::with('product:id,code,name_en,name_bn')
             ->where('member_id', $member->id)->where('is_active', true)->whereNull('closing_date');
         if ($productCode) {
             $query->whereHas('product', fn ($q) => $q->where('code', $productCode));
@@ -44,7 +44,7 @@ class DepositTransactionController extends Controller
 
         return $query->orderBy('id')->get()->map(fn (DepositAccount $a) => [
             'id' => $a->id, 'account_number' => $a->account_number,
-            'product' => $a->product?->code, 'product_name' => $a->product?->name_en,
+            'product' => $a->product?->code, 'product_name' => $a->product?->localized_name,
             'current_balance' => (string) $a->current_balance,
             'opening_date' => $a->opening_date?->toDateString(),
         ])->all();

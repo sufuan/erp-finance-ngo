@@ -33,7 +33,7 @@ export default function MemberShow({ member, nominees, documents, visits, docTyp
                     {member.photo_url && <img src={member.photo_url} alt="" className="h-20 w-20 rounded-2xl object-cover" />}
                     <div>
                         <div className="text-lg font-semibold">{member.name}</div>
-                        <div className="text-sm text-zinc-500">{member.member_no} · {member.samity?.name ?? ''} · {member.branch ? `${member.branch.code} — ${member.branch.name}` : ''}</div>
+                        <div className="text-sm text-zinc-500">{member.member_no} · {member.branch ? `${member.branch.code} — ${member.branch.name}` : ''} · {member.samity?.name ?? ''}</div>
                         <div className="text-sm text-zinc-500">{t('status')}: {member.status} · {t('username')}: {member.username ?? '—'}</div>
                     </div>
                 </div>

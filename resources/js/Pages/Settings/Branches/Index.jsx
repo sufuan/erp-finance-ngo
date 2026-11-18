@@ -51,12 +51,13 @@ export default function Index({ branches, parents, types }) {
             <div className="space-y-4">
                 <Card>
                     <h1 className="mb-4 text-xl font-semibold">{t('branches')}</h1>
-                    <ResponsiveTable head={[t('branch_code'), t('branch_name'), t('branch_type'), t('parent_branch'), t('status'), t('actions')]}>
+                    <ResponsiveTable head={[t('branch_code'), t('branch_name'), t('branch_type'), t('manager'), t('parent_branch'), t('status'), t('actions')]}>
                         {branches.data.map((b) => (
                             <tr key={b.id} className="border-b border-zinc-100 dark:border-zinc-800">
                                 <td className="px-3 py-2">{b.code}</td>
                                 <td className="px-3 py-2">{b.name}</td>
                                 <td className="px-3 py-2">{b.type}</td>
+                                <td className="px-3 py-2">{b.manager ? b.manager.name : '—'}</td>
                                 <td className="px-3 py-2">{b.parent ? `${b.parent.code} — ${b.parent.name}` : '—'}</td>
                                 <td className="px-3 py-2">{b.status === 'Active' ? t('active') : t('inactive')}</td>
                                 <td className="px-3 py-2">

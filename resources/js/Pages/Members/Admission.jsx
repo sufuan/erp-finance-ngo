@@ -5,7 +5,7 @@ import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
 const emptyForm = {
-    samity_id: '', name: '', father_name: '', mother_name: '', spouse_name: '', gender: 'Female',
+    branch_id: '', samity_id: '', name: '', father_name: '', mother_name: '', spouse_name: '', gender: 'Female',
     religion: '', blood_group: '', marital_status: '', birth_date: '', mobile: '', emergency_phone: '',
     email: '', national_id: '', passport_no: '', tin: '', occupation: '', education: '',
     present_address: '', permanent_address: '', share_amount: '', open_date: '',
@@ -19,7 +19,7 @@ export default function MemberAdmission({ options, businessDate, member }) {
     const editing = !!member;
     const [tab, setTab] = useState('basic');
     const [modalDismissed, setModalDismissed] = useState(false);
-    const initial = { ...emptyForm, open_date: businessDate ?? '' };
+    const initial = { ...emptyForm, open_date: businessDate ?? '', branch_id: options.activeBranchId ?? '' };
     if (member) {
         Object.keys(emptyForm).forEach((k) => {
             let v = member[k] ?? '';
@@ -64,6 +64,11 @@ export default function MemberAdmission({ options, businessDate, member }) {
         </Field>
     );
 
+    // Branch → Samity cascade: the Samity dropdown only offers the
+    // chosen branch's samities; changing the branch clears the samity.
+    const branchSamities = options.samities.filter((s) => !data.branch_id || String(s.branch_id) === String(data.branch_id));
+    const pickBranch = (v) => setData({ ...data, branch_id: v, samity_id: '' });
+
     const showModal = !editing && props.flash?.created_member_no && !modalDismissed;
 
     return (
@@ -73,7 +78,6 @@ export default function MemberAdmission({ options, businessDate, member }) {
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                     <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl dark:bg-zinc-900">
-                        <div className="mb-2 text-4xl">✅</div>
                         <p className="mb-4 font-medium">{props.flash.success}</p>
                         <PrimaryButton onClick={() => setModalDismissed(true)}>{t('confirm')}</PrimaryButton>
                     </div>
@@ -95,8 +99,14 @@ export default function MemberAdmission({ options, businessDate, member }) {
                         {tab === 'basic' && (
                             <div className="grid gap-4 sm:grid-cols-2">
                                 {text('name', 'full_name', 'text', true)}
-                                {select('samity_id', options.samities, 'samity', true)}
-                                {text('share_amount', 'share_amount', 'number', true)}
+                                <Field label={t('branch')} required error={errors.branch_id}>
+                                    <select className={inputCls} value={data.branch_id} onChange={(e) => pickBranch(e.target.value)} required>
+                                        <option value="">—</option>
+                                        {options.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                    </select>
+                                </Field>
+                                {select('samity_id', branchSamities, 'samity', true)}
+                                {text('share_amount', 'share_amount', 'number')}
                                 {text('open_date', 'open_date', 'date', true)}
                                 {text('father_name', 'father_name')}
                                 {text('mother_name', 'mother_name')}
@@ -157,6 +167,7 @@ export default function MemberAdmission({ options, businessDate, member }) {
                     <h2 className="mb-3 font-medium">{t('member_profile')}</h2>
                     <dl className="space-y-2 text-sm">
                         <div><dt className="text-zinc-500">{t('full_name')}</dt><dd className="font-medium">{data.name || '—'}</dd></div>
+                        <div><dt className="text-zinc-500">{t('branch')}</dt><dd>{options.branches.find((b) => String(b.id) === String(data.branch_id))?.name ?? '—'}</dd></div>
                         <div><dt className="text-zinc-500">{t('samity')}</dt><dd>{options.samities.find((s) => String(s.id) === String(data.samity_id))?.name ?? '—'}</dd></div>
                         <div><dt className="text-zinc-500">{t('mobile')}</dt><dd>{data.mobile || '—'}</dd></div>
                         <div><dt className="text-zinc-500">{t('share_amount')}</dt><dd>{data.share_amount || '—'}</dd></div>

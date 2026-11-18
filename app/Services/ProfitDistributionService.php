@@ -43,7 +43,13 @@ class ProfitDistributionService
             ->when($input['account_type'] !== 'ALL', fn ($q) => $q->whereHas(
                 'product', fn ($p) => $p->where('code', $input['account_type'])
             ))
-            ->orderBy('id')->get();
+            ->orderBy('id')->get()
+            // Payout-table products (Long Term Savings) never take part in
+            // flat-rate distributions: their profit is settled from the
+            // printed table at closing (LtsProfitService), so a rate run
+            // here would misstate what the member is owed.
+            ->reject(fn (DepositAccount $a) => ! empty($a->product?->config['payout_table'] ?? null))
+            ->values();
 
         return DB::transaction(function () use ($input, $actor, $samity, $accounts) {
             $distribution = ProfitDistribution::create([

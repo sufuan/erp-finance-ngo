@@ -45,6 +45,7 @@ class CollectionService
         private LoanMoneyService $loanMoney,
         private PostingService $posting,
         private BusinessDayService $businessDays,
+        private LinkedSavingsService $linkedSavings,
     ) {}
 
     private function money(BigDecimal $v): string
@@ -140,6 +141,42 @@ class CollectionService
             'remaining_amount' => $card['outstanding']['total'],
         ];
         $card['installments'] = $installments;
+
+        // The 3-part collection (client rule 2026-11-18): beside the
+        // installment, the panel offers the member's linked general
+        // savings (compulsory with an installment) and long-term
+        // savings (optional), each prefilled with its expected amount.
+        $card['savings'] = null;
+        $card['lts'] = null;
+        $member = $loan->member;
+        if ($member) {
+            $linked = $this->linkedSavings->activeAccount($member);
+            if ($linked) {
+                $card['savings'] = [
+                    'account_id' => $linked->id,
+                    'account_number' => $linked->account_number,
+                    'product_code' => $this->linkedSavings->productCode(),
+                    'balance' => (string) $linked->current_balance,
+                    'expected' => $this->depositReceivable($linked),
+                ];
+            }
+            $ltsProduct = \App\Models\DepositProduct::where('code', 'LTS')->first();
+            if ($ltsProduct) {
+                $lts = DepositAccount::where('member_id', $member->id)
+                    ->where('deposit_product_id', $ltsProduct->id)
+                    ->where('is_active', true)->whereNull('closing_date')
+                    ->orderBy('id')->first();
+                if ($lts) {
+                    $card['lts'] = [
+                        'account_id' => $lts->id,
+                        'account_number' => $lts->account_number,
+                        'product_code' => 'LTS',
+                        'balance' => (string) $lts->current_balance,
+                        'expected' => $this->depositReceivable($lts),
+                    ];
+                }
+            }
+        }
 
         return $card;
     }
@@ -248,6 +285,8 @@ class CollectionService
         if ($lines->isEmpty()) {
             throw ValidationException::withMessages(['lines' => [__('collection_no_amounts')]]);
         }
+
+        $this->assertCompulsorySavings($lines->all());
 
         return DB::transaction(function () use ($actor, $kind, $samity, $member, $branchId, $businessDate, $memberIds, $lines) {
             $batch = CollectionBatch::create([
@@ -367,6 +406,51 @@ class CollectionService
 
             return $batch->fresh('lines');
         });
+    }
+
+    /**
+     * Compulsory current savings (client rule 2026-11-18): a batch
+     * that collects a loan installment for a member who HAS an active
+     * linked savings account must also collect a positive amount into
+     * that account in the SAME batch — "কিস্তি দিলে চলতি সঞ্চয় দিতেই
+     * হবে". Members without a linked account are exempt. Enforced
+     * here, in the shared posting path, so Collect Loan, Sheet
+     * Posting, Simple Sheet and Member Collection all obey it; sheet
+     * grids already carry the savings cell, so compliant sheets pass
+     * naturally.
+     *
+     * @param  array<int, array<string, mixed>>  $lines  positive lines only
+     */
+    private function assertCompulsorySavings(array $lines): void
+    {
+        $loanMemberIds = collect($lines)
+            ->where('account_type', 'loan')
+            ->pluck('member_id')->map(fn ($id) => (int) $id)->unique()->all();
+        if ($loanMemberIds === []) {
+            return;
+        }
+        $depositAccountIdsByMember = collect($lines)
+            ->where('account_type', 'deposit')
+            ->groupBy(fn ($l) => (int) $l['member_id'])
+            ->map(fn ($group) => $group->pluck('account_id')->map(fn ($id) => (int) $id)->all());
+
+        $errors = [];
+        foreach ($loanMemberIds as $memberId) {
+            $member = Member::find($memberId);
+            if (! $member) {
+                continue;
+            }
+            $linked = $this->linkedSavings->activeAccount($member);
+            if (! $linked) {
+                continue; // no linked savings account → exempt
+            }
+            if (! in_array($linked->id, $depositAccountIdsByMember->get($memberId, []), true)) {
+                $errors[] = $member->member_no.': '.__('savings_required_with_installment');
+            }
+        }
+        if ($errors !== []) {
+            throw ValidationException::withMessages(['lines' => $errors]);
+        }
     }
 
     /** Sum of receivables across every collectable account of the members. */

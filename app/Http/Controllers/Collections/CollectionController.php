@@ -288,11 +288,41 @@ class CollectionController extends Controller
             }
         }
 
+        // Samity-first member picker (client rule 2026-11-18): pick a
+        // samity → its members listed serially (serial no, member no,
+        // name) with each member's active loans; clicking a loan opens
+        // the same panel as the direct search. Scoping is the sheet's:
+        // accessible branches + the strict ticked-samity rule.
+        $samities = $this->samities($request);
+        $pickerSamityId = $request->filled('samity_id') ? $request->integer('samity_id') : null;
+        $pickerMembers = [];
+        if ($pickerSamityId && collect($samities)->contains('id', $pickerSamityId)) {
+            $pickerMembers = Member::where('samity_id', $pickerSamityId)
+                ->where('status', 'Active')->orderBy('member_no')->get()
+                ->map(function (Member $m, int $i) {
+                    $loans = LoanAccount::where('member_id', $m->id)
+                        ->whereIn('status', ['Disbursed', 'Active'])->orderBy('id')->get();
+
+                    return [
+                        'serial' => $i + 1,
+                        'id' => $m->id, 'member_no' => $m->member_no, 'name' => $m->name,
+                        'loans' => $loans->map(fn (LoanAccount $l) => [
+                            'id' => $l->id, 'loan_number' => $l->loan_number,
+                            'due_amount' => $this->service->loanReceivable($l),
+                            'outstanding' => $this->service->loanCard($l)['outstanding']['total'],
+                        ])->all(),
+                    ];
+                })->all();
+        }
+
         return Inertia::render('Collections/CollectLoan', [
             'query' => $query,
             'results' => $results,
             'panel' => $panel,
             'canCollect' => $request->user()->can('collection.collect'),
+            'samities' => $samities,
+            'pickerSamityId' => $pickerSamityId,
+            'pickerMembers' => $pickerMembers,
         ]);
     }
 
@@ -300,18 +330,36 @@ class CollectionController extends Controller
     {
         $request->validate([
             'loan_id' => ['required', 'integer'],
-            'amount' => ['required', 'numeric', 'gt:0'],
+            'amount' => ['nullable', 'numeric', 'min:0'],
+            'savings_amount' => ['nullable', 'numeric', 'min:0'],
+            'lts_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
         $loan = $this->findCollectableLoan($request, $request->integer('loan_id'));
-        // Same posting path as the Collection Sheet / Member Collection:
-        // one loan line in a member batch through CollectionService —
-        // allocation, DCR figures and cash-in-hand stay identical.
+        // The 3-part collection (client rule 2026-11-18): installment +
+        // current savings + long-term savings post together in ONE
+        // member batch through CollectionService — allocation, the
+        // compulsory-savings rule, DCR figures and cash-in-hand all
+        // stay on the shared path. Zero parts are skipped by postBatch.
+        $panel = $this->service->loanPanel($loan);
+        $lines = [[
+            'member_id' => $loan->member_id, 'account_type' => 'loan',
+            'account_id' => $loan->id, 'amount' => (string) ($request->input('amount') ?? '0'),
+        ]];
+        if ($panel['savings'] && $request->filled('savings_amount')) {
+            $lines[] = [
+                'member_id' => $loan->member_id, 'account_type' => 'deposit',
+                'account_id' => $panel['savings']['account_id'], 'amount' => (string) $request->input('savings_amount'),
+            ];
+        }
+        if ($panel['lts'] && $request->filled('lts_amount')) {
+            $lines[] = [
+                'member_id' => $loan->member_id, 'account_type' => 'deposit',
+                'account_id' => $panel['lts']['account_id'], 'amount' => (string) $request->input('lts_amount'),
+            ];
+        }
         $batch = $this->service->postBatch($request->user(), [
             'kind' => 'member', 'member_id' => $loan->member_id,
-            'lines' => [[
-                'member_id' => $loan->member_id, 'account_type' => 'loan',
-                'account_id' => $loan->id, 'amount' => (string) $request->input('amount'),
-            ]],
+            'lines' => $lines,
         ]);
         $audit->log($request->user()->id, 'collection.posted', 'collection_batches', $batch->id, null, ['total' => (string) $batch->total_receive]);
 

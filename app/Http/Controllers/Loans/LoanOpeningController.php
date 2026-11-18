@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\InstallmentFrequency;
 use App\Models\LoanAccount;
+use App\Models\LoanFee;
 use App\Models\LoanProduct;
 use App\Models\LoanProposal;
 use App\Models\Member;
@@ -67,7 +68,10 @@ class LoanOpeningController extends Controller
                 ])->all(),
             'frequencies' => collect(InstallmentFrequency::enabled())
                 ->map(fn ($f) => ['code' => $f->code, 'label_en' => $f->label_en, 'label_bn' => $f->label_bn])->all(),
-            'feeTypes' => ['form', 'health', 'risk', 'document', 'emi_locker', 'others'],
+            // Fixed fee fields only — 'custom' rows are the repeatable
+            // name + amount rows the form adds separately.
+            'feeTypes' => array_values(array_diff(LoanFee::TYPES, ['custom'])),
+            'insuranceRate' => (string) (app(\App\Services\SettingsService::class)->get('loan.insurance_rate', 1) ?? 1),
             'canOverride' => $request->user()->can('loans.rate-override'),
             'businessDate' => $this->businessDate($member),
             'productLoans' => $mode === 'product' ? $this->productLoanRows() : [],
@@ -97,6 +101,9 @@ class LoanOpeningController extends Controller
             'overdue_reminder' => ['nullable', 'boolean'],
             'fees' => ['nullable', 'array'],
             'fees.*' => ['nullable', 'numeric', 'min:0'],
+            'custom_fees' => ['nullable', 'array'],
+            'custom_fees.*.name' => ['nullable', 'string', 'max:100'],
+            'custom_fees.*.amount' => ['nullable', 'numeric', 'min:0'],
             'guarantors' => ['nullable', 'array'],
             'guarantors.*.name' => ['nullable', 'string', 'max:255'],
             'guarantors.*.relation' => ['nullable', 'string', 'max:100'],

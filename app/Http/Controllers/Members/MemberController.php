@@ -9,6 +9,7 @@ use App\Models\MemberVisit;
 use App\Models\Nominee;
 use App\Models\OrganizationProfile;
 use App\Models\Samity;
+use App\Models\Scopes\SamityScope;
 use App\Services\AuditService;
 use App\Services\BranchAccessService;
 use App\Services\IdentityCheckService;
@@ -42,14 +43,30 @@ class MemberController extends Controller
 
     private function formOptions(Request $request): array
     {
-        $active = $request->attributes->get('active_branch');
-        $samities = Samity::with('branch')
-            ->when($active, fn ($q) => $q->where('branch_id', $active->id))
+        // Branch → Samity cascade options (client round, 2026-11-18).
+        // ROOT CAUSE of the empty Samity dropdown on the admission form:
+        // this list used to be filtered down to the session's ACTIVE
+        // branch only — which defaults to Head Office, a branch with no
+        // samities — and the form had no Branch field to escape that
+        // filter, so the dropdown rendered empty. The picker list is now
+        // built the way the user-form samity picker was fixed before:
+        // the strict SamityScope is lifted FOR THE PICKER ONLY and the
+        // list is scoped to the branches the user can access
+        // (BranchAccessService) — Super Admin: every branch; staff:
+        // their assigned branches. Visibility everywhere else (member
+        // list, show, reports) stays assignment-scoped as before, and
+        // store/update still assert the chosen samity's branch is one
+        // the user may access.
+        $branches = app(BranchAccessService::class)->visibleBranches($request->user());
+        $samities = Samity::withoutGlobalScope(SamityScope::class)
+            ->whereIn('branch_id', $branches->pluck('id')->all())
             ->orderBy('samity_code')
             ->get()
-            ->map(fn (Samity $s) => ['id' => $s->id, 'name' => "{$s->samity_code} — {$s->name}"]);
+            ->map(fn (Samity $s) => ['id' => $s->id, 'branch_id' => $s->branch_id, 'name' => "{$s->samity_code} — {$s->name}"]);
 
         return [
+            'branches' => $branches->map(fn ($b) => ['id' => $b->id, 'name' => "{$b->code} — {$b->name}"])->all(),
+            'activeBranchId' => $request->attributes->get('active_branch')?->id,
             'samities' => $samities->all(),
             'genders' => collect(self::GENDERS)->map(fn ($g) => ['id' => $g, 'name' => $g, 'label_key' => 'gender_'.strtolower(str_replace(' ', '_', $g))])->all(),
             'religions' => collect(self::RELIGIONS)->map(fn ($r) => ['id' => $r, 'name' => $r])->all(),
@@ -62,10 +79,11 @@ class MemberController extends Controller
     public function index(Request $request): Response
     {
         $active = $request->attributes->get('active_branch');
-        $filters = $request->only(['samity_id', 'search', 'phone', 'member_no', 'nid', 'status', 'gender', 'open_from', 'open_to']);
+        $filters = $request->only(['branch_id', 'samity_id', 'search', 'phone', 'member_no', 'nid', 'status', 'gender', 'open_from', 'open_to']);
 
-        $query = Member::with(['samity', 'memberUser'])
+        $query = Member::with(['samity', 'branch', 'memberUser'])
             ->when($active, fn ($q) => $q->where('members.branch_id', $active->id))
+            ->when($filters['branch_id'] ?? null, fn ($q, $v) => $q->where('members.branch_id', $v))
             ->when($filters['samity_id'] ?? null, fn ($q, $v) => $q->where('members.samity_id', $v))
             ->when($filters['search'] ?? null, fn ($q, $v) => $q->where('members.name', 'like', "%{$v}%"))
             ->when($filters['phone'] ?? null, fn ($q, $v) => $q->where('members.mobile', 'like', "%{$v}%"))
@@ -78,10 +96,26 @@ class MemberController extends Controller
 
         $members = $query->orderByDesc('members.id')->paginate(25)->withQueryString()->through(fn (Member $m) => $this->row($m));
 
+        // Member-search cascade, last step (client round, 2026-11-18):
+        // once a samity is chosen, its members are offered as pickable
+        // suggestions (member no + name). The Member query itself stays
+        // SamityScope-scoped, so a restricted user only ever sees
+        // suggestions from samities assigned to them.
+        $suggestions = [];
+        if (! empty($filters['samity_id'])) {
+            $suggestions = Member::where('members.samity_id', (int) $filters['samity_id'])
+                ->orderBy('members.member_no')
+                ->limit(50)
+                ->get(['members.id', 'members.member_no', 'members.name'])
+                ->map(fn (Member $m) => ['id' => $m->id, 'member_no' => $m->member_no, 'name' => $m->name])
+                ->all();
+        }
+
         return Inertia::render('Members/Index', [
             'members' => $members,
             'filters' => $filters,
             'options' => $this->formOptions($request),
+            'suggestions' => $suggestions,
         ]);
     }
 
@@ -93,6 +127,7 @@ class MemberController extends Controller
             'photo_url' => $m->profile_photo ? '/files/'.$m->profile_photo : null,
             'member_no' => $m->member_no,
             'name' => $m->name,
+            'branch' => $m->branch?->only(['id', 'code', 'name']),
             'samity' => $m->samity?->only(['id', 'name']),
             'father_name' => $m->father_name,
             'mother_name' => $m->mother_name,
@@ -125,7 +160,10 @@ class MemberController extends Controller
     public function store(Request $request, IdentityCheckService $identity, UploadService $uploads, AuditService $audit, MemberAdmissionService $admissions): RedirectResponse
     {
         $data = $this->validateMember($request, $identity);
-        $samity = Samity::findOrFail($data['samity_id']);
+        // The admission picker is branch-scoped with the SamityScope
+        // lifted (see formOptions), so the chosen samity is fetched the
+        // same way; access is enforced by the branch assertion below.
+        $samity = Samity::withoutGlobalScope(SamityScope::class)->findOrFail($data['samity_id']);
         $this->assertBranchVisible($request, $samity->branch_id);
 
         if ($request->hasFile('profile_photo_file')) {
@@ -203,7 +241,7 @@ class MemberController extends Controller
     public function update(Request $request, Member $member, IdentityCheckService $identity, UploadService $uploads, AuditService $audit): RedirectResponse
     {
         $data = $this->validateMember($request, $identity, $member);
-        $samity = Samity::findOrFail($data['samity_id']);
+        $samity = Samity::withoutGlobalScope(SamityScope::class)->findOrFail($data['samity_id']);
         $this->assertBranchVisible($request, $samity->branch_id);
 
         DB::transaction(function () use ($request, $member, $data, $samity, $uploads) {
@@ -364,7 +402,11 @@ class MemberController extends Controller
             'education' => ['nullable', 'string', 'max:255'],
             'present_address' => ['nullable', 'string'],
             'permanent_address' => ['nullable', 'string'],
-            'share_amount' => ['required', 'numeric', 'min:0'],
+            // Share amount is OPTIONAL at member opening (client round,
+            // 2026-11-18): empty means no share taken yet — stored as 0,
+            // which the members table default and the admission share
+            // posting already handle (no share voucher at 0).
+            'share_amount' => ['nullable', 'numeric', 'min:0'],
             'open_date' => ['required', 'date'],
             'profile_photo_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
             'nominee_name' => ['nullable', 'string', 'max:255'],
@@ -378,6 +420,7 @@ class MemberController extends Controller
             'national_id.regex' => __('invalid_nid_format'),
             'mobile.regex' => __('invalid_mobile_format'),
         ]);
+        $data['share_amount'] = $data['share_amount'] ?? 0;
 
         $exceptTable = $member ? 'members' : null;
         $exceptId = $member?->id;

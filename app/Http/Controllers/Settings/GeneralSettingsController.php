@@ -57,7 +57,8 @@ class GeneralSettingsController extends Controller
             'profile.address' => ['nullable', 'string', 'max:255'],
             'profile.phone' => ['nullable', 'string', 'max:50'],
             'profile.email' => ['nullable', 'email', 'max:255'],
-            'logo' => ['nullable', 'file', 'max:2048'],
+            'logo' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'remove_logo' => ['nullable', 'boolean'],
             'settings' => ['required', 'array'],
         ]);
 
@@ -74,6 +75,11 @@ class GeneralSettingsController extends Controller
             if ($previousLogo && $previousLogo !== $profile->logo_path) {
                 Storage::disk('private')->delete($previousLogo);
             }
+        } elseif ($request->boolean('remove_logo') && $profile->logo_path) {
+            // Remove: delete the stored file and fall back to name-only
+            // branding everywhere (shell, login, PDF headers).
+            Storage::disk('private')->delete($profile->logo_path);
+            $profile->logo_path = null;
         }
         $profile->save();
         $this->settings->bustOrganization();

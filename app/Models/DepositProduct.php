@@ -35,6 +35,20 @@ class DepositProduct extends Model
         ];
     }
 
+    /**
+     * The product name in the current UI language (owner order 2026-11-18):
+     * Bangla name when the locale is Bangla and one is set, otherwise the
+     * English name. Codes never change.
+     */
+    public function getLocalizedNameAttribute(): string
+    {
+        if (app()->getLocale() === 'bn' && ! empty($this->name_bn)) {
+            return $this->name_bn;
+        }
+
+        return $this->name_en;
+    }
+
     public function accounts(): HasMany
     {
         return $this->hasMany(DepositAccount::class);

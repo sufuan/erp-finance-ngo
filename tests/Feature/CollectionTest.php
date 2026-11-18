@@ -120,7 +120,10 @@ class CollectionTest extends TestCase
         $this->assertSame('100.00', (string) $batch->share_receive);
         $this->assertSame(4, $batch->lines()->count());
 
-        $this->assertSame('200.00', (string) $savings->fresh()->current_balance);
+        // The savings balance carries the disbursement's 10%
+        // loan-linked credit (1,200 of the 12,000 loan, credited into
+        // this same account at disbursement) plus the sheet's 200.
+        $this->assertSame('1400.00', (string) $savings->fresh()->current_balance);
         $this->assertSame('500.00', (string) $dps->fresh()->current_balance);
         $this->assertDatabaseHas('loan_receives', ['loan_account_id' => $loan->id, 'installment_amount' => '1083.10']);
         $outstandingAfter = app(LoanMoneyService::class)->outstanding($loan->fresh())['total'];
@@ -172,7 +175,9 @@ class CollectionTest extends TestCase
         $this->assertSame($batchesBefore, CollectionBatch::count());
         $this->assertSame($txnsBefore, DepositTransaction::count());
         $this->assertSame($receivesBefore, LoanReceive::count());
-        $this->assertSame('0.00', (string) $savings->fresh()->current_balance);
+        // Nothing from the sheet posted; the balance is exactly the
+        // disbursement's 10% loan-linked credit (1,200 of 12,000).
+        $this->assertSame('1200.00', (string) $savings->fresh()->current_balance);
     }
 
     public function test_member_collection_and_batch_cancel_reverses(): void
@@ -188,13 +193,15 @@ class CollectionTest extends TestCase
                 ['member_id' => $m1->id, 'account_type' => 'loan', 'account_id' => $loan->id, 'amount' => '1083.10'],
             ],
         ]);
-        $this->assertSame('150.00', (string) $savings->fresh()->current_balance);
+        // Balance before the batch already holds the disbursement's
+        // 10% loan-linked credit (1,200 of 12,000); the batch adds 150.
+        $this->assertSame('1350.00', (string) $savings->fresh()->current_balance);
 
         $this->service->cancelBatch($batch, $this->admin, 'Wrong sheet');
         $batch->refresh();
         $this->assertSame('Cancelled', $batch->status);
         $this->assertSame('0.00', (string) $batch->total_receive);
-        $this->assertSame('0.00', (string) $savings->fresh()->current_balance);
+        $this->assertSame('1200.00', (string) $savings->fresh()->current_balance, 'Cancel reverses the batch only; the disbursement credit stays');
         $this->assertSame('0.00', (string) \Brick\Math\BigDecimal::of((string) LoanReceive::where('loan_account_id', $loan->id)->whereNull('cancel_at')->sum('installment_amount'))->toScale(2));
         $tb = app(PostingService::class)->trialBalance($this->samity->branch_id);
         $this->assertTrue($tb['balanced']);

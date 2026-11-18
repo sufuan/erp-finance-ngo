@@ -2,7 +2,7 @@ import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { Card, Field, PrimaryButton, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
-import { t } from '../../lib/i18n';
+import { localizedName, t } from '../../lib/i18n';
 
 /** Deposit account list (Step 10) — filters + the reference's 15 columns. */
 export default function DepositIndex({ accounts, filters, products }) {
@@ -39,7 +39,7 @@ export default function DepositIndex({ accounts, filters, products }) {
                     <Field label={t('account_type')}>
                         <select className={inputCls} value={f.deposit_product_id} onChange={(e) => set('deposit_product_id', e.target.value)}>
                             <option value="">—</option>
-                            {products.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name_en}</option>)}
+                            {products.map((p) => <option key={p.id} value={p.id}>{p.code} — {localizedName(p)}</option>)}
                         </select>
                     </Field>
                     <Field label={t('member_no')}>

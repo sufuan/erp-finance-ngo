@@ -13,6 +13,24 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class FileController extends Controller
 {
+    /**
+     * The organization logo is public branding (it heads every printed
+     * report), so — unlike member documents — it is served without auth:
+     * the login page must be able to show it. Only the single current
+     * logo of the active organization profile is ever exposed here.
+     */
+    public function orgLogo(): StreamedResponse
+    {
+        $profile = \App\Models\OrganizationProfile::where('is_active', true)->first()
+            ?? \App\Models\OrganizationProfile::first();
+        $path = $profile?->logoAbsolutePath();
+        if (! $path) {
+            abort(404);
+        }
+
+        return Storage::disk('private')->download($profile->logo_path);
+    }
+
     public function show(Request $request, string $path): StreamedResponse
     {
         if (! $request->user()) {

@@ -5,11 +5,20 @@ import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
 /** Member closing (Step 8) — blocked by active loans / savings balances. */
-export default function MemberClosing({ members, reasons, businessDate, closings }) {
+export default function MemberClosing({ members, reasons, branches = [], samities = [], businessDate, closings }) {
     const { data, setData, post, processing, errors } = useForm({
         member_id: '', closing_date: businessDate ?? '', closing_reason: 'Voluntary', share_disposition: 'Refunded',
     });
     const submit = (e) => { e.preventDefault(); post('/members/closing', { preserveScroll: true }); };
+
+    // Branch → Samity → Member cascade for finding the member.
+    const [cascade, setCascade] = useState({ branch_id: '', samity_id: '' });
+    const cascadeSamities = samities.filter((s) => !cascade.branch_id || String(s.branch_id) === String(cascade.branch_id));
+    const pickable = members.filter((m) => m.status !== 'Closed'
+        && (!cascade.branch_id || String(m.branch_id) === String(cascade.branch_id))
+        && (!cascade.samity_id || String(m.samity_id) === String(cascade.samity_id)));
+    const pickBranch = (v) => { setCascade({ branch_id: v, samity_id: '' }); setData('member_id', ''); };
+    const pickSamity = (v) => { setCascade((prev) => ({ ...prev, samity_id: v })); setData('member_id', ''); };
     const [searching, setSearching] = useState(false);
     const search = () => router.get('/members/closing', {}, {
         preserveState: true,
@@ -21,10 +30,22 @@ export default function MemberClosing({ members, reasons, businessDate, closings
             <h1 className="mb-4 text-xl font-semibold">{t('member_closing')}</h1>
             <Card className="mb-6">
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+                    <Field label={t('branch')}>
+                        <select className={inputCls} value={cascade.branch_id} onChange={(e) => pickBranch(e.target.value)}>
+                            <option value="">—</option>
+                            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                    </Field>
+                    <Field label={t('samity')}>
+                        <select className={inputCls} value={cascade.samity_id} onChange={(e) => pickSamity(e.target.value)}>
+                            <option value="">—</option>
+                            {cascadeSamities.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                    </Field>
                     <Field label={t('members')} required error={errors.member_id}>
                         <select className={inputCls} value={data.member_id} onChange={(e) => setData('member_id', e.target.value)} required>
                             <option value="">—</option>
-                            {members.filter((m) => m.status !== 'Closed').map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                            {pickable.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                         </select>
                     </Field>
                     <Field label={t('closing_date')} required error={errors.closing_date}>

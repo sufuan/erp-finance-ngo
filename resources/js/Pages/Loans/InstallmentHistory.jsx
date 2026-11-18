@@ -5,7 +5,7 @@ import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
 /** Installment details / receive history (Step 18) — wide audit table. */
-export default function InstallmentHistory({ member, memberQuery, loans, loanId, rows, filters }) {
+export default function InstallmentHistory({ member, memberQuery, loans, loanId, rows, filters, fees = [] }) {
     const { props } = usePage();
     const [searching, setSearching] = useState(false);
     const lookup = (e) => { e.preventDefault(); router.get('/loans/receive/history', { member: e.target.elements.member.value }, { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
@@ -82,6 +82,20 @@ export default function InstallmentHistory({ member, memberQuery, loans, loanId,
                     {rows.length === 0 && <tr><td className="px-3 py-3" colSpan={20}>{t('no_data_found')}</td></tr>}
                 </ResponsiveTable>
             </Card>
+            {loanId && fees.length > 0 && (
+                <Card className="mt-4">
+                    <h2 className="mb-3 font-medium">{t('loan_fees')}</h2>
+                    <ResponsiveTable head={[t('fees'), t('fee_name'), t('amount')]}>
+                        {fees.map((f) => (
+                            <tr key={f.id} className="border-b border-zinc-100 dark:border-zinc-800">
+                                <td className="px-3 py-2">{t(`fee_${f.fee_type}`)}</td>
+                                <td className="px-3 py-2">{f.label ?? '—'}</td>
+                                <td className="px-3 py-2">{f.amount}</td>
+                            </tr>
+                        ))}
+                    </ResponsiveTable>
+                </Card>
+            )}
         </AppLayout>
     );
 }

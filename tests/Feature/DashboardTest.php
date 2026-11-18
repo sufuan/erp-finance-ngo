@@ -145,9 +145,12 @@ class DashboardTest extends CrudTestCase
         $this->assertSame($before['members']['active'] + 2, $after['members']['active']);
         $this->assertSame($before['members']['new_month'] + 2, $after['members']['new_month']);
         $this->assertSame($before['deposit']['accounts'] + 2, $after['deposit']['accounts']);
-        $this->assertSame('1300.00', $delta($after['deposit']['savings'], $before['deposit']['savings']));
+        // Savings delta = 1,000 opening + 300 collection + the loan
+        // disbursement's 10% loan-linked credit (1,200 of 12,000),
+        // which is a real savings balance since 2026-11-18.
+        $this->assertSame('2500.00', $delta($after['deposit']['savings'], $before['deposit']['savings']));
         $this->assertSame('2000.00', $delta($after['deposit']['dps'], $before['deposit']['dps']));
-        $this->assertSame('3300.00', $delta($after['deposit']['total'], $before['deposit']['total']));
+        $this->assertSame('4500.00', $delta($after['deposit']['total'], $before['deposit']['total']));
         $this->assertSame($before['loan']['disbursed_count'] + 1, $after['loan']['disbursed_count']);
         $this->assertSame('12000.00', $delta($after['loan']['disbursed_amount'], $before['loan']['disbursed_amount']));
         $this->assertSame($expOutstanding, $delta($after['loan']['outstanding'], $before['loan']['outstanding']));
@@ -155,10 +158,13 @@ class DashboardTest extends CrudTestCase
         $this->assertSame($before['loan']['overdue_loans'] + 1, $after['loan']['overdue_loans']);
         // Collection figures follow the DCR definition (money actually
         // received): the two counter receives (1000 + 2000) plus the
-        // 300 collection posting all land on the business date.
-        $this->assertSame('3300.00', $delta($after['collection']['today'], $before['collection']['today']));
-        $this->assertSame('3300.00', $delta($after['collection']['today_deposit'], $before['collection']['today_deposit']));
-        $this->assertSame('3300.00', $delta($after['collection']['month'], $before['collection']['month']));
+        // 300 collection posting all land on the business date — and
+        // so does the disbursement's 10% loan-linked savings credit
+        // (1,200), which is a real deposit Receive by design
+        // (client rule 2026-11-18), so the DCR counts it too.
+        $this->assertSame('4500.00', $delta($after['collection']['today'], $before['collection']['today']));
+        $this->assertSame('4500.00', $delta($after['collection']['today_deposit'], $before['collection']['today_deposit']));
+        $this->assertSame('4500.00', $delta($after['collection']['month'], $before['collection']['month']));
 
         // Samity + officer rows carry the same figures for Talgachi Samity.
         $props = $this->dashboardProps();

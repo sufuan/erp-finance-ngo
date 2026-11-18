@@ -67,6 +67,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'appName' => $this->appDisplayName(),
             'orgName' => $this->orgName($locale),
+            'orgLogo' => $this->orgLogoUrl(),
             'locale' => $locale,
             'translations' => $translations,
             'translations_version' => file_exists($langPath) ? md5_file($langPath) : null,
@@ -142,6 +143,21 @@ class HandleInertiaRequests extends Middleware
                 return $notice ? ['text' => $notice->text, 'color' => $notice->text_color] : null;
             } catch (\Throwable) {
                 // Notices not migrated yet.
+            }
+        }
+
+        return null;
+    }
+
+    private function orgLogoUrl(): ?string
+    {
+        if (\Illuminate\Support\Facades\Schema::hasTable('organization_profiles')) {
+            try {
+                $profile = \App\Models\OrganizationProfile::where('is_active', true)->first();
+
+                return $profile?->logoUrl();
+            } catch (\Throwable) {
+                // Profile not seeded yet.
             }
         }
 

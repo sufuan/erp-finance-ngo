@@ -1,12 +1,13 @@
 import { router } from '@inertiajs/react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import {ActionButton, Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Components/ui';
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
 /** Loan disbursement list (Step 18) — disbursement posts the voucher. */
-export default function DisbursementList({ loans, samities, filters }) {
+export default function DisbursementList({ loans, samities, filters, savingsRate = '0' }) {
     const [searching, setSearching] = useState(false);
+    const [confirmId, setConfirmId] = useState(null);
     const search = (e) => { e.preventDefault(); router.get('/loans/disbursement', Object.fromEntries(new FormData(e.target).entries()), { preserveState: true, onStart: () => setSearching(true), onFinish: () => setSearching(false) }); };
     const disburse = (id, cb) => router.post(`/loans/disbursement/${id}`, {}, { preserveScroll: true, ...cb });
 
@@ -38,7 +39,8 @@ export default function DisbursementList({ loans, samities, filters }) {
             <Card>
                 <ResponsiveTable head={[t('samity'), t('member_no'), t('loan_amount'), t('total_repayment'), t('profit_rate'), t('installment_from_date'), t('no_of_installments'), t('actions')]}>
                     {loans.map((l) => (
-                        <tr key={l.id} className="border-b border-zinc-100 dark:border-zinc-800">
+                        <Fragment key={l.id}>
+                        <tr className="border-b border-zinc-100 dark:border-zinc-800">
                             <td className="px-3 py-2">{l.samity ?? '—'}</td>
                             <td className="px-3 py-2">{l.member ?? '—'} ({l.loan_number})</td>
                             <td className="px-3 py-2">{l.loan_amount}</td>
@@ -47,9 +49,25 @@ export default function DisbursementList({ loans, samities, filters }) {
                             <td className="px-3 py-2">{l.installment_from_date}</td>
                             <td className="px-3 py-2">{l.no_of_installments}</td>
                             <td className="px-3 py-2">
-                                <ActionButton fire={(cb) => disburse(l.id, cb)} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('disburse')}</ActionButton>
+                                <button type="button" onClick={() => setConfirmId(confirmId === l.id ? null : l.id)} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">{t('disburse')}</button>
                             </td>
                         </tr>
+                        {confirmId === l.id && (
+                            <tr key={`${l.id}-confirm`} className="border-b border-emerald-100 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-900/10">
+                                <td className="px-3 py-3" colSpan={8}>
+                                    <div className="flex flex-wrap items-end gap-x-8 gap-y-2 text-sm">
+                                        <p><span className="block text-xs text-zinc-500">{t('loan_amount')}</span><span className="font-semibold">{l.loan_amount}</span></p>
+                                        <p><span className="block text-xs text-zinc-500">{t('savings_deposit')} ({savingsRate}%)</span><span className="font-semibold">{l.savings_deposit}</span></p>
+                                        <p><span className="block text-xs text-zinc-500">{t('cash_in_hand')}</span><span className="font-semibold">{l.cash_in_hand}</span></p>
+                                        <span className="ms-auto flex gap-2">
+                                            <ActionButton fire={(cb) => disburse(l.id, cb)} className="rounded-lg bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700">{t('confirm_disbursement')}</ActionButton>
+                                            <button type="button" onClick={() => setConfirmId(null)} className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700">{t('cancel')}</button>
+                                        </span>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+                        </Fragment>
                     ))}
                     {loans.length === 0 && <tr><td className="px-3 py-3" colSpan={8}>{t('no_data_found')}</td></tr>}
                 </ResponsiveTable>

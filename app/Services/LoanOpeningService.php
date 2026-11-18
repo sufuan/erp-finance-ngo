@@ -33,6 +33,7 @@ class LoanOpeningService
         private PostingService $posting,
         private BusinessDayService $businessDays,
         private NumberingService $numbering,
+        private LinkedSavingsService $linkedSavings,
     ) {}
 
     /**
@@ -141,6 +142,9 @@ class LoanOpeningService
             $feeLines = [];
             $feeTotal = \Brick\Math\BigDecimal::zero();
             foreach (LoanFee::TYPES as $type) {
+                if ($type === 'custom') {
+                    continue; // named rows are handled below, one by one
+                }
                 $amount = (string) ($input['fees'][$type] ?? '0');
                 if (! \Brick\Math\BigDecimal::of($amount)->isPositive()) {
                     continue;
@@ -151,6 +155,28 @@ class LoanOpeningService
                     'amount' => $amount, 'ledger_id' => $mapping->credit_ledger_id,
                 ]);
                 $feeLines[] = ['mapping_key' => 'loan.fee.'.$type, 'amount' => $amount, 'loan_account_id' => $loan->id];
+                $feeTotal = $feeTotal->plus($amount);
+            }
+            // Custom "other fees" (client rule 2026-11-18): the officer
+            // names each fee; the row keeps its name and posts to the
+            // Others income ledger inside the same Receipt voucher.
+            // Insurance and these fees are the samity's income — they
+            // never touch the member's accounts.
+            foreach (($input['custom_fees'] ?? []) as $custom) {
+                $amount = (string) ($custom['amount'] ?? '0');
+                if (! \Brick\Math\BigDecimal::of($amount)->isPositive()) {
+                    continue;
+                }
+                $label = trim((string) ($custom['name'] ?? ''));
+                if ($label === '') {
+                    throw ValidationException::withMessages(['custom_fees' => __('custom_fee_name_required')]);
+                }
+                $mapping = GlMapping::byKey('loan.fee.others');
+                $feeRows[] = LoanFee::create([
+                    'loan_account_id' => $loan->id, 'fee_type' => 'custom', 'label' => $label,
+                    'amount' => $amount, 'ledger_id' => $mapping->credit_ledger_id,
+                ]);
+                $feeLines[] = ['mapping_key' => 'loan.fee.others', 'amount' => $amount, 'loan_account_id' => $loan->id];
                 $feeTotal = $feeTotal->plus($amount);
             }
             if ($feeLines !== []) {
@@ -172,6 +198,16 @@ class LoanOpeningService
                 DepositLien::where('loan_proposal_id', $proposal->id)
                     ->whereNull('loan_account_id')
                     ->update(['loan_account_id' => $loan->id]);
+            }
+
+            // Client rule (2026-11-18): taking a loan auto-opens the
+            // member's linked general savings account (reused when one
+            // is already active — never duplicated). The 10% savings
+            // deposit itself is credited later, at disbursement.
+            if ($member) {
+                $this->linkedSavings->ensureAccount(
+                    $member, $this->businessDays->currentDate($branchId), $actor->id,
+                );
             }
 
             return $loan->fresh();

@@ -16,6 +16,7 @@ class LoanAccount extends Model
     protected $fillable = [
         'loan_number', 'branch_id', 'member_id', 'employee_id', 'loan_product_id',
         'loan_proposal_id', 'opening_date', 'loan_purpose', 'loan_amount',
+        'savings_deposit_amount', 'savings_account_id',
         'down_payment', 'block_account', 'frequency', 'no_of_installments',
         'installment_amount', 'actual_installment_amount', 'extra_installment_amount',
         'last_installment_amount', 'profit_rate', 'profit_amount', 'total_repayment',
@@ -29,7 +30,7 @@ class LoanAccount extends Model
         return [
             'opening_date' => 'date', 'installment_from_date' => 'date',
             'installment_expire_date' => 'date', 'disbursed_at' => 'datetime',
-            'loan_amount' => 'decimal:2', 'down_payment' => 'decimal:2',
+            'loan_amount' => 'decimal:2', 'savings_deposit_amount' => 'decimal:2', 'down_payment' => 'decimal:2',
             'installment_amount' => 'decimal:2', 'actual_installment_amount' => 'decimal:2',
             'extra_installment_amount' => 'decimal:2', 'last_installment_amount' => 'decimal:2',
             'profit_rate' => 'decimal:2', 'profit_amount' => 'decimal:2',

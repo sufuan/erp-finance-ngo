@@ -79,11 +79,13 @@ export default function SamitiesIndex({ samities, options, businessDate, activeB
             <h1 className="mb-4 text-xl font-semibold">{t('samity_opening')}</h1>
 
             <div className="mb-4 flex flex-wrap gap-2">
-                {[['day', 'samity_day_change'], ['officer', 'samity_officer_change'], ['manager', 'samity_manager_change']].map(([type, key]) => (
+                {[['day', 'samity_day_change'], ['officer', 'samity_officer_change']].map(([type, key]) => (
                     <Link key={type} href={`/settings/samities/changes/${type}`} className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t(key)}</Link>
                 ))}
-                <Link href="/settings/samities/merge" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('samity_merge')}</Link>
+                <Link href="/settings/branches/manager-change" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('branch_manager_change')}</Link>
+                <Link href="/settings/branches/merge" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('branch_merge')}</Link>
                 <Link href="/settings/samities/split" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('samity_split')}</Link>
+                <Link href="/settings/branches/split" className="min-h-[44px] rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">{t('branch_split')}</Link>
             </div>
 
             <Card className="mb-6">

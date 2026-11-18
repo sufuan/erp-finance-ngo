@@ -200,7 +200,9 @@ class SamityController extends Controller
         return match ($type) {
             'day' => ['field' => 'samity_day', 'model' => \App\Models\SamityDayChange::class, 'label' => 'samity_day_change'],
             'officer' => ['field' => 'field_officer_id', 'model' => \App\Models\SamityOfficerChange::class, 'label' => 'samity_officer_change'],
-            'manager' => ['field' => 'manager_id', 'model' => \App\Models\SamityManagerChange::class, 'label' => 'samity_manager_change'],
+            // 'manager' was replaced by the branch-level Branch Manager
+            // Change (2026-11-18). samities.manager_id and the
+            // samity_manager_changes history stay in the data layer.
             default => abort(404),
         };
     }
@@ -334,12 +336,14 @@ class SamityController extends Controller
     {
         $active = $request->attributes->get('active_branch');
         $holidays = Holiday::with(['branch', 'samity'])
-            ->when($active, fn ($q) => $q->where('branch_id', $active->id))
+            // All-branches rows (branch_id NULL) belong to every branch's list.
+            ->when($active, fn ($q) => $q->where(fn ($w) => $w->where('branch_id', $active->id)->orWhereNull('branch_id')))
             ->orderByDesc('holiday_date')
             ->limit(200)
             ->get()
             ->map(fn (Holiday $h) => [
                 ...$h->toArray(),
+                'scope' => $h->branch_id ? 'branch' : 'all',
                 'branch' => $h->branch?->only(['id', 'code', 'name']),
                 'samity' => $h->samity?->only(['id', 'name']),
             ]);
@@ -356,13 +360,21 @@ class SamityController extends Controller
     public function storeHoliday(Request $request, AuditService $audit): RedirectResponse
     {
         $data = $request->validate([
-            'branch_id' => ['required', 'integer', 'exists:branches,id'],
+            // Scope (owner order 2026-11-18): 'all' = every branch at once
+            // (stored as branch_id NULL); 'branch' = one branch, as before.
+            // Absent scope (older clients) behaves as 'branch'.
+            'scope' => ['nullable', 'in:all,branch'],
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id', 'required_unless:scope,all'],
             'samity_id' => ['nullable', 'integer', 'exists:samities,id'],
             'details' => ['required', 'string', 'max:255'],
             'holiday_date' => ['nullable', 'date'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
         ]);
+
+        $allBranches = ($data['scope'] ?? 'branch') === 'all';
+        $branchId = $allBranches ? null : ($data['branch_id'] ?? null);
+        $samityId = $allBranches ? null : ($data['samity_id'] ?? null);
 
         $dates = [];
         if (! empty($data['holiday_date'])) {
@@ -382,25 +394,64 @@ class SamityController extends Controller
 
         $created = 0;
         foreach ($dates as $date) {
-            $exists = Holiday::where('branch_id', $data['branch_id'])
+            $exists = Holiday::query()
+                ->when($branchId === null, fn ($q) => $q->whereNull('branch_id'), fn ($q) => $q->where('branch_id', $branchId))
                 ->where('holiday_date', $date->toDateString())
-                ->where('samity_id', $data['samity_id'] ?? null)
+                ->when($samityId === null, fn ($q) => $q->whereNull('samity_id'), fn ($q) => $q->where('samity_id', $samityId))
                 ->exists();
             if ($exists) {
                 continue; // existing dates are skipped, per plan
             }
             Holiday::create([
-                'branch_id' => $data['branch_id'],
-                'samity_id' => $data['samity_id'] ?? null,
+                'branch_id' => $branchId,
+                'samity_id' => $samityId,
                 'holiday_date' => $date->toDateString(),
                 'details' => $data['details'],
                 'created_by' => $request->user()->id,
             ]);
             $created++;
         }
-        $audit->log($request->user()->id, 'holiday.created', 'holidays', null, null, ['count' => $created]);
+        $audit->log($request->user()->id, 'holiday.created', 'holidays', null, null, ['count' => $created, 'scope' => $allBranches ? 'all' : 'branch']);
 
         return back()->with('success', __('holidays_added', ['count' => $created]));
+    }
+
+    public function updateHoliday(Request $request, Holiday $holiday, AuditService $audit): RedirectResponse
+    {
+        $data = $request->validate([
+            'scope' => ['nullable', 'in:all,branch'],
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id', 'required_unless:scope,all'],
+            'samity_id' => ['nullable', 'integer', 'exists:samities,id'],
+            'details' => ['required', 'string', 'max:255'],
+            'holiday_date' => ['required', 'date'],
+        ]);
+
+        $allBranches = ($data['scope'] ?? 'branch') === 'all';
+        $branchId = $allBranches ? null : ($data['branch_id'] ?? null);
+        $samityId = $allBranches ? null : ($data['samity_id'] ?? null);
+        $date = Carbon::parse($data['holiday_date'])->toDateString();
+
+        $duplicate = Holiday::query()
+            ->where('id', '!=', $holiday->id)
+            ->when($branchId === null, fn ($q) => $q->whereNull('branch_id'), fn ($q) => $q->where('branch_id', $branchId))
+            ->where('holiday_date', $date)
+            ->when($samityId === null, fn ($q) => $q->whereNull('samity_id'), fn ($q) => $q->where('samity_id', $samityId))
+            ->exists();
+        if ($duplicate) {
+            throw ValidationException::withMessages(['holiday_date' => __('holiday_date_exists')]);
+        }
+
+        $previous = $holiday->only(['branch_id', 'samity_id', 'holiday_date', 'details']);
+        $holiday->update([
+            'branch_id' => $branchId,
+            'samity_id' => $samityId,
+            'holiday_date' => $date,
+            'details' => $data['details'],
+        ]);
+        $audit->log($request->user()->id, 'holiday.updated', 'holidays', $holiday->id, $previous,
+            ['branch_id' => $branchId, 'samity_id' => $samityId, 'holiday_date' => $date, 'details' => $data['details']]);
+
+        return back()->with('success', __('saved'));
     }
 
     public function destroyHoliday(Request $request, Holiday $holiday, AuditService $audit): RedirectResponse
@@ -441,66 +492,9 @@ class SamityController extends Controller
         return back()->with('success', __('saved'));
     }
 
-    // --- Merge & split -----------------------------------------------------
-
-    /** Members with an active loan block a merge unless a manager approves. */
-    private function samityHasActiveLoans(int $samityId): bool
-    {
-        if (! Schema::hasTable('members') || ! Schema::hasTable('loan_accounts')) {
-            return false;
-        }
-
-        return DB::table('loan_accounts')
-            ->join('members', 'members.id', '=', 'loan_accounts.member_id')
-            ->where('members.samity_id', $samityId)
-            ->where('loan_accounts.status', 'Active')
-            ->exists();
-    }
-
-    public function mergeForm(): Response
-    {
-        return Inertia::render('Settings/Samities/Merge', [
-            'samities' => Samity::orderBy('samity_code')->get(['id', 'samity_code', 'name', 'branch_id'])
-                ->map(fn (Samity $s) => [
-                    'id' => $s->id, 'name' => "{$s->samity_code} — {$s->name}", 'branch_id' => $s->branch_id,
-                    'member_count' => Schema::hasTable('members') ? $s->members()->count() : 0,
-                ])->all(),
-        ]);
-    }
-
-    public function merge(Request $request, AuditService $audit): RedirectResponse
-    {
-        $data = $request->validate([
-            'source_samity_id' => ['required', 'integer', 'exists:samities,id', 'different:target_samity_id'],
-            'target_samity_id' => ['required', 'integer', 'exists:samities,id'],
-            'manager_approved' => ['nullable', 'boolean'],
-        ]);
-        $source = Samity::findOrFail($data['source_samity_id']);
-        $target = Samity::findOrFail($data['target_samity_id']);
-        if ($source->branch_id !== $target->branch_id) {
-            throw ValidationException::withMessages(['target_samity_id' => __('merge_same_branch_only')]);
-        }
-        if ($this->samityHasActiveLoans($source->id) && empty($data['manager_approved'])) {
-            throw ValidationException::withMessages(['manager_approved' => __('merge_blocked_active_loans')]);
-        }
-
-        DB::transaction(function () use ($request, $source, $target, $audit) {
-            $moved = 0;
-            if (Schema::hasTable('members')) {
-                foreach ($source->members()->pluck('id') as $memberId) {
-                    DB::table('members')->where('id', $memberId)->update(['samity_id' => $target->id]);
-                    $audit->log($request->user()->id, 'member.samity_merged', 'members', $memberId,
-                        ['samity_id' => $source->id], ['samity_id' => $target->id]);
-                    $moved++;
-                }
-            }
-            $source->update(['status' => 'Merged', 'closed_by' => $request->user()->id, 'closed_at' => now()]);
-            $audit->log($request->user()->id, 'samity.merged', 'samities', $source->id,
-                ['status' => 'Active'], ['status' => 'Merged', 'into' => $target->id, 'members_moved' => $moved]);
-        });
-
-        return back()->with('success', __('saved'));
-    }
+    // --- Split -------------------------------------------------------------
+    // (Samity Merge was replaced by the branch-level Branch Merge,
+    // 2026-11-18 — see BranchLifecycleController. Split stays samity-level.)
 
     public function splitForm(): Response
     {
