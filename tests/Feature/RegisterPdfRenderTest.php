@@ -18,6 +18,7 @@ use App\Services\LoanOpeningService;
 use App\Services\PdfService;
 use App\Services\RegisterReportService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -233,5 +234,74 @@ class RegisterPdfRenderTest extends TestCase
         $weekly->assertOk();
         $this->assertStringStartsWith('%PDF', $weekly->getContent());
         $this->assertLessThanOrEqual(2, $this->pageCount($weekly->getContent()));
+    }
+
+    // --- the uploaded-logo sizing (live defect, 2026-11-19) -------------------
+
+    /**
+     * The live org logo is a large square image. The register blade and
+     * the shared report header sized it with CSS only (height /
+     * max-width) — mPDF, the only engine that can run on the live
+     * host, does not honour CSS sizing on images and printed the logo
+     * at natural size, swallowing most of the daily register's page
+     * (the header grew to ~60% of the page height, the 25-column
+     * table squeezed into a strip below). The img tags now carry an
+     * explicit height attribute, which mPDF does honour. This test
+     * pins the attribute in the rendered HTML and re-checks the page
+     * geometry with a 1000x1000 logo in place.
+     */
+    public function test_register_pdf_with_large_logo_stays_legible(): void
+    {
+        $img = imagecreatetruecolor(1000, 1000);
+        imagefill($img, 0, 0, imagecolorallocate($img, 0, 77, 51));
+        ob_start();
+        imagepng($img);
+        $png = (string) ob_get_clean();
+        imagedestroy($img);
+        Storage::disk('private')->put('logos/test-logo.png', $png);
+        $org = OrganizationProfile::first();
+        $org->logo_path = 'logos/test-logo.png';
+        $org->save();
+
+        $data = app(RegisterReportService::class)->dailyRegister($this->branch->id, '2026-11');
+        $html = view('reports.manager-register', [
+            'org' => $org, 'branch' => $this->branch, 'month' => '2026-11',
+            'weeks' => $data['weeks'], 'grand' => $data['grand'],
+        ])->render();
+        $this->assertMatchesRegularExpression('/<img class="logo" height="40"/', $html);
+
+        $bytes = app(PdfService::class)->renderHtmlWithFallback($html, 999, 'A4', 'L');
+        $this->assertStringStartsWith('%PDF', $bytes);
+        $this->assertLessThanOrEqual(3, $this->pageCount($bytes));
+        $this->assertNoCollapsedFonts($bytes);
+
+        $partial = view('reports.partials.header', ['org' => $org, 'title' => 'Test'])->render();
+        $this->assertMatchesRegularExpression('/<img class="pdf-head-logo" height="44"/', $partial);
+    }
+
+    /**
+     * Universal header on the weekly sheet (owner order 2026-11-19):
+     * the weekly balance sheet used to open with two ad-hoc lines and
+     * no org header; it now carries the same 3-cell header as every
+     * other PDF — Settings logo, org lines, navy title bar — above
+     * the client's sheet body, which is unchanged.
+     */
+    public function test_weekly_balance_html_carries_the_universal_header(): void
+    {
+        $data = app(RegisterReportService::class)->weeklyBalance($this->branch->id, '2026-11-07');
+        $html = view('reports.weekly-balance', [
+            'org' => OrganizationProfile::first(), 'branch' => $this->branch, 'week' => $data['week'],
+            'savings' => $data['savings'], 'savingsTotal' => $data['savings_total'],
+            'loans' => $data['loans'], 'loansTotal' => $data['loans_total'],
+        ])->render();
+
+        $this->assertStringContainsString('table class="pdf-head"', $html);
+        $this->assertStringContainsString('তালগাছী দারিদ্র উন্নয়ন সংস্থা (T.P.D.A)', $html);
+        $this->assertStringContainsString('সাপ্তাহিক স্থিতির হিসাবের সিট', $html);
+        $this->assertStringContainsString('কার্যালয়ঃ '.$this->branch->name, $html);
+        // The sheet body below the header is untouched.
+        $this->assertStringContainsString('সঞ্চয় হিসাবঃ', $html);
+        $this->assertStringContainsString('কিস্তি হিসাবঃ', $html);
+        $this->assertStringContainsString('মন্তব্য', $html);
     }
 }

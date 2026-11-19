@@ -15,8 +15,6 @@
         font-weight: 600;
     }
     body { font-family: 'Hind Siliguri', sans-serif; font-size: 11px; color: #000; }
-    .addr { font-size: 11px; }
-    .title { text-align: center; font-size: 15px; font-weight: 600; margin: 6px 0 14px; }
     .sect { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
     .sect td { padding: 0; font-size: 12px; font-weight: 600; }
     .sect td.r { text-align: right; font-weight: 400; }
@@ -38,8 +36,17 @@
     @php($fmt = fn ($v) => $bn(number_format((float) ($v ?? 0), 2)))
     @php($num = fn ($v) => $bn(number_format((int) ($v ?? 0))))
 
-    <div class="addr">তালগাছী, শাহজাদপুর, সিরাজগঞ্জ।</div>
-    <div class="title">-ঃ সাপ্তাহিক স্থিতির হিসাবের সিট ঃ-</div>
+    {{-- Universal PDF header (owner order 2026-11-19): the daily
+         register sheet's 3-cell header now tops this sheet too — it
+         carries the address line and the title the old ad-hoc lines
+         printed, so those are gone; everything from the সঞ্চয় হিসাবঃ
+         line down is the client's sheet unchanged. --}}
+    @include('reports.partials.header', [
+        'title' => 'সাপ্তাহিক স্থিতির হিসাবের সিট',
+        'branchName' => $branch->name,
+        'leftLines' => ['* শাখার নাম ঃ '.$branch->name],
+        'rightLines' => ['* তারিখঃ '.($week ? $bn(\Carbon\Carbon::parse($week['end'])->format('d/m/Y')) : '')],
+    ])
 
     <table class="sect">
         <tr>

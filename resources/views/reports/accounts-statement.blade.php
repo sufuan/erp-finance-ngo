@@ -14,12 +14,6 @@
         font-weight: 600;
     }
     body { font-family: 'Hind Siliguri', sans-serif; font-size: 12px; color: #18181b; }
-    .org { text-align: center; margin-bottom: 4px; }
-    .org-logo { display: block; margin: 0 auto 4px; height: 54px; max-width: 240px; }
-    .org .bn { font-size: 20px; font-weight: 600; }
-    .org .en { font-size: 13px; color: #3f3f46; }
-    .org .meta { font-size: 11px; color: #52525b; }
-    h1 { font-size: 16px; text-align: center; margin: 10px 0 4px; }
     h2 { font-size: 13px; margin: 14px 0 4px; border-bottom: 1px solid #d4d4d8; padding-bottom: 2px; }
     .filters { text-align: center; font-size: 11px; color: #52525b; margin-bottom: 10px; }
     table { width: 100%; border-collapse: collapse; }
@@ -32,8 +26,7 @@
 </style>
 </head>
 <body>
-    @include('reports.partials.header')
-    <h1>{{ $title }}</h1>
+    @include('reports.partials.header', ['title' => $title])
     @if(!empty($filter_summary))
         <div class="filters">{{ $filter_summary }}</div>
     @endif

@@ -61,7 +61,7 @@
         <tr>
             <td class="left">
                 @if($org?->logoDataUri())
-                    <img class="logo" src="{{ $org->logoDataUri() }}" alt="">
+                    <img class="logo" height="40" src="{{ $org->logoDataUri() }}" alt="">
                 @endif
                 * সমিতির নাম ঃ সকল সমিতি<br>
                 * মাসের নাম ঃ {{ $monthLabel }}
