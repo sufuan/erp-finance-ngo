@@ -21,7 +21,7 @@
          সপ্তাহ নং. Reproduced from the client's sheet as-is (owner
          order 2026-11-19: exact replication, only data dynamic). --}}
     table.head { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-    table.head td { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
+    table.head td { border: none; padding: 4px 6px; vertical-align: top; }
     table.head td.left { width: 27%; font-size: 10px; line-height: 1.7; }
     table.head td.center { width: 46%; text-align: center; line-height: 1.45; }
     table.head td.right { width: 27%; font-size: 10px; line-height: 1.7; }

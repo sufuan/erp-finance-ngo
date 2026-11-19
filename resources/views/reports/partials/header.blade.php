@@ -24,7 +24,7 @@
 @php($pdfHeadRight = $rightLines ?? [])
 <style>
     table.pdf-head { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-family: 'Hind Siliguri', sans-serif; color: #000; }
-    table.pdf-head td { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
+    table.pdf-head td { border: none; padding: 4px 6px; vertical-align: top; }
     table.pdf-head td.pdf-head-left { width: 27%; font-size: 10px; line-height: 1.7; }
     table.pdf-head td.pdf-head-center { width: 46%; text-align: center; line-height: 1.45; }
     table.pdf-head td.pdf-head-right { width: 27%; font-size: 10px; line-height: 1.7; }
