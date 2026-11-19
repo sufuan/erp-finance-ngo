@@ -46,13 +46,26 @@ class PdfService
 
     /**
      * Render raw HTML to PDF bytes with mPDF (large-report fallback).
+     *
+     * $format/$orientation pick the mPDF page geometry (defaults keep
+     * the historical A4 portrait behaviour for every existing caller).
+     *
+     * The blade's @page block is stripped before WriteHTML: mPDF takes
+     * its geometry from this config, NOT from CSS — and a `size:`
+     * declaration inside @page sends mPDF into runaway pagination
+     * (a bare "Hello" rendered 14 pages; the weekly register rendered
+     * 141+ mostly-blank pages on live, 2026-11-19). Chromium, the
+     * other engine, never sees this stripped copy — it gets the
+     * original HTML with its @page rule intact. Only the two register
+     * blades carry an @page rule at all, so no other report changes.
      */
-    public function renderLargeHtml(string $html): string
+    public function renderLargeHtml(string $html, string $format = 'A4', string $orientation = 'P'): string
     {
+        $html = preg_replace('/@page\s*\{[^}]*\}/s', '', $html) ?? $html;
         $fontDir = public_path('fonts');
         $mpdf = new Mpdf([
             'mode' => 'utf-8',
-            'format' => 'A4',
+            'format' => $format.($orientation === 'L' ? '-L' : ''),
             'tempDir' => storage_path('app/mpdf-tmp'),
             'fontDir' => array_merge((new \Mpdf\Config\ConfigVariables)->getDefaults()['fontDir'], [$fontDir]),
             'fontdata' => (new \Mpdf\Config\FontVariables)->getDefaults()['fontdata'] + [
@@ -100,10 +113,10 @@ class PdfService
      * large reports (plan rule), and mPDF again as a safety net when
      * Chromium is unavailable on the host.
      */
-    public function renderHtmlWithFallback(string $html, int $rowCount = 0): string
+    public function renderHtmlWithFallback(string $html, int $rowCount = 0, string $format = 'A4', string $orientation = 'P'): string
     {
         if ($this->shouldUseFallback($rowCount)) {
-            return $this->renderLargeHtml($html);
+            return $this->renderLargeHtml($html, $format, $orientation);
         }
         try {
             $path = tempnam(sys_get_temp_dir(), 'tpda-pdf-').'.pdf';
@@ -120,7 +133,7 @@ class PdfService
 
             return $bytes;
         } catch (\Throwable) {
-            return $this->renderLargeHtml($html);
+            return $this->renderLargeHtml($html, $format, $orientation);
         }
     }
 }

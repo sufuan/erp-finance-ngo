@@ -1398,20 +1398,32 @@ async function scenarioCollectLoanThreePart() {
     check('CollectLoan3Part: picker lists members serially with member numbers',
         text.includes(en.serial_no) && text.includes('102000007') && text.includes('Second Member'));
     const numberInputs = [...m.container.querySelectorAll('input[type="number"]')];
-    check('CollectLoan3Part: three amount fields render, installment first and prefilled',
-        numberInputs.length === 3 && numberInputs[0].value === '1083.10');
-    check('CollectLoan3Part: savings and LTS fields prefilled with their expected amounts',
-        numberInputs[1].value === '100.00' && numberInputs[2].value === '50.00');
+    // Fields are picked by their Field label (form identity), never by
+    // raw index — Round 3 inserted the withdrawal field between the
+    // savings and LTS fields, which is exactly what broke index reads.
+    const installmentInput = fieldInput(m.container, en.due_amount);
+    const savingsInput = fieldInput(m.container, `${en.current_savings} (10200000701)`);
+    const withdrawalInput = fieldInput(m.container, `${en.withdrawal} (10200000701)`);
+    const ltsInput = fieldInput(m.container, `${en.long_term_savings} (10200000702)`);
+    check('CollectLoan3Part: four amount fields render in order — installment, savings, withdrawal, LTS',
+        numberInputs.length === 4
+        && numberInputs[0] === installmentInput && numberInputs[1] === savingsInput
+        && numberInputs[2] === withdrawalInput && numberInputs[3] === ltsInput);
+    check('CollectLoan3Part: installment, savings and LTS fields prefilled; withdrawal starts empty',
+        installmentInput?.value === '1083.10' && savingsInput?.value === '100.00'
+        && ltsInput?.value === '50.00' && withdrawalInput?.value === '');
     check('CollectLoan3Part: savings and LTS labels show with balances',
         text.includes(en.current_savings) && text.includes(en.long_term_savings) && text.includes('1200.00') && text.includes('300.00'));
     const collectForm = [...m.container.querySelectorAll('form')].find((f) => f.querySelector('input[type="number"]'));
     await act(async () => { collectForm.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
     const visit = __pendingVisit();
-    check('CollectLoan3Part: one post carries all three amounts',
+    check('CollectLoan3Part: one post carries all amounts (withdrawal key present, empty)',
         !!visit && visit.method === 'post' && visit.url === '/collection/collect-loan'
         && String(visit?.data?.amount) === '1083.10'
         && String(visit?.data?.savings_amount) === '100.00'
-        && String(visit?.data?.lts_amount) === '50.00');
+        && String(visit?.data?.lts_amount) === '50.00'
+        && 'savings_withdrawal_amount' in (visit?.data ?? {})
+        && String(visit?.data?.savings_withdrawal_amount ?? '') === '');
     __setPage(baseProps({ flash: { success: en.collection_posted }, errors: {} }));
     await act(async () => { __finishVisit({}); });
     await unmount(m);

@@ -32,8 +32,17 @@
     .head .reg { font-size: 10px; }
     .head .addr { font-size: 10px; }
     .head .title { font-size: 13px; font-weight: 600; }
-    table.reg { width: 100%; border-collapse: collapse; }
-    table.reg th, table.reg td { border: 1px solid #000; padding: 2px 2px; text-align: right; }
+    {{-- Fixed layout + the colgroup + the width styles on the header
+         cells pin the 25 columns to the landscape width. mPDF takes
+         column widths from the header CELLS (it ignores colgroup
+         once the body repeats rows, and dumps the slack into the
+         সদস্য ছাড়ার and স্বাক্ষর columns); Chromium honours the
+         colgroup. Without them the table also risks mPDF's
+         shrink-to-fit collapsing fonts to 0.000pt (live defect,
+         2026-11-19). Column SET and ORDER are the sheet's own —
+         only widths are tuned. --}}
+    table.reg { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    table.reg th, table.reg td { border: 1px solid #000; padding: 2px 1px; text-align: right; overflow-wrap: break-word; }
     table.reg th { font-weight: 600; text-align: center; font-size: 8px; }
     table.reg td.l { text-align: left; }
     table.reg td.c { text-align: center; }
@@ -88,43 +97,50 @@
     })
 
     <table class="reg">
+        <colgroup>
+            <col style="width:2.5%"><col style="width:5.5%"><col style="width:4.5%"><col style="width:4.5%"><col style="width:2.5%">
+            <col style="width:4%"><col style="width:2.5%"><col style="width:3.5%"><col style="width:2.5%"><col style="width:4%">
+            <col style="width:2.5%"><col style="width:3.5%"><col style="width:5%"><col style="width:2.5%"><col style="width:5%">
+            <col style="width:2.5%"><col style="width:4%"><col style="width:4%"><col style="width:4%"><col style="width:5%">
+            <col style="width:5.5%"><col style="width:5.5%"><col style="width:4%"><col style="width:5.5%"><col style="width:5.5%">
+        </colgroup>
         <thead>
             <tr>
-                <th rowspan="2">ক্রমিক নং</th>
-                <th rowspan="2">তারিখ</th>
-                <th colspan="2">সঞ্চয়</th>
-                <th colspan="2">সদস্য ভর্তি</th>
-                <th colspan="2">ঋণ বীমা</th>
-                <th colspan="2">উত্তোলন</th>
-                <th>সদস্য ছাড়ার</th>
-                <th rowspan="2">অন্যান্য</th>
-                <th rowspan="2">মোট</th>
-                <th colspan="2">প্রদেয় ঋণ</th>
-                <th colspan="2">পরিশোধ</th>
-                <th colspan="2">কিস্তি আদায়</th>
-                <th rowspan="2">মোট</th>
-                <th rowspan="2">সর্বমোট</th>
-                <th rowspan="2">ঋণের স্থিতি</th>
-                <th rowspan="2">অন্যান্য ব্যয়</th>
-                <th rowspan="2">হাতে নগদ</th>
-                <th rowspan="2">ম্যানেজারের স্বাক্ষর</th>
+                <th rowspan="2" style="width:2.5%">ক্রমিক নং</th>
+                <th rowspan="2" style="width:5.5%">তারিখ</th>
+                <th colspan="2" style="width:9%">সঞ্চয়</th>
+                <th colspan="2" style="width:6.5%">সদস্য ভর্তি</th>
+                <th colspan="2" style="width:6%">ঋণ বীমা</th>
+                <th colspan="2" style="width:6.5%">উত্তোলন</th>
+                <th style="width:2.5%">সদস্য ছাড়ার</th>
+                <th rowspan="2" style="width:3.5%">অন্যান্য</th>
+                <th rowspan="2" style="width:5%">মোট</th>
+                <th colspan="2" style="width:7.5%">প্রদেয় ঋণ</th>
+                <th colspan="2" style="width:6.5%">পরিশোধ</th>
+                <th colspan="2" style="width:8%">কিস্তি আদায়</th>
+                <th rowspan="2" style="width:5%">মোট</th>
+                <th rowspan="2" style="width:5.5%">সর্বমোট</th>
+                <th rowspan="2" style="width:5.5%">ঋণের স্থিতি</th>
+                <th rowspan="2" style="width:4%">অন্যান্য ব্যয়</th>
+                <th rowspan="2" style="width:5.5%">হাতে নগদ</th>
+                <th rowspan="2" style="width:5.5%">ম্যানেজারের স্বাক্ষর</th>
             </tr>
             <tr>
-                <th>যোগ্য</th>
-                <th>কৃত</th>
-                <th>জন</th>
-                <th>টাকা</th>
-                <th>জন</th>
-                <th>টাকা</th>
-                <th>জন</th>
-                <th>টাকা</th>
-                <th>জন</th>
-                <th>জন</th>
-                <th>টাকা</th>
-                <th>জন</th>
-                <th>টাকা</th>
-                <th>যোগ্য</th>
-                <th>কৃত</th>
+                <th style="width:4.5%">যোগ্য</th>
+                <th style="width:4.5%">কৃত</th>
+                <th style="width:2.5%">জন</th>
+                <th style="width:4%">টাকা</th>
+                <th style="width:2.5%">জন</th>
+                <th style="width:3.5%">টাকা</th>
+                <th style="width:2.5%">জন</th>
+                <th style="width:4%">টাকা</th>
+                <th style="width:2.5%">জন</th>
+                <th style="width:2.5%">জন</th>
+                <th style="width:5%">টাকা</th>
+                <th style="width:2.5%">জন</th>
+                <th style="width:4%">টাকা</th>
+                <th style="width:4%">যোগ্য</th>
+                <th style="width:4%">কৃত</th>
             </tr>
         </thead>
         <tbody>

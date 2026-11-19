@@ -33,6 +33,18 @@ class LoanReceive extends Model
         return $this->belongsTo(LoanAccount::class, 'loan_account_id');
     }
 
+    /** Alias of loan() — passbook and collection reports address the loan by this name. */
+    public function loanAccount(): BelongsTo
+    {
+        return $this->belongsTo(LoanAccount::class, 'loan_account_id');
+    }
+
+    /** Collection reports eager-load the receiving member by this name. */
+    public function member(): BelongsTo
+    {
+        return $this->belongsTo(Member::class, 'member_id');
+    }
+
     public function allocations(): HasMany
     {
         return $this->hasMany(LoanReceiveAllocation::class);

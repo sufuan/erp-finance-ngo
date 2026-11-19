@@ -69,7 +69,10 @@ class RegisterController extends Controller
             'grand' => $data['grand'],
         ])->render();
         $rowCount = collect($data['weeks'])->sum(fn ($w) => count($w['rows']));
-        $bytes = $pdf->renderHtmlWithFallback($html, $rowCount);
+        // The paper register is a landscape sheet (25 columns) — the
+        // mPDF path needs that geometry explicitly; Chromium reads it
+        // from the blade's @page rule instead.
+        $bytes = $pdf->renderHtmlWithFallback($html, $rowCount, 'A4', 'L');
 
         return response($bytes, 200, [
             'Content-Type' => 'application/pdf',
