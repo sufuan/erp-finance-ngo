@@ -1,0 +1,1 @@
+import{a as e}from"./app-Cp7bMlok.js";import t from"./MoneyMove-hS7IqMYF.js";var n=e();function r(e){return(0,n.jsx)(t,{mode:`receive`,...e})}export{r as default};

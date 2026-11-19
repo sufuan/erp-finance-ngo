@@ -87,7 +87,7 @@ class CollectionCrudTest extends CrudTestCase
     public function test_all_collection_pages_render(): void
     {
         $pages = [
-            '/collection/member' => 'Collections/MemberCollection',
+            '/collection/collect-loan' => 'Collections/CollectLoan',
             '/collection/sheet' => 'Collections/SheetPosting',
             '/collection/simple-sheet' => 'Collections/SimpleSheetPosting',
             '/collection/member-list' => 'Collections/MemberCollectionList',
@@ -217,8 +217,14 @@ class CollectionCrudTest extends CrudTestCase
         $member = $this->makeMember();
         $savings = $this->openDepositOverHttp($member, 'SAVINGS');
 
-        $this->get('/collection/member?member='.$member->member_no)->assertOk()
-            ->assertInertia(fn (AssertableInertia $p) => $p->component('Collections/MemberCollection')->has('grid', 1));
+        // The standalone Member Collection page was retired into the
+        // unified Collection screen (client round, 2026-11-19): the
+        // member's panel there carries his savings row.
+        $this->get('/collection/collect-loan?member_id='.$member->id)->assertOk()
+            ->assertInertia(fn (AssertableInertia $p) => $p->component('Collections/CollectLoan')
+                ->where('memberPanel.member_no', $member->member_no)
+                ->where('memberPanel.savings.account_id', $savings->id)
+                ->where('memberPanel.loan', null));
         $this->post('/collection/member', [
             'member_id' => $member->id,
             'lines' => [

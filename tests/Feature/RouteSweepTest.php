@@ -77,7 +77,7 @@ class RouteSweepTest extends TestCase
 
         $urls = [
             '/', '/hub/member', '/hub/deposit', '/hub/loan', '/hub/collection', '/hub/hrm', '/hub/settings',
-            '/collection/member', '/collection/sheet', '/collection/simple-sheet',
+            '/collection/collect-loan', '/collection/sheet', '/collection/simple-sheet',
             '/collection/member-list', '/collection/samity-list', '/collection/other',
             '/collection/sheets', '/collection/reports', '/collection/balances',
             '/collection/passbook-issue', '/collection/cheque-issue', '/collection/passbook',

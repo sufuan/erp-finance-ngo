@@ -125,20 +125,11 @@ class CollectionController extends Controller
         ])->all();
     }
 
-    // --- Member Collection ---------------------------------------------------
-
-    public function memberForm(Request $request): Response
-    {
-        $member = $this->findMember($request);
-
-        return Inertia::render('Collections/MemberCollection', [
-            ...$this->samityOptions($request),
-            'member' => $member ? ['id' => $member->id, 'member_no' => $member->member_no, 'name' => $member->name] : null,
-            'memberQuery' => (string) $request->query('member', ''),
-            'grid' => $member ? $this->service->gridForMember($member) : [],
-            'businessDate' => $this->businessDateFor($member?->branch_id, $request),
-        ]);
-    }
+    // --- Member Collection (posting endpoint) --------------------------------
+    // The standalone Member Collection PAGE was retired in the unified
+    // Collection round (client, 2026-11-19): one Collection screen now
+    // serves every member. This POST endpoint stays — it is the shared
+    // member-batch posting path other flows post through.
 
     public function storeMember(Request $request, AuditService $audit): RedirectResponse
     {
@@ -271,14 +262,97 @@ class CollectionController extends Controller
         return $query->orderByDesc('id')->limit(20)->get()->all();
     }
 
+    /**
+     * A member whose unified Collection panel the user may open: the
+     * member must be Active, sit in an accessible branch, and — under
+     * the assignment rule — its samity must be ticked for the user
+     * (super-admin exempt), exactly like findCollectableLoan.
+     */
+    private function findPanelMember(Request $request, int $id): Member
+    {
+        $member = Member::with('samity')->where('status', 'Active')->find($id);
+        abort_unless($member !== null, 404);
+        abort_unless($this->branches->canAccess($request->user(), $member->branch_id), 403);
+        $this->samityAccess->assertAccess($request->user(), (int) $member->samity_id);
+
+        return $member;
+    }
+
+    /**
+     * Samity-first picker rows for the unified Collection screen:
+     * every Active member of the samity who has ANYTHING collectable
+     * — a general savings account, an LTS account, or an active loan
+     * (client round 2026-11-19; before, only borrowers were listed).
+     * Members with nothing collectable are not listed. Serial numbers
+     * run over the listed members in member_no order.
+     */
+    private function pickerMembers(int $samityId): array
+    {
+        $rows = [];
+        $members = Member::where('samity_id', $samityId)
+            ->where('status', 'Active')->orderBy('member_no')->get();
+
+        // Today's collection status per member (owner refinement,
+        // 2026-11-19): the sum of the RECEIVE lines on this branch's
+        // posted batches for the current business date — installment,
+        // general savings and LTS lines all count; withdrawal
+        // (payment) lines never make a member "collected".
+        $branchId = (int) (Samity::withoutGlobalScope(\App\Scopes\SamityScope::class)->find($samityId)?->branch_id ?? 0);
+        $businessDate = app(\App\Services\BusinessDayService::class)->current($branchId)?->business_date;
+        $collectedToday = collect();
+        if ($businessDate && $members->isNotEmpty()) {
+            $collectedToday = CollectionLine::query()
+                ->join('collection_batches', 'collection_batches.id', '=', 'collection_lines.batch_id')
+                ->where('collection_batches.branch_id', $branchId)
+                ->where('collection_batches.status', 'Posted')
+                ->where('collection_lines.status', 'Posted')
+                ->whereDate('collection_batches.business_date', $businessDate->toDateString())
+                ->where('collection_lines.direction', 'receive')
+                ->whereIn('collection_lines.member_id', $members->pluck('id'))
+                ->groupBy('collection_lines.member_id')
+                ->selectRaw('collection_lines.member_id AS mid, SUM(collection_lines.amount) AS total')
+                ->pluck('total', 'mid');
+        }
+
+        foreach ($members as $m) {
+            $savingsRows = $this->service->memberSavingsRows($m);
+            $loans = LoanAccount::where('member_id', $m->id)
+                ->whereIn('status', ['Disbursed', 'Active'])->orderBy('id')->get()
+                ->map(fn (LoanAccount $l) => [
+                    'id' => $l->id, 'loan_number' => $l->loan_number,
+                    'due_amount' => $this->service->loanReceivable($l),
+                    'outstanding' => $this->service->loanCard($l)['outstanding']['total'],
+                ])->all();
+            if (! $savingsRows['savings'] && ! $savingsRows['lts'] && $loans === []) {
+                continue;
+            }
+            $rows[] = [
+                'serial' => count($rows) + 1,
+                'id' => $m->id, 'member_no' => $m->member_no, 'name' => $m->name,
+                'savings' => $savingsRows['savings'],
+                'lts' => $savingsRows['lts'],
+                'loans' => $loans,
+                'collected_today' => $collectedToday->has($m->id),
+                'collected_today_amount' => number_format((float) ($collectedToday[$m->id] ?? 0), 2, '.', ''),
+            ];
+        }
+
+        return $rows;
+    }
+
     public function collectLoanForm(Request $request): Response
     {
         $panel = null;
+        $memberPanel = null;
         $results = [];
         $query = (string) $request->query('loan', '');
 
         if ($request->filled('loan_id')) {
             $panel = $this->service->loanPanel($this->findCollectableLoan($request, $request->integer('loan_id')));
+        } elseif ($request->filled('member_id')) {
+            // Unified Collection (client round 2026-11-19): one panel
+            // per member with only the rows he has.
+            $memberPanel = $this->service->memberPanel($this->findPanelMember($request, $request->integer('member_id')));
         } elseif (trim($query) !== '') {
             $matches = $this->searchCollectableLoans($request, trim($query));
             if (count($matches) === 1) {
@@ -289,36 +363,23 @@ class CollectionController extends Controller
         }
 
         // Samity-first member picker (client rule 2026-11-18): pick a
-        // samity → its members listed serially (serial no, member no,
-        // name) with each member's active loans; clicking a loan opens
-        // the same panel as the direct search. Scoping is the sheet's:
-        // accessible branches + the strict ticked-samity rule.
+        // samity → its collectable members listed serially (serial no,
+        // member no, name) with what each one can pay; clicking a
+        // member opens his unified panel, clicking a loan opens the
+        // classic loan panel. Scoping is the sheet's: accessible
+        // branches + the strict ticked-samity rule.
         $samities = $this->samities($request);
         $pickerSamityId = $request->filled('samity_id') ? $request->integer('samity_id') : null;
         $pickerMembers = [];
         if ($pickerSamityId && collect($samities)->contains('id', $pickerSamityId)) {
-            $pickerMembers = Member::where('samity_id', $pickerSamityId)
-                ->where('status', 'Active')->orderBy('member_no')->get()
-                ->map(function (Member $m, int $i) {
-                    $loans = LoanAccount::where('member_id', $m->id)
-                        ->whereIn('status', ['Disbursed', 'Active'])->orderBy('id')->get();
-
-                    return [
-                        'serial' => $i + 1,
-                        'id' => $m->id, 'member_no' => $m->member_no, 'name' => $m->name,
-                        'loans' => $loans->map(fn (LoanAccount $l) => [
-                            'id' => $l->id, 'loan_number' => $l->loan_number,
-                            'due_amount' => $this->service->loanReceivable($l),
-                            'outstanding' => $this->service->loanCard($l)['outstanding']['total'],
-                        ])->all(),
-                    ];
-                })->all();
+            $pickerMembers = $this->pickerMembers($pickerSamityId);
         }
 
         return Inertia::render('Collections/CollectLoan', [
             'query' => $query,
             'results' => $results,
             'panel' => $panel,
+            'memberPanel' => $memberPanel,
             'canCollect' => $request->user()->can('collection.collect'),
             'samities' => $samities,
             'pickerSamityId' => $pickerSamityId,
@@ -328,6 +389,20 @@ class CollectionController extends Controller
 
     public function storeCollectLoan(Request $request, AuditService $audit): RedirectResponse
     {
+        // Unified Collection (client round 2026-11-19): the member
+        // panel posts member_id (no loan_id) — its rows fan out into
+        // the same member batch through CollectionService.
+        if ($request->filled('member_id') && ! $request->filled('loan_id')) {
+            $request->validate([
+                'member_id' => ['required', 'integer'],
+                'amount' => ['nullable', 'numeric', 'min:0'],
+                'savings_amount' => ['nullable', 'numeric', 'min:0'],
+                'savings_withdrawal_amount' => ['nullable', 'numeric', 'min:0'],
+                'lts_amount' => ['nullable', 'numeric', 'min:0'],
+            ]);
+
+            return $this->storeMemberPanel($request, $audit);
+        }
         $request->validate([
             'loan_id' => ['required', 'integer'],
             'amount' => ['nullable', 'numeric', 'min:0'],
@@ -378,6 +453,54 @@ class CollectionController extends Controller
         // Back to the refreshed panel (new due amount, updated
         // installment table) with the standard success flash.
         return redirect()->route('collection.collect-loan', ['loan_id' => $loan->id])
+            ->with('success', __('collection_posted'));
+    }
+
+    /**
+     * Unified Collection member-panel post: the installment (when the
+     * member has an active loan), the general savings deposit, the
+     * field withdrawal and the LTS deposit post together in ONE
+     * member batch — the same lines the loan panel builds, keyed by
+     * member instead of loan. Every engine rule (compulsory savings,
+     * daily cap, withdrawal guards) lives in CollectionService and
+     * applies unchanged.
+     */
+    private function storeMemberPanel(Request $request, AuditService $audit): RedirectResponse
+    {
+        $member = $this->findPanelMember($request, $request->integer('member_id'));
+        $panel = $this->service->memberPanel($member);
+        $lines = [];
+        if ($panel['loan'] && $request->filled('amount')) {
+            $lines[] = [
+                'member_id' => $member->id, 'account_type' => 'loan',
+                'account_id' => $panel['loan']['id'], 'amount' => (string) $request->input('amount'),
+            ];
+        }
+        if ($panel['savings'] && $request->filled('savings_amount')) {
+            $lines[] = [
+                'member_id' => $member->id, 'account_type' => 'deposit',
+                'account_id' => $panel['savings']['account_id'], 'amount' => (string) $request->input('savings_amount'),
+            ];
+        }
+        if ($panel['savings'] && $request->filled('savings_withdrawal_amount')) {
+            $lines[] = [
+                'member_id' => $member->id, 'account_type' => 'deposit', 'direction' => 'payment',
+                'account_id' => $panel['savings']['account_id'], 'amount' => (string) $request->input('savings_withdrawal_amount'),
+            ];
+        }
+        if ($panel['lts'] && $request->filled('lts_amount')) {
+            $lines[] = [
+                'member_id' => $member->id, 'account_type' => 'deposit',
+                'account_id' => $panel['lts']['account_id'], 'amount' => (string) $request->input('lts_amount'),
+            ];
+        }
+        $batch = $this->service->postBatch($request->user(), [
+            'kind' => 'member', 'member_id' => $member->id,
+            'lines' => $lines,
+        ]);
+        $audit->log($request->user()->id, 'collection.posted', 'collection_batches', $batch->id, null, ['total' => (string) $batch->total_receive]);
+
+        return redirect()->route('collection.collect-loan', ['member_id' => $member->id])
             ->with('success', __('collection_posted'));
     }
 

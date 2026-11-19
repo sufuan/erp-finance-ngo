@@ -146,39 +146,107 @@ class CollectionService
         // installment, the panel offers the member's linked general
         // savings (compulsory with an installment) and long-term
         // savings (optional), each prefilled with its expected amount.
-        $card['savings'] = null;
-        $card['lts'] = null;
-        $member = $loan->member;
-        if ($member) {
-            $linked = $this->linkedSavings->activeAccount($member);
-            if ($linked) {
-                $card['savings'] = [
-                    'account_id' => $linked->id,
-                    'account_number' => $linked->account_number,
-                    'product_code' => $this->linkedSavings->productCode(),
-                    'balance' => (string) $linked->current_balance,
-                    'expected' => $this->depositReceivable($linked),
+        $rows = $loan->member
+            ? $this->memberSavingsRows($loan->member)
+            : ['savings' => null, 'lts' => null];
+        $card['savings'] = $rows['savings'];
+        $card['lts'] = $rows['lts'];
+
+        return $card;
+    }
+
+    /**
+     * The member's collectable savings rows for a collection panel:
+     * the linked general savings account (compulsory with an
+     * installment) and the long-term savings account, each with its
+     * expected (যোগ্য) amount. Shared by the loan panel and the
+     * unified member panel so both always agree.
+     *
+     * @return array{savings: ?array, lts: ?array}
+     */
+    public function memberSavingsRows(Member $member): array
+    {
+        $savings = null;
+        $linked = $this->linkedSavings->activeAccount($member);
+        if ($linked) {
+            $savings = [
+                'account_id' => $linked->id,
+                'account_number' => $linked->account_number,
+                'product_code' => $this->linkedSavings->productCode(),
+                'balance' => (string) $linked->current_balance,
+                'expected' => $this->depositReceivable($linked),
+            ];
+        }
+        $lts = null;
+        $ltsProduct = \App\Models\DepositProduct::where('code', 'LTS')->first();
+        if ($ltsProduct) {
+            $account = DepositAccount::where('member_id', $member->id)
+                ->where('deposit_product_id', $ltsProduct->id)
+                ->where('is_active', true)->whereNull('closing_date')
+                ->orderBy('id')->first();
+            if ($account) {
+                $lts = [
+                    'account_id' => $account->id,
+                    'account_number' => $account->account_number,
+                    'product_code' => 'LTS',
+                    'balance' => (string) $account->current_balance,
+                    'expected' => $this->depositReceivable($account),
                 ];
-            }
-            $ltsProduct = \App\Models\DepositProduct::where('code', 'LTS')->first();
-            if ($ltsProduct) {
-                $lts = DepositAccount::where('member_id', $member->id)
-                    ->where('deposit_product_id', $ltsProduct->id)
-                    ->where('is_active', true)->whereNull('closing_date')
-                    ->orderBy('id')->first();
-                if ($lts) {
-                    $card['lts'] = [
-                        'account_id' => $lts->id,
-                        'account_number' => $lts->account_number,
-                        'product_code' => 'LTS',
-                        'balance' => (string) $lts->current_balance,
-                        'expected' => $this->depositReceivable($lts),
-                    ];
-                }
             }
         }
 
-        return $card;
+        return ['savings' => $savings, 'lts' => $lts];
+    }
+
+    /**
+     * Unified Collection panel (client round 2026-11-19): ONE panel
+     * per member showing only the rows he actually has — general
+     * savings, long-term savings, and the installment of his (first)
+     * active loan — each with its due (যোগ্য) figure from the same
+     * computations the sheet and the loan panel use. `loans` lists
+     * every active loan so a member with several can still be opened
+     * loan-by-loan through the classic panel.
+     */
+    public function memberPanel(Member $member): array
+    {
+        $member->loadMissing('samity');
+        $rows = $this->memberSavingsRows($member);
+        $loans = LoanAccount::where('member_id', $member->id)
+            ->whereIn('status', ['Disbursed', 'Active'])->orderBy('id')->get();
+
+        $loan = null;
+        if ($loans->isNotEmpty()) {
+            $full = $this->loanPanel($loans->first());
+            $loan = [
+                'id' => $full['id'],
+                'loan_number' => $full['loan_number'],
+                'product' => $full['product'],
+                'frequency' => $full['frequency'],
+                'status' => $full['status'],
+                'installment_amount' => $full['installment_amount'],
+                'due_amount' => $full['due_amount'],
+                'outstanding' => $full['outstanding'],
+                'summary' => $full['summary'],
+                'installments' => $full['installments'],
+            ];
+        }
+
+        return [
+            'member_id' => $member->id,
+            'member_no' => $member->member_no,
+            'member_name' => $member->name,
+            'samity' => $member->samity ? $member->samity->samity_code.' — '.$member->samity->name : null,
+            'business_date' => $this->businessDays->currentDate($member->branch_id),
+            'savings' => $rows['savings'],
+            'lts' => $rows['lts'],
+            'loan' => $loan,
+            'loans' => $loans->map(fn (LoanAccount $l) => [
+                'id' => $l->id,
+                'loan_number' => $l->loan_number,
+                'due_amount' => $this->loanReceivable($l),
+                'outstanding' => $this->loanCard($l)['outstanding']['total'],
+            ])->all(),
+        ];
     }
 
     /**

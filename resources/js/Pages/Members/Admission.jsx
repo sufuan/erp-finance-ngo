@@ -11,6 +11,10 @@ const emptyForm = {
     present_address: '', permanent_address: '', share_amount: '', open_date: '',
     nominee_name: '', nominee_dob: '', nominee_address: '', nominee_phone: '', nominee_relation: '',
     profile_photo_file: null, nominee_photo_file: null,
+    // Admission account choice (client round, 2026-11-19): which
+    // savings accounts open with the membership. Create-only — the
+    // edit form never shows or posts these.
+    account_type: 'general', savings_amount: 20, lts_amount: '', lts_term_years: '',
 };
 
 /** Member admission (Step 8): tabbed Basic / Other / Pictures + profile panel. */
@@ -119,6 +123,35 @@ export default function MemberAdmission({ options, businessDate, member }) {
                                 {text('national_id', 'national_id')}
                                 {text('passport_no', 'passport_no')}
                                 {text('tin', 'tin')}
+                                {!editing && (
+                                    <>
+                                        <Field label={t('admission_account_type')} required error={errors.account_type}>
+                                            <select className={inputCls} value={data.account_type} onChange={(e) => setData('account_type', e.target.value)} required>
+                                                <option value="general">{t('account_general_only')}</option>
+                                                <option value="both">{t('account_general_and_lts')}</option>
+                                            </select>
+                                        </Field>
+                                        <Field label={t('savings_amount')} required error={errors.savings_amount}>
+                                            <input type="number" min="20" step="0.01" className={inputCls} value={data.savings_amount} onChange={(e) => setData('savings_amount', e.target.value)} required />
+                                        </Field>
+                                        {data.account_type === 'both' && (
+                                            <>
+                                                <Field label={t('amount')} required error={errors.lts_amount}>
+                                                    <select className={inputCls} value={data.lts_amount} onChange={(e) => setData('lts_amount', e.target.value)} required>
+                                                        <option value="">—</option>
+                                                        {(options.ltsAmounts ?? []).map((a) => <option key={a} value={a}>{a}</option>)}
+                                                    </select>
+                                                </Field>
+                                                <Field label={t('term')} required error={errors.lts_term_years}>
+                                                    <select className={inputCls} value={data.lts_term_years} onChange={(e) => setData('lts_term_years', e.target.value)} required>
+                                                        <option value="">—</option>
+                                                        {(options.ltsTerms ?? []).map((y) => <option key={y} value={y}>{y} {t('years')}</option>)}
+                                                    </select>
+                                                </Field>
+                                            </>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         )}
                         {tab === 'other' && (

@@ -56,6 +56,7 @@ import AppLayout from '../../resources/js/Layouts/AppLayout.jsx';
 import AuthLayout from '../../resources/js/Layouts/AuthLayout.jsx';
 import UsersIndex from '../../resources/js/Pages/Settings/Users/Index.jsx';
 import RolesIndex from '../../resources/js/Pages/Settings/Roles/Index.jsx';
+import { moduleFor } from '../../resources/js/lib/hubs.js';
 
 const failures = [];
 let passCount = 0;
@@ -1763,6 +1764,156 @@ async function scenarioLtsOpening() {
     await unmount(m);
 }
 
+async function scenarioUnifiedCollection() {
+    // Client round 6 (2026-11-19): ONE Collection screen — the
+    // member panel shows only the rows he has, each prefilled with
+    // its due, and there is NO separate loan/member finder box.
+    __setPage(baseProps());
+    const Wrapped = withI18n(CollectLoan);
+    const memberPanel = {
+        member_id: 7, member_no: '102000007', member_name: 'Unified Member',
+        samity: '0001 — Talgachi Samity', business_date: '2026-10-28',
+        savings: { account_id: 41, account_number: '10200000701', product_code: 'SAVINGS', balance: '1200.00', expected: '100.00' },
+        lts: { account_id: 42, account_number: '10200000702', product_code: 'LTS', balance: '300.00', expected: '50.00' },
+        loan: {
+            id: 21, loan_number: '102000021', product: '3001 — General Loan', frequency: 'M', status: 'Disbursed',
+            installment_amount: '1083.10', due_amount: '1083.10',
+            outstanding: { principal: '12000.00', profit: '997.20', penalty: '0.00', total: '12997.20' },
+            summary: { total: 12, paid_count: 0, remaining_count: 12, collected_amount: '0.00', remaining_amount: '12997.20' },
+            installments: Array.from({ length: 12 }, (_, i) => ({ no: i + 1, due_date: '2026-11-01', amount: '1083.10', paid: '0.00', status: 'due' })),
+        },
+        loans: [{ id: 21, loan_number: '102000021', due_amount: '1083.10', outstanding: '12997.20' }],
+    };
+    const m = mount(<Wrapped query="" results={[]} panel={null} memberPanel={memberPanel} canCollect={true} />);
+    check('UnifiedCollection: screen title is the unified Collection name',
+        m.container.querySelector('h1')?.textContent.trim() === en.collection);
+    check('UnifiedCollection: no separate loan/member finder box remains',
+        !m.container.querySelector('input[name="loan"]'));
+    const installmentInput = fieldInput(m.container, `${en.due_amount} (102000021)`);
+    const savingsInput = fieldInput(m.container, `${en.general_savings} (10200000701)`);
+    const withdrawalInput = fieldInput(m.container, `${en.withdrawal} (10200000701)`);
+    const ltsInput = fieldInput(m.container, `${en.long_term_savings} (10200000702)`);
+    check('UnifiedCollection: panel rows prefilled with dues; withdrawal starts empty',
+        installmentInput?.value === '1083.10' && savingsInput?.value === '100.00'
+        && ltsInput?.value === '50.00' && withdrawalInput?.value === '');
+    const memberForm = [...m.container.querySelectorAll('form')].find((f) => f.querySelector('input[type="number"]'));
+    await act(async () => { memberForm.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit = __pendingVisit();
+    check('UnifiedCollection: one post carries member_id and all row amounts',
+        !!visit && visit.method === 'post' && visit.url === '/collection/collect-loan'
+        && Number(visit?.data?.member_id) === 7
+        && String(visit?.data?.amount) === '1083.10'
+        && String(visit?.data?.savings_amount) === '100.00'
+        && String(visit?.data?.lts_amount) === '50.00');
+    await act(async () => { __finishVisit({}); });
+    await unmount(m);
+
+    // Savings-only member: the panel has NO installment row at all.
+    const savingsOnly = {
+        ...memberPanel, member_id: 8, member_no: '102000008', member_name: 'Savings Only',
+        loan: null, lts: null, loans: [],
+        savings: { account_id: 43, account_number: '10200000801', product_code: 'SAVINGS', balance: '0.00', expected: '20.00' },
+    };
+    const m2 = mount(<Wrapped query="" results={[]} panel={null} memberPanel={savingsOnly} canCollect={true} />);
+    const numberInputs2 = [...m2.container.querySelectorAll('input[type="number"]')];
+    check('UnifiedCollection: savings-only panel renders savings + withdrawal fields only',
+        numberInputs2.length === 2 && fieldInput(m2.container, `${en.general_savings} (10200000801)`)?.value === '20.00');
+    const memberForm2 = [...m2.container.querySelectorAll('form')].find((f) => f.querySelector('input[type="number"]'));
+    await act(async () => { memberForm2.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    const visit2 = __pendingVisit();
+    check('UnifiedCollection: savings-only post carries member_id + savings, no installment amount',
+        !!visit2 && Number(visit2?.data?.member_id) === 8
+        && String(visit2?.data?.savings_amount) === '20.00'
+        && String(visit2?.data?.amount ?? '') === '');
+    await act(async () => { __finishVisit({}); });
+    await unmount(m2);
+
+    // Bangla title on the unified screen.
+    __setPage(baseProps({ locale: 'bn', translations: bn, translations_version: 'harness-bn' }));
+    const m3 = mount(<Wrapped query="" results={[]} panel={null} memberPanel={null} canCollect={true} />);
+    check('UnifiedCollection BN: screen title is the Bangla Collection name',
+        m3.container.querySelector('h1')?.textContent.trim() === bn.collection);
+    await unmount(m3);
+    __setPage(baseProps());
+}
+
+async function scenarioUnifiedPickerStatus() {
+    // Owner refinement (2026-11-19): every picker row shows whether
+    // the member has been collected today (badge + total) or not,
+    // and clicking the member opens his panel — no finder box.
+    __setPage(baseProps());
+    const Wrapped = withI18n(CollectLoan);
+    const props = {
+        query: '', results: [], panel: null, memberPanel: null, canCollect: true,
+        samities: [{ id: 5, code: '0001', name: 'Talgachi Samity' }],
+        pickerSamityId: 5,
+        pickerMembers: [
+            { serial: 1, id: 7, member_no: '102000007', name: 'Collected Member', savings: { account_id: 41, account_number: '10200000701', product_code: 'SAVINGS', balance: '1200.00', expected: '100.00' }, lts: null, loans: [], collected_today: true, collected_today_amount: '150.00' },
+            { serial: 2, id: 8, member_no: '102000008', name: 'Pending Member', savings: null, lts: null, loans: [{ id: 22, loan_number: '102000022', due_amount: '500.00', outstanding: '5000.00' }], collected_today: false, collected_today_amount: '0.00' },
+        ],
+    };
+    const m = mount(<Wrapped {...props} />);
+    const text = m.container.textContent;
+    check('UnifiedPicker: collected member shows the collected-today badge with his total',
+        text.includes(`${en.collected_today}: 150.00`));
+    check('UnifiedPicker: pending member shows the not-collected badge',
+        text.includes(en.not_collected_today));
+    check('UnifiedPicker: member name links straight to his panel',
+        !!m.container.querySelector('a[href="/collection/collect-loan?member_id=7"]'));
+    check('UnifiedPicker: no finder box on the unified screen',
+        !m.container.querySelector('input[name="loan"]'));
+    await unmount(m);
+    __setPage(baseProps());
+}
+
+async function scenarioAdmissionAccountChoice() {
+    // Client round 5 (2026-11-19): the admission form's account
+    // choice defaults to General only at the 20 minimum; choosing
+    // Both reveals the LTS slab + term selects from the product's
+    // own config.
+    const Wrapped = withI18n(MemberAdmission);
+    __setPage(baseProps());
+    const options = {
+        branches: [{ id: 2, name: '102 — Talgachi Branch' }],
+        samities: [{ id: 1, branch_id: 2, name: '0001 — Talgachi Samity' }],
+        genders: [{ id: 'Female', name: 'Female', label_key: 'gender_female' }],
+        religions: [], bloodGroups: [], marital: [], docTypes: [], activeBranchId: 2,
+        ltsAmounts: [50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000],
+        ltsTerms: [1, 2, 3, 4, 5],
+    };
+    const m = mount(<Wrapped options={options} businessDate="2026-10-21" member={null} />);
+    const typeSel = fieldInput(m.container, en.admission_account_type);
+    check('AdmissionAccounts: account type defaults to General Savings only',
+        !!typeSel && typeSel.tagName === 'SELECT' && typeSel.value === 'general'
+        && [...typeSel.options].some((o) => o.textContent === en.account_general_only)
+        && [...typeSel.options].some((o) => o.textContent === en.account_general_and_lts));
+    const savingsInput = fieldInput(m.container, en.savings_amount);
+    check('AdmissionAccounts: savings amount defaults to the 20 minimum and is required',
+        !!savingsInput && savingsInput.value === '20' && savingsInput.required === true && savingsInput.min === '20');
+    check('AdmissionAccounts: LTS fields stay hidden for General only',
+        !fieldInput(m.container, en.amount) && !fieldInput(m.container, en.term));
+    await act(async () => { setValue(typeSel, 'both', 'change'); });
+    const ltsAmountSel = fieldInput(m.container, en.amount);
+    const ltsTermSel = fieldInput(m.container, en.term);
+    check('AdmissionAccounts: choosing Both reveals the LTS slab amount select',
+        !!ltsAmountSel && [...ltsAmountSel.options].some((o) => o.value === '100')
+        && [...ltsAmountSel.options].some((o) => o.value === '1000'));
+    check('AdmissionAccounts: choosing Both reveals the LTS term select (1-5 years)',
+        !!ltsTermSel && [...ltsTermSel.options].some((o) => o.textContent === `3 ${en.years}`)
+        && [...ltsTermSel.options].some((o) => o.textContent === `5 ${en.years}`));
+    await unmount(m);
+}
+
+function scenarioCollectionHubTiles() {
+    // The Collection hub no longer offers a separate Member
+    // Collection tile; the one unified entry is labeled Collection.
+    const mod = moduleFor({ collection: true }, 'collection');
+    const hrefs = (mod?.tiles ?? []).map((tile) => tile.href);
+    check('CollectionHub: no member-collection tile remains', !hrefs.includes('/collection/member'));
+    const unified = (mod?.tiles ?? []).filter((tile) => tile.href === '/collection/collect-loan');
+    check('CollectionHub: exactly one unified Collection tile', unified.length === 1 && unified[0].labelKey === 'collection');
+}
+
 const scenarios = [
     scenarioPrimaryButton,
     scenarioActionButton,
@@ -1801,6 +1952,10 @@ const scenarios = [
     scenarioCollectLoanPanel,
     scenarioDirectorPrintButton,
     scenarioCollectLoanThreePart,
+    scenarioUnifiedCollection,
+    scenarioUnifiedPickerStatus,
+    scenarioAdmissionAccountChoice,
+    scenarioCollectionHubTiles,
     scenarioDisbursementSplit,
     scenarioMemberAdmissionCascade,
     scenarioMemberIndexCascade,

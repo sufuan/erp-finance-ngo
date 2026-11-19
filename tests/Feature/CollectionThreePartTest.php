@@ -233,6 +233,17 @@ class CollectionThreePartTest extends TestCase
         $first = $this->makeMember($this->ticked);
         $loan = $this->disbursedLoan($first);
         $second = $this->makeMember($this->ticked);
+        // Unified Collection picker (client round, 2026-11-19): only
+        // members with something collectable are listed — the second
+        // member qualifies through a general savings account and is
+        // listed with no loans.
+        $savingsProduct = DepositProduct::where('code', 'SAVINGS')->firstOrFail();
+        $this->asAdmin();
+        $this->post('/deposits', [
+            'member_id' => $second->id, 'deposit_product_id' => $savingsProduct->id,
+            'phone' => $second->mobile, 'opening_date' => '2026-10-21',
+            'amount' => '50',
+        ])->assertRedirect('/deposits');
 
         $this->asAdmin();
         $this->get('/collection/collect-loan?samity_id='.$this->ticked->id)->assertOk()
@@ -254,7 +265,9 @@ class CollectionThreePartTest extends TestCase
                     $this->assertNotNull($mine);
                     $this->assertSame($loan->id, $mine['loans'][0]['id']);
                     $other = $members->firstWhere('member_no', $second->member_no);
+                    $this->assertNotNull($other, 'A savings-only member is listed too');
                     $this->assertSame([], $other['loans']);
+                    $this->assertSame('50.00', $other['savings']['expected']);
 
                     return true;
                 })

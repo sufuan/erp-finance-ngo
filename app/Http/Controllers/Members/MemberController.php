@@ -64,10 +64,19 @@ class MemberController extends Controller
             ->get()
             ->map(fn (Samity $s) => ['id' => $s->id, 'branch_id' => $s->branch_id, 'name' => "{$s->samity_code} — {$s->name}"]);
 
+        // Admission account choice (client round, 2026-11-19): the
+        // LTS slab amounts + terms come from the LTS product's own
+        // printed-terms config — the same source the deposit opening
+        // form reads — never a copy in code.
+        $ltsProduct = \App\Models\DepositProduct::where('code', 'LTS')->where('is_active', true)->first();
+        $ltsConfig = is_array($ltsProduct?->config) ? $ltsProduct->config : [];
+
         return [
             'branches' => $branches->map(fn ($b) => ['id' => $b->id, 'name' => "{$b->code} — {$b->name}"])->all(),
             'activeBranchId' => $request->attributes->get('active_branch')?->id,
             'samities' => $samities->all(),
+            'ltsAmounts' => array_values($ltsConfig['fixed_amounts'] ?? []),
+            'ltsTerms' => array_values($ltsConfig['terms_years'] ?? []),
             'genders' => collect(self::GENDERS)->map(fn ($g) => ['id' => $g, 'name' => $g, 'label_key' => 'gender_'.strtolower(str_replace(' ', '_', $g))])->all(),
             'religions' => collect(self::RELIGIONS)->map(fn ($r) => ['id' => $r, 'name' => $r])->all(),
             'bloodGroups' => collect(self::BLOOD_GROUPS)->map(fn ($b) => ['id' => $b, 'name' => $b])->all(),
@@ -166,6 +175,21 @@ class MemberController extends Controller
         $samity = Samity::withoutGlobalScope(SamityScope::class)->findOrFail($data['samity_id']);
         $this->assertBranchVisible($request, $samity->branch_id);
 
+        // Admission account choice (client round, 2026-11-19): the
+        // form asks which savings accounts open WITH the membership —
+        // general savings only, or general + long-term. The fields are
+        // part of the admission form payload; submissions without them
+        // (imports, older clients) open no accounts, as before.
+        $accountChoice = null;
+        if ($request->filled('account_type')) {
+            $accountChoice = $request->validate([
+                'account_type' => ['required', 'in:general,both'],
+                'savings_amount' => ['required', 'numeric', 'min:20'],
+                'lts_amount' => ['nullable', 'required_if:account_type,both', 'numeric'],
+                'lts_term_years' => ['nullable', 'required_if:account_type,both', 'integer', 'between:1,5'],
+            ]);
+        }
+
         if ($request->hasFile('profile_photo_file')) {
             $data['profile_photo'] = $uploads->store($request->file('profile_photo_file'), 'photo', 'members');
         }
@@ -175,13 +199,60 @@ class MemberController extends Controller
         }
         unset($data['nominee_photo_file']);
 
-        $member = $admissions->admit($data, $samity, $request->user()->id);
+        // Member + its chosen accounts are created in ONE transaction:
+        // if an account cannot open (e.g. an LTS amount outside the
+        // printed slabs), the admission rolls back with it — a member
+        // never exists without the accounts he chose.
+        $member = DB::transaction(function () use ($admissions, $data, $samity, $request, $accountChoice) {
+            $member = $admissions->admit($data, $samity, $request->user()->id);
+            if ($accountChoice) {
+                $this->openAdmissionAccounts($member, $accountChoice, $request->user()->id);
+            }
+
+            return $member;
+        });
 
         $audit->log($request->user()->id, 'member.created', 'members', $member->id, null, ['member_no' => $member->member_no, 'name' => $member->name]);
 
         return redirect()->route('members.admission')
             ->with('success', __('member_saved', ['id' => $member->member_no]))
             ->with('created_member_no', $member->member_no);
+    }
+
+    /**
+     * Open the accounts chosen on the admission form (client round,
+     * 2026-11-19). The general account is the loan-linked savings
+     * product (the same one LinkedSavingsService ensures at loan
+     * opening, so a later loan reuses THIS account) and opens at
+     * balance 0 — no cash moves at admission; money only ever moves
+     * through Collection. The LTS account goes through the same
+     * DepositAccountService::open as the deposit opening form, so the
+     * printed slab/term validation and the zero profit rate for
+     * payout-table products apply identically.
+     */
+    private function openAdmissionAccounts(Member $member, array $choice, ?int $actorId): void
+    {
+        $accounts = app(\App\Services\DepositAccountService::class);
+        $openingDate = $member->open_date?->toDateString() ?? now()->toDateString();
+
+        $general = app(\App\Services\LinkedSavingsService::class)->product();
+        if ($general) {
+            $accounts->open($member, $general, [
+                'opening_date' => $openingDate,
+                'installment_amount' => $choice['savings_amount'],
+            ], $actorId);
+        }
+
+        if ($choice['account_type'] === 'both') {
+            $lts = \App\Models\DepositProduct::where('code', 'LTS')->where('is_active', true)->first();
+            if ($lts) {
+                $accounts->open($member, $lts, [
+                    'opening_date' => $openingDate,
+                    'installment_amount' => $choice['lts_amount'],
+                    'term_months' => (int) $choice['lts_term_years'] * 12,
+                ], $actorId);
+            }
+        }
     }
 
     public function show(Member $member): Response

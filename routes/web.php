@@ -327,8 +327,10 @@ Route::middleware(['auth', 'password.changed', 'totp'])->prefix('loans')->name('
 
 // --- Collection (Steps 21–23) ----------------------------------------------
 Route::middleware(['auth', 'password.changed', 'totp'])->prefix('collection')->name('collection.')->group(function () {
-    // Posting pages (Common Collection).
-    Route::get('/member', [CollectionController::class, 'memberForm'])->middleware('can:collection.collect')->name('member');
+    // Posting pages (Common Collection). The standalone Member
+    // Collection page was retired in the unified Collection round
+    // (2026-11-19) — one Collection screen serves every member; the
+    // POST endpoint stays as the shared member-batch posting path.
     Route::post('/member', [CollectionController::class, 'storeMember'])->middleware('can:collection.collect')->name('member.store');
     Route::get('/collect-loan', [CollectionController::class, 'collectLoanForm'])->middleware('can:collection.view')->name('collect-loan');
     Route::post('/collect-loan', [CollectionController::class, 'storeCollectLoan'])->middleware('can:collection.collect')->name('collect-loan.store');
