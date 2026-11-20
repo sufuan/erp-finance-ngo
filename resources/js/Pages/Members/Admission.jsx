@@ -136,7 +136,7 @@ export default function MemberAdmission({ options, businessDate, member }) {
                                         </Field>
                                         {data.account_type === 'both' && (
                                             <>
-                                                <Field label={t('amount')} required error={errors.lts_amount}>
+                                                <Field label={t('daily_amount')} required error={errors.lts_amount}>
                                                     <select className={inputCls} value={data.lts_amount} onChange={(e) => setData('lts_amount', e.target.value)} required>
                                                         <option value="">—</option>
                                                         {(options.ltsAmounts ?? []).map((a) => <option key={a} value={a}>{a}</option>)}

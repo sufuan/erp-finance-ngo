@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Members;
 
 use App\Http\Controllers\Controller;
+use App\Models\DepositAccount;
+use App\Models\DepositTransaction;
+use App\Models\LoanAccount;
+use App\Models\LoanReceive;
 use App\Models\Member;
 use App\Models\MemberDocument;
 use App\Models\MemberVisit;
@@ -12,6 +16,7 @@ use App\Models\Samity;
 use App\Models\Scopes\SamityScope;
 use App\Services\AuditService;
 use App\Services\BranchAccessService;
+use App\Services\CollectionService;
 use App\Services\IdentityCheckService;
 use App\Services\MemberAdmissionService;
 use App\Services\UploadService;
@@ -90,7 +95,7 @@ class MemberController extends Controller
         $active = $request->attributes->get('active_branch');
         $filters = $request->only(['branch_id', 'samity_id', 'search', 'phone', 'member_no', 'nid', 'status', 'gender', 'open_from', 'open_to']);
 
-        $query = Member::with(['samity', 'branch', 'memberUser'])
+        $query = Member::with(['samity', 'branch'])
             ->when($active, fn ($q) => $q->where('members.branch_id', $active->id))
             ->when($filters['branch_id'] ?? null, fn ($q, $v) => $q->where('members.branch_id', $v))
             ->when($filters['samity_id'] ?? null, fn ($q, $v) => $q->where('members.samity_id', $v))
@@ -151,7 +156,6 @@ class MemberController extends Controller
             'email' => $m->email,
             'open_date' => $m->open_date?->toDateString(),
             'birth_date' => $m->birth_date?->toDateString(),
-            'username' => $m->memberUser?->username,
             'status' => $m->status,
             'share_amount' => (string) $m->share_amount,
         ];
@@ -255,7 +259,7 @@ class MemberController extends Controller
         }
     }
 
-    public function show(Member $member): Response
+    public function show(Member $member, CollectionService $collection): Response
     {
         $member->load(['samity', 'branch', 'memberUser', 'nominees', 'documents', 'transfers', 'closings']);
         $visits = $member->visits()->orderByDesc('id')->limit(50)->get();
@@ -270,10 +274,20 @@ class MemberController extends Controller
                 'occupation' => $member->occupation,
                 'education' => $member->education,
                 'branch' => $member->branch?->only(['id', 'code', 'name']),
-                'username' => $member->memberUser?->username,
                 'portal_active' => (bool) $member->memberUser?->is_active,
                 'last_login_at' => $member->memberUser?->last_login_at?->toDateTimeString(),
             ],
+            // A real profile (owner order, 2026-11-20): the member's
+            // accounts, loans and recent money activity sit directly
+            // under the biodata header — the page is the one place a
+            // member's whole position is visible. NOTE: a Member is a
+            // customer and has NO username; the member_users row is a
+            // future portal credential (Step 25) whose username happens
+            // to default to the mobile number — it is never presented
+            // as the member's "username" here or in the list payload.
+            'accounts' => $this->profileAccounts($member),
+            'loans' => $this->profileLoans($member, $collection),
+            'activity' => $this->profileActivity($member),
             'nominees' => $member->nominees->map(fn (Nominee $n) => [
                 ...$n->toArray(),
                 'age' => $n->age,
@@ -286,6 +300,111 @@ class MemberController extends Controller
             'transfers' => $member->transfers->map(fn ($t) => $t->toArray())->all(),
             'docTypes' => self::DOC_TYPES,
         ]);
+    }
+
+    /** All deposit accounts of the member for the 360 profile. */
+    private function profileAccounts(Member $member): array
+    {
+        return DepositAccount::with('product')
+            ->where('member_id', $member->id)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (DepositAccount $a) => [
+                'id' => $a->id,
+                'product_name' => $a->product?->localized_name,
+                'product_code' => $a->product?->code,
+                'account_number' => $a->account_number,
+                'status' => $a->closing_date ? 'Closed' : ($a->is_active ? 'Active' : 'Inactive'),
+                'balance' => (string) $a->current_balance,
+                'installment_amount' => (string) $a->installment_amount,
+                'opening_date' => $a->opening_date?->toDateString(),
+                'passbook_url' => '/collection/passbook?member='.$member->member_no.'&deposit_account_id='.$a->id,
+            ])->all();
+    }
+
+    /**
+     * All loans of the member for the 360 profile. Paid counts and
+     * amounts reuse the Collect Loan panel's own summary math
+     * (CollectionService::loanPanel) so the profile can never
+     * disagree with the collection screen.
+     */
+    private function profileLoans(Member $member, CollectionService $collection): array
+    {
+        return LoanAccount::with('product')
+            ->where('member_id', $member->id)
+            ->orderByDesc('id')
+            ->get()
+            ->map(function (LoanAccount $loan) use ($member, $collection) {
+                $panel = $collection->loanPanel($loan);
+
+                return [
+                    'id' => $loan->id,
+                    'loan_number' => $loan->loan_number,
+                    'product' => $panel['product'],
+                    'disbursement_date' => $loan->disbursed_at?->toDateString() ?? $loan->opening_date?->toDateString(),
+                    'principal' => (string) $loan->loan_amount,
+                    'total_payable' => (string) $loan->total_repayment,
+                    'total_paid' => $panel['summary']['collected_amount'],
+                    'outstanding' => $panel['outstanding']['total'],
+                    'status' => $loan->status,
+                    'paid_count' => $panel['summary']['paid_count'],
+                    'total_installments' => $panel['summary']['total'],
+                    'history_url' => '/loans/receive/history?member='.$member->member_no.'&loan_id='.$loan->id,
+                ];
+            })->all();
+    }
+
+    /**
+     * The member's most recent money events (≈20), deposit
+     * transactions and loan receives merged newest-first. Cancelled
+     * rows never appear. Kind keys are i18n keys rendered by the page.
+     */
+    private function profileActivity(Member $member): array
+    {
+        $deposits = DepositTransaction::with('account')
+            ->where('member_id', $member->id)
+            ->whereNull('cancel_at')
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get()
+            ->map(fn (DepositTransaction $tx) => [
+                'date' => $tx->tran_date?->toDateString(),
+                'kind' => $tx->tran_type === 'Payment' ? 'savings_withdrawal' : 'savings_deposit',
+                'reference' => $tx->account?->account_number,
+                'amount' => (string) $tx->amount,
+                // Both money tables hang off the ONE voucher
+                // sequence, so the voucher id is the true global
+                // posting order within a day (created_at only has
+                // second precision and ties constantly).
+                '_seq' => $tx->voucher_id ?? 0,
+                '_ts' => $tx->created_at?->timestamp ?? 0,
+            ]);
+        $receives = LoanReceive::with('loanAccount')
+            ->where('member_id', $member->id)
+            ->whereNull('cancel_at')
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get()
+            ->map(fn (LoanReceive $r) => [
+                'date' => $r->receive_date?->toDateString(),
+                'kind' => 'installment_collection',
+                'reference' => $r->loanAccount?->loan_number,
+                'amount' => (string) $r->installment_amount,
+                '_seq' => $r->voucher_id ?? 0,
+                '_ts' => $r->created_at?->timestamp ?? 0,
+            ]);
+
+        return $deposits->concat($receives)
+            ->sort(fn ($a, $b) => [$b['date'], $b['_seq'], $b['_ts']] <=> [$a['date'], $a['_seq'], $a['_ts']])
+            ->take(20)
+            ->map(fn ($row) => [
+                'date' => $row['date'],
+                'kind' => $row['kind'],
+                'reference' => $row['reference'],
+                'amount' => $row['amount'],
+            ])
+            ->values()
+            ->all();
     }
 
     public function edit(Request $request, Member $member): Response

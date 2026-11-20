@@ -10,7 +10,7 @@ const COLUMNS = [
     ['gender', 'gender'], ['religion', 'religion'], ['marital_status', 'marital_status'],
     ['national_id', 'national_id'], ['present_address', 'present_address'], ['permanent_address', 'permanent_address'],
     ['mobile', 'mobile'], ['email', 'email'], ['open_date', 'open_date'], ['birth_date', 'date_of_birth'],
-    ['username', 'username'], ['status', 'status'],
+    ['status', 'status'],
 ];
 
 /** Member list (Step 8): filters, 20-column table, expandable rows, actions. */
@@ -46,6 +46,9 @@ export default function MemberIndex({ members, filters, options, suggestions = [
 
     const cell = (m, key) => {
         if (key === 'photo_url') return m.photo_url ? <img src={m.photo_url} alt="" className="h-10 w-10 rounded-full object-cover" /> : '—';
+        // The member's name opens his 360 profile (owner order,
+        // 2026-11-20) — no more hunting for the small action links.
+        if (key === 'name') return <Link href={`/members/${m.id}`} onClick={(e) => e.stopPropagation()} className="font-medium text-emerald-700 hover:underline dark:text-emerald-400">{m.name}</Link>;
         if (key === 'branch') return m.branch ? `${m.branch.code} — ${m.branch.name}` : '—';
         if (key === 'samity') return m.samity?.name ?? '—';
         const v = m[key];
@@ -158,7 +161,7 @@ export default function MemberIndex({ members, filters, options, suggestions = [
                                 {expanded === m.id && (
                                     <tr className="bg-zinc-50 dark:bg-zinc-800/50">
                                         <td colSpan={COLUMNS.length + 1} className="px-3 py-3 text-sm">
-                                            {t('share_amount')}: {m.share_amount} · {t('username')}: {m.username ?? '—'} · {t('status')}: {m.status}
+                                            {t('share_amount')}: {m.share_amount} · {t('status')}: {m.status}
                                         </td>
                                     </tr>
                                 )}
@@ -175,7 +178,7 @@ export default function MemberIndex({ members, filters, options, suggestions = [
                         <div className="flex items-center gap-3">
                             {m.photo_url && <img src={m.photo_url} alt="" className="h-12 w-12 rounded-full object-cover" />}
                             <div>
-                                <div className="font-medium">{m.name}</div>
+                                <div className="font-medium"><Link href={`/members/${m.id}`} className="text-emerald-700 hover:underline dark:text-emerald-400">{m.name}</Link></div>
                                 <div className="text-sm text-zinc-500">{m.member_no} · {m.mobile}</div>
                                 <div className="text-sm text-zinc-500">{m.branch ? `${m.branch.code} — ${m.branch.name}` : ''}{m.samity?.name ? ` · ${m.samity.name}` : ''}</div>
                             </div>

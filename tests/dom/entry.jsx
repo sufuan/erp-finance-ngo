@@ -27,6 +27,7 @@ import MemberAdmission from '../../resources/js/Pages/Members/Admission.jsx';
 import Holidays from '../../resources/js/Pages/Settings/Samities/Holidays.jsx';
 import DepositProducts from '../../resources/js/Pages/Deposits/Products.jsx';
 import MemberIndex from '../../resources/js/Pages/Members/Index.jsx';
+import MemberShow from '../../resources/js/Pages/Members/Show.jsx';
 import MemberMigrations from '../../resources/js/Pages/Settings/MemberMigrations.jsx';
 import SamitiesIndex from '../../resources/js/Pages/Settings/Samities/Index.jsx';
 import SamityChanges from '../../resources/js/Pages/Settings/Samities/Changes.jsx';
@@ -1530,6 +1531,68 @@ async function scenarioMemberIndexCascade() {
     const link = [...m.container.querySelectorAll('a')].find((a) => a.textContent.includes('102000009'));
     check('Member list: chosen samity members show as pickable suggestions', !!link && link.getAttribute('href') === '/members/9');
     await unmount(m);
+
+    // The member's NAME in the list opens his 360 profile (owner
+    // order, 2026-11-20) — and no row carries a "username" anymore:
+    // a member is a customer, not a login account.
+    const rowMember = {
+        id: 9, member_no: '102000009', name: 'Suggestion Member', photo_url: null,
+        branch: { code: '102', name: 'Talgachi Branch' }, samity: { name: 'Talgachi Samity' },
+        mobile: '01718000009', status: 'Active', share_amount: '500.00',
+    };
+    const m2 = mount(<Wrapped members={{ data: [rowMember], links: [], last_page: 1 }} filters={{}} options={options} suggestions={[]} />);
+    const nameLink = [...m2.container.querySelectorAll('a')]
+        .find((a) => a.getAttribute('href') === '/members/9' && a.textContent === 'Suggestion Member');
+    check('Member list: the member name opens his profile', !!nameLink);
+    check('Member list: no username column or value is shown for a member',
+        !m2.container.textContent.includes(en.username));
+    await unmount(m2);
+}
+
+async function scenarioMemberShow() {
+    // Member 360 (owner order, 2026-11-20): the profile is REAL —
+    // accounts with balances, loans with paid/outstanding, and the
+    // recent money activity sit under the biodata header; a member
+    // is never presented with a "username".
+    const Wrapped = withI18n(MemberShow);
+    __setPage(baseProps());
+    const member = {
+        id: 9, member_no: '102000009', name: 'Profile Member', photo_url: null,
+        branch: { code: '102', name: 'Talgachi Branch' }, samity: { name: 'Talgachi Samity' },
+        status: 'Active', mobile: '01719000009', share_amount: '500.00', open_date: '2026-10-21',
+    };
+    const accounts = [
+        { id: 1, product_name: 'General Savings', product_code: 'SAVINGS', account_number: '102000010', status: 'Active', balance: '1270.00', installment_amount: '20.00', opening_date: '2026-10-21', passbook_url: '/collection/passbook?member=102000009&deposit_account_id=1' },
+        { id: 2, product_name: 'Long Term Savings', product_code: 'LTS', account_number: '102000011', status: 'Active', balance: '0.00', installment_amount: '100.00', opening_date: '2026-10-21', passbook_url: '/collection/passbook?member=102000009&deposit_account_id=2' },
+    ];
+    const loans = [{
+        id: 5, loan_number: '102000005', product: '3001 — General Loan', disbursement_date: '2026-10-21',
+        principal: '12000.00', total_payable: '12997.20', total_paid: '1083.10', outstanding: '11914.10',
+        status: 'Active', paid_count: 1, total_installments: 12,
+        history_url: '/loans/receive/history?member=102000009&loan_id=5',
+    }];
+    const activity = [
+        { date: '2026-11-19', kind: 'installment_collection', reference: '102000005', amount: '1083.10' },
+        { date: '2026-11-19', kind: 'savings_deposit', reference: '102000010', amount: '50.00' },
+        { date: '2026-10-22', kind: 'savings_withdrawal', reference: '102000010', amount: '30.00' },
+    ];
+    const m = mount(<Wrapped member={member} nominees={[]} documents={[]} visits={[]} docTypes={['NID']} accounts={accounts} loans={loans} activity={activity} />);
+    const text = m.container.textContent;
+    check('MemberShow: no username is presented for a member', !text.includes(en.username));
+    check('MemberShow: accounts card lists both accounts with balances',
+        text.includes(en.savings_accounts) && text.includes('102000010') && text.includes('1270.00') && text.includes('102000011'));
+    const passbookLink = [...m.container.querySelectorAll('a')]
+        .find((a) => a.getAttribute('href') === '/collection/passbook?member=102000009&deposit_account_id=1');
+    check('MemberShow: an account row links to the member passbook', !!passbookLink);
+    check('MemberShow: loans card shows paid count and outstanding',
+        text.includes(en.loans) && text.includes('102000005') && text.includes('11914.10') && text.includes('1 / 12'));
+    const loanLink = [...m.container.querySelectorAll('a')]
+        .find((a) => a.getAttribute('href') === '/loans/receive/history?member=102000009&loan_id=5');
+    check('MemberShow: the loan number links to its installment history', !!loanLink);
+    check('MemberShow: recent activity renders every kind',
+        text.includes(en.recent_activity) && text.includes(en.installment_collection)
+        && text.includes(en.savings_deposit) && text.includes(en.savings_withdrawal));
+    await unmount(m);
 }
 
 async function scenarioHolidayScope() {
@@ -1891,9 +1954,9 @@ async function scenarioAdmissionAccountChoice() {
     check('AdmissionAccounts: savings amount defaults to the 20 minimum and is required',
         !!savingsInput && savingsInput.value === '20' && savingsInput.required === true && savingsInput.min === '20');
     check('AdmissionAccounts: LTS fields stay hidden for General only',
-        !fieldInput(m.container, en.amount) && !fieldInput(m.container, en.term));
+        !fieldInput(m.container, en.daily_amount) && !fieldInput(m.container, en.term));
     await act(async () => { setValue(typeSel, 'both', 'change'); });
-    const ltsAmountSel = fieldInput(m.container, en.amount);
+    const ltsAmountSel = fieldInput(m.container, en.daily_amount);
     const ltsTermSel = fieldInput(m.container, en.term);
     check('AdmissionAccounts: choosing Both reveals the LTS slab amount select',
         !!ltsAmountSel && [...ltsAmountSel.options].some((o) => o.value === '100')
@@ -1959,6 +2022,7 @@ const scenarios = [
     scenarioDisbursementSplit,
     scenarioMemberAdmissionCascade,
     scenarioMemberIndexCascade,
+    scenarioMemberShow,
     scenarioHolidayScope,
     scenarioDepositProductLocalizedNames,
     scenarioBranchLifecycle,

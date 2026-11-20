@@ -91,7 +91,7 @@ export default function DepositOpening({ products, member, memberQuery, business
                                 </select>
                             </Field>
                             {fixedAmounts ? (
-                                <Field label={t('amount')} required={isLts} error={errors.amount}>
+                                <Field label={isLts ? t('daily_amount') : t('amount')} required={isLts} error={errors.amount}>
                                     <select className={inputCls} value={data.amount} onChange={(e) => setData('amount', e.target.value)} required={isLts}>
                                         <option value="">—</option>
                                         {fixedAmounts.map((a) => <option key={a} value={a}>{a}</option>)}

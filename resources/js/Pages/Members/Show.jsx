@@ -3,8 +3,9 @@ import { Card, Field, PrimaryButton, ResponsiveTable, inputCls } from '../../Com
 import AppLayout from '../../Layouts/AppLayout';
 import { t } from '../../lib/i18n';
 
-/** Member 360 details (Step 8): profile, nominee, documents, visits. */
-export default function MemberShow({ member, nominees, documents, visits, docTypes }) {
+/** Member 360 details (Step 8): profile, accounts, loans, recent
+ *  activity, nominee, documents, visits. */
+export default function MemberShow({ member, nominees, documents, visits, docTypes, accounts = [], loans = [], activity = [] }) {
     const docForm = useForm({ doc_type: 'NID', document: null });
     const visitForm = useForm({ visit_date: '', info: '', latitude: '', longitude: '' });
 
@@ -34,7 +35,7 @@ export default function MemberShow({ member, nominees, documents, visits, docTyp
                     <div>
                         <div className="text-lg font-semibold">{member.name}</div>
                         <div className="text-sm text-zinc-500">{member.member_no} · {member.branch ? `${member.branch.code} — ${member.branch.name}` : ''} · {member.samity?.name ?? ''}</div>
-                        <div className="text-sm text-zinc-500">{t('status')}: {member.status} · {t('username')}: {member.username ?? '—'}</div>
+                        <div className="text-sm text-zinc-500">{t('status')}: {member.status}</div>
                     </div>
                 </div>
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-4">
@@ -59,6 +60,59 @@ export default function MemberShow({ member, nominees, documents, visits, docTyp
                     {item('present_address', member.present_address)}
                     {item('permanent_address', member.permanent_address)}
                 </dl>
+            </Card>
+
+            <Card className="mb-4">
+                <h2 className="mb-3 font-medium">{t('savings_accounts')}</h2>
+                <ResponsiveTable head={[t('product'), t('account_number'), t('status'), t('balance'), t('daily_amount'), t('opening_date'), t('member_passbook')]}>
+                    {accounts.map((a) => (
+                        <tr key={a.id} className="border-b border-zinc-100 dark:border-zinc-800">
+                            <td className="px-3 py-2">{a.product_name ?? '—'}</td>
+                            <td className="px-3 py-2">{a.account_number}</td>
+                            <td className="px-3 py-2">{t(a.status.toLowerCase())}</td>
+                            <td className="px-3 py-2">{a.balance}</td>
+                            <td className="px-3 py-2">{a.installment_amount}</td>
+                            <td className="px-3 py-2">{a.opening_date ?? '—'}</td>
+                            <td className="px-3 py-2"><Link href={a.passbook_url} className="text-emerald-700 dark:text-emerald-400">{t('member_passbook')}</Link></td>
+                        </tr>
+                    ))}
+                    {accounts.length === 0 && <tr><td className="px-3 py-3" colSpan={7}>{t('no_data_found')}</td></tr>}
+                </ResponsiveTable>
+            </Card>
+
+            <Card className="mb-4">
+                <h2 className="mb-3 font-medium">{t('loans')}</h2>
+                <ResponsiveTable head={[t('loan_number'), t('product'), t('disbursement_date'), t('principal'), t('total_payable'), t('collected_amount'), t('outstanding'), t('installments_collected'), t('status')]}>
+                    {loans.map((l) => (
+                        <tr key={l.id} className="border-b border-zinc-100 dark:border-zinc-800">
+                            <td className="px-3 py-2"><Link href={l.history_url} className="font-medium text-emerald-700 hover:underline dark:text-emerald-400">{l.loan_number}</Link></td>
+                            <td className="px-3 py-2">{l.product ?? '—'}</td>
+                            <td className="px-3 py-2">{l.disbursement_date ?? '—'}</td>
+                            <td className="px-3 py-2">{l.principal}</td>
+                            <td className="px-3 py-2">{l.total_payable}</td>
+                            <td className="px-3 py-2">{l.total_paid}</td>
+                            <td className="px-3 py-2">{l.outstanding}</td>
+                            <td className="px-3 py-2">{l.paid_count} / {l.total_installments}</td>
+                            <td className="px-3 py-2">{l.status}</td>
+                        </tr>
+                    ))}
+                    {loans.length === 0 && <tr><td className="px-3 py-3" colSpan={9}>{t('no_data_found')}</td></tr>}
+                </ResponsiveTable>
+            </Card>
+
+            <Card className="mb-4">
+                <h2 className="mb-3 font-medium">{t('recent_activity')}</h2>
+                <ResponsiveTable head={[t('date'), t('type'), t('account_number'), t('amount')]}>
+                    {activity.map((row, i) => (
+                        <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800">
+                            <td className="px-3 py-2">{row.date ?? '—'}</td>
+                            <td className="px-3 py-2">{t(row.kind)}</td>
+                            <td className="px-3 py-2">{row.reference ?? '—'}</td>
+                            <td className="px-3 py-2">{row.amount}</td>
+                        </tr>
+                    ))}
+                    {activity.length === 0 && <tr><td className="px-3 py-3" colSpan={4}>{t('no_data_found')}</td></tr>}
+                </ResponsiveTable>
             </Card>
 
             <Card className="mb-4">

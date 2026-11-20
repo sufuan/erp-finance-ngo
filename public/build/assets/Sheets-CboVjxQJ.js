@@ -1,0 +1,1 @@
+import{a as e}from"./app-BPU0ukfr.js";import{t}from"./CollectionReportEngine-gIROXbQh.js";var n=e();function r(e){return(0,n.jsx)(t,{basePath:`/collection/sheets`,headingKey:`collection_sheet_section`,...e})}export{r as default};
